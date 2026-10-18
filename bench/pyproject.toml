@@ -1,0 +1,20 @@
+[project]
+name = "wavepod-bench"
+version = "0.1.0"
+description = "Phase 0 engine benchmark: reference engines and scoring (never shipped in the app)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "openai-whisper==20250625",
+    "faster-whisper>=1.2",
+    "jiwer>=4.0",
+    "pyannote.metrics>=4.0",
+    "soundfile>=0.13",
+    "numpy>=2.0",
+]
+
+[project.optional-dependencies]
+# Reference diarization needs a Hugging Face token with the community-1 terms accepted.
+diarization = ["pyannote.audio>=4.0"]
+
+[tool.uv]
+package = false

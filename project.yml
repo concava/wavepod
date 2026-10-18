@@ -1,0 +1,36 @@
+name: wavepod
+options:
+  bundleIdPrefix: app.wavepod
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: YES
+    ARCHS: arm64
+packages:
+  WavepodKit:
+    path: WavepodKit
+targets:
+  wavepod:
+    type: application
+    platform: macOS
+    sources: [App/Sources]
+    dependencies:
+      - package: WavepodKit
+        product: UI
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: wavepod
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: "Apache-2.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wavepod.mac
+        CODE_SIGN_IDENTITY: "-"
+        GENERATE_INFOPLIST_FILE: YES

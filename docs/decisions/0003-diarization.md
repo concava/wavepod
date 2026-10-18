@@ -1,0 +1,75 @@
+# 0003 — Diarization: ship CoreML, measure against pyannote
+
+- Status: **Proposed — numbers pending**
+- Date: 2026-10-18
+
+## Question
+
+Which diarizer ships in the app, and what do we compare it with?
+
+## Options
+
+| ID | System | Speakers | Embeddings exposed? | In app? |
+|---|---|---|---|---|
+| `ref-pyannote` | pyannote.audio, `speaker-diarization-community-1` (Python) | unbounded | yes | Reference only |
+| `fa-offline` | FluidAudio `OfflineDiarizerManager` (CoreML port of community-1: segmentation + WeSpeaker embeddings + clustering) | unbounded | yes | **Proposed** |
+| `fa-sortformer` | FluidAudio Sortformer | max 4 | no | Rejected unless much better |
+| `fa-lseend` | FluidAudio LS-EEND | max 10 | no | Compared only |
+
+## Proposal
+
+Ship **`fa-offline`**:
+
+- Podcasts can have more than 4 voices (panels, clips, ads), so Sortformer's 4-speaker cap is a hard limit.
+- Phase 4 needs a voice embedding per speaker to recognise a host across episodes. The pyannote-style pipeline
+  produces WeSpeaker embeddings as part of clustering; end-to-end models (Sortformer, LS-EEND) do not.
+- It is the same model family as the reference, so a DER gap points to the port, not the model.
+
+`ref-pyannote` runs only in `bench/`. Its weights are gated on Hugging Face: the owner must accept the
+community-1 terms and provide an HF token for the reference run (CC-BY-4.0 weights; the gate is a click-through,
+not a license change).
+
+Also noted: WhisperKit 1.x now ships **SpeakerKit** (Argmax's diarization) in the same package. It joins the
+comparison in the Phase 1 rerun if it exposes per-speaker embeddings.
+
+## Risk: macOS 14 crash in Apple's BNNS
+
+FluidAudio's diarization docs (v0.17.7) report an Apple bug on **macOS 14** (all patches through at least 14.8.7):
+Core ML predictions that fall back from the Neural Engine to the BNNS CPU path crash (`EXC_BAD_ACCESS` in
+`libBNNS`). Apple fixed it in macOS 15. On Apple Silicon it is intermittent. Routing models to `.all` (GPU allowed)
+reportedly stops it but is unverified, and the FBank model stays on CPU regardless.
+
+Options:
+
+1. Keep macOS 14 as the floor, route diarization to `.all` on macOS 14, and stress-test it on a macOS 14 machine
+   (100 diarization runs, zero crashes) before release. Run diarization in a separate XPC helper process so a crash
+   loses one stage, not the app, and the job resumes.
+2. Raise the floor to **macOS 15**.
+
+Default: **option 1** (the brief asks for macOS 14+), with the XPC isolation regardless — it also protects the app
+from crashes in any model runtime. If the macOS 14 stress test fails, this becomes an owner decision between
+dropping macOS 14 and shipping diarization as "unavailable on macOS 14".
+
+## Word-level speaker alignment (pipeline, Phase 3)
+
+Diarization gives speaker turns; ASR gives words. For each word we assign the speaker whose turn covers the word's
+midpoint; if several turns cover it, the shortest covering turn wins (it is most likely the interjection), and the
+word is flagged `overlap = true`. If no turn covers it, the word takes the nearest turn within 0.5 s, else the
+previous word's speaker. Paragraphs break on speaker change or a pause ≥ 1.5 s. (Idea credited to noScribe in
+[0001](0001-references.md); implemented independently, per word.)
+
+## Metrics
+
+- **DER** with `pyannote.metrics`, 0.25 s forgiveness collar, overlap included. Reported with its parts (miss,
+  false alarm, confusion) and with speaker-count accuracy.
+- **cpWER** (Phase 1, needs both ASR and diarization) with `meeteval`.
+- RTF and peak memory, measured the same way as in [0002](0002-asr-engine.md).
+
+## Decision rule
+
+Ship `fa-offline` if its DER is within **2 points** of `ref-pyannote` on VoxConverse and on the golden set, with
+RTF < 0.05 and peak memory < 1 GB. Otherwise reopen this record.
+
+## Results
+
+_Pending — `bench/results/diarization.md`._
