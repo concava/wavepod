@@ -20,12 +20,17 @@ NORMALIZERS = {"en": EnglishTextNormalizer()}
 BASIC = BasicTextNormalizer()
 
 
-def peak_gb(engine_dir: Path) -> float | None:
+def peak_gb(engine_dir: Path, field: str = "peak memory footprint") -> float | None:
     f = engine_dir / "time.txt"
     if not f.exists():
         return None
-    m = re.search(r"(\d+)\s+peak memory footprint", f.read_text())
+    m = re.search(r"(\d+)\s+" + field, f.read_text())
     return int(m.group(1)) / 1e9 if m else None
+
+
+def rss_gb(engine_dir: Path) -> float | None:
+    """Max RSS also counts memory-mapped model weights, which the footprint leaves out."""
+    return peak_gb(engine_dir, "maximum resident set size")
 
 
 def score_asr(manifest: list[dict]) -> str:
@@ -53,16 +58,16 @@ def score_asr(manifest: list[dict]) -> str:
                 per_lang[lang] = 100 * jiwer.wer(refs, hyps)
         if not per_lang:
             continue
-        rows.append((engine_dir.name, per_lang, proc / dur, load, peak_gb(engine_dir)))
+        rows.append((engine_dir.name, per_lang, proc / dur, load, peak_gb(engine_dir), rss_gb(engine_dir)))
 
     def cell(x, fmt):
         return format(x, fmt) if x is not None else "—"
 
-    head = "| Engine | " + " | ".join(f"WER {l} %" for l in langs) + " | RTF | RTFx | Load s | Peak GB |"
-    lines = [head, "|" + "---|" * (len(langs) + 5)]
-    for name, per_lang, rtf, load, peak in rows:
+    head = "| Engine | " + " | ".join(f"WER {l} %" for l in langs) + " | RTF | RTFx | Load s | Footprint GB | RSS GB |"
+    lines = [head, "|" + "---|" * (len(langs) + 6)]
+    for name, per_lang, rtf, load, peak, rss in rows:
         wers = " | ".join(cell(per_lang.get(l), ".2f") for l in langs)
-        lines.append(f"| `{name}` | {wers} | {rtf:.4f} | {1 / rtf:.1f} | {cell(load, '.1f')} | {cell(peak, '.2f')} |")
+        lines.append(f"| `{name}` | {wers} | {rtf:.4f} | {1 / rtf:.1f} | {cell(load, '.1f')} | {cell(peak, '.2f')} | {cell(rss, '.2f')} |")
     return "\n".join(lines) + "\n"
 
 

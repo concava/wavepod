@@ -60,13 +60,16 @@ def build(lang: str, minutes: float) -> dict:
                 clips[name] = data if data.ndim == 1 else data.mean(axis=1)
 
     gap = np.zeros(SR // 2, dtype=np.float32)
-    parts, texts, total = [], [], 0.0
+    parts, texts, total, segments = [], [], 0.0, []
     for name, text in rows:
         if name not in clips:
             continue
         parts += [clips[name], gap]
         texts.append(text)
-        total += len(clips[name]) / SR + 0.5
+        clip_s = len(clips[name]) / SR
+        # Sentence boundaries inside the long file, for the short-form ("oracle segmentation") evaluation.
+        segments.append({"start": round(total, 3), "end": round(total + clip_s, 3), "text": text})
+        total += clip_s + 0.5
         if total >= minutes * 60:
             break
 
@@ -83,6 +86,7 @@ def build(lang: str, minutes: float) -> dict:
         "ref": str(ref.relative_to(HERE)),
         "duration_s": round(total, 2),
         "kind": "asr",
+        "segments": segments,
     }
 
 

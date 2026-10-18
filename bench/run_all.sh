@@ -17,17 +17,24 @@ timed() {  # timed <engine-dir> <command...>: peak memory of the whole process -
   /usr/bin/time -l "$@" 2> >(tee $dir/time.txt >&2)
 }
 
-engines=(${@:-wk-turbo wk-626 fa-parakeet wcpp-turbo wcpp-v3 ref-fw ref-openai})
+# Default: the configurations kept in docs/decisions/0002 and 0003, then the short-form reference.
+engines=(${@:-wk-vad fa-parakeet wk-short fa-parakeet-short fa-diarize ref-openai-short})
 for e in $engines; do
   echo "== $e"
   case $e in
-    wk-turbo)    timed wk-large-v3-v20240930_turbo $WB whisperkit large-v3-v20240930_turbo ;;
-    wk-626)      timed wk-large-v3-v20240930_626MB $WB whisperkit large-v3-v20240930_626MB ;;
-    fa-parakeet) timed fa-parakeet-ultra $WB parakeet ;;
-    wcpp-turbo)  uv run run_whispercpp.py --model large-v3-turbo ;;
-    wcpp-v3)     uv run run_whispercpp.py --model large-v3 ;;
-    ref-fw)      timed ref-fw .venv/bin/python run_python_ref.py --engine fw ;;
-    ref-openai)  timed ref-openai .venv/bin/python run_python_ref.py --engine openai ;;
+    wk-vad)            timed wk-vad-large-v3-v20240930_turbo $WB whisperkit-vad large-v3-v20240930_turbo ;;
+    wk-short)          $WB whisperkit-short large-v3-v20240930_turbo ;;
+    wk-builtin)        timed wk-large-v3-v20240930_turbo $WB whisperkit large-v3-v20240930_turbo ;;
+    fa-parakeet)       timed fa-parakeet-ultra $WB parakeet ;;
+    fa-parakeet-short) $WB parakeet-short ;;
+    fa-diarize)        [[ -d data/voxconverse ]] || uv run prepare_voxconverse.py
+                       timed fa-offline $WB diarize ;;
+    wcpp-turbo)        uv run run_whispercpp.py --model large-v3-turbo --no-context ;;
+    ref-openai-short)  timed ref-openai-short .venv/bin/python run_python_ref.py --engine openai --short ;;
+    ref-openai)        timed ref-openai .venv/bin/python run_python_ref.py --engine openai ;;
+    ref-fw)            timed ref-fw .venv/bin/python run_python_ref.py --engine fw ;;
+    ref-pyannote)      uv sync -q --extra diarization
+                       timed ref-pyannote .venv/bin/python run_pyannote.py ;;
     *) echo "unknown engine $e"; exit 2 ;;
   esac
 done

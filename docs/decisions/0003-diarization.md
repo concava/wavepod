@@ -1,6 +1,6 @@
 # 0003 — Diarization: ship CoreML, measure against pyannote
 
-- Status: **Proposed — numbers pending**
+- Status: **Accepted for Phase 1** — pyannote reference pending (needs the owner's Hugging Face token)
 - Date: 2026-10-18
 
 ## Question
@@ -70,6 +70,21 @@ previous word's speaker. Paragraphs break on speaker change or a pause ≥ 1.5 s
 Ship `fa-offline` if its DER is within **2 points** of `ref-pyannote` on VoxConverse and on the golden set, with
 RTF < 0.05 and peak memory < 1 GB. Otherwise reopen this record.
 
-## Results
+## Results (2026-10-18, M3 16 GB, idle machine)
 
-_Pending — `bench/results/diarization.md`._
+VoxConverse test subset: 13 files, 60 min, 2–14 speakers (2, 3–4, 5–7 and 8+ speakers equally represented),
+fetched with `bench/prepare_voxconverse.py`.
+
+| System | DER % | Miss % | False alarm % | Confusion % | RTF | ×real time | Peak footprint GB |
+|---|---|---|---|---|---|---|---|
+| `fa-offline` FluidAudio offline pipeline (community-1 CoreML) | **15.24** | 5.34 | 2.29 | 7.61 | 0.0059 | 170 | 0.99 |
+| `ref-pyannote` community-1 (Python) | _pending_ | | | | | | |
+
+- Matches FluidAudio's own published figure on the full VoxConverse test set (15.07 %), so the subset is
+  representative.
+- Meets the speed and memory criteria (RTF < 0.05, < 1 GB, with no margin on memory).
+- Confusion (wrong speaker) is half the error: the part Phase 4's per-show voice profiles can reduce.
+- Sortformer and LS-EEND were not run: neither exposes speaker embeddings, which Phase 4 needs.
+
+To run the reference: accept the terms of `pyannote/speaker-diarization-community-1` on Hugging Face, then
+`HF_TOKEN=… ./bench/run_all.sh ref-pyannote`.
