@@ -80,8 +80,19 @@ public struct RootView: View {
                 }
                 .transition(.opacity)
             }
+            if model.showOnboarding {
+                ZStack {
+                    Color.black.opacity(0.28).ignoresSafeArea().accessibilityHidden(true)
+                    OnboardingView(model: model)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .shadow(color: .black.opacity(0.18), radius: 30, y: 12)
+                        .accessibilityAddTraits(.isModal)
+                }
+                .transition(.opacity)
+            }
         }
         .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showSettings)
+        .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showOnboarding)
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
                 HStack { Text("Translation · \(model.translationLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }

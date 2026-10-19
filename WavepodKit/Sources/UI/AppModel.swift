@@ -179,6 +179,17 @@ public final class AppModel {
     public var scriberrKey = ""
     public var backgroundChecks = SMAppService.agent(plistName: "app.wavepod.feeds.plist").status == .enabled
     public var namedVoices = 0
+    /// Set once any speaker is named, in any episode (imported files keep no voice profile, so voices alone miss them).
+    public var hasNamedSpeaker = UserDefaults.standard.bool(forKey: "hasNamedSpeaker") {
+        didSet { if hasNamedSpeaker != oldValue { UserDefaults.standard.set(hasNamedSpeaker, forKey: "hasNamedSpeaker") } }
+    }
+    /// The first-run welcome. Shown until finished or skipped once.
+    public var showOnboarding = false
+
+    public func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: "onboarded")
+        showOnboarding = false
+    }
     public var installedModels: Set<String> = []
     public var translationText = ""
     public var showTranslation = false
@@ -195,6 +206,7 @@ public final class AppModel {
         player.load(episode)
         isPersistent = persistent
         if persistent {
+            showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
             episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
                               descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
@@ -231,6 +243,7 @@ public final class AppModel {
         speakerEvidence = record.speakerEvidence
         paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
         summary = record.summary; chat = record.chat; feedURL = record.feedURL
+        if speakers.values.contains(where: \.isConfirmed) { hasNamedSpeaker = true }
         if reloadPlayer { player.load(episode, audioURL: record.audioURL) }
     }
 
@@ -285,6 +298,7 @@ public final class AppModel {
         speaker.isConfirmed = true
         speaker.suggestionConfidence = nil
         speakers[id] = speaker
+        hasNamedSpeaker = true
         persistWorkspace()
         if let services {
             do {

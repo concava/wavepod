@@ -96,6 +96,11 @@ final class SnapshotTests: XCTestCase {
         check("podcast", size: CGSize(width: 250, height: 500)) { PodcastCard(model: model).background(Palette.surface) }
     }
 
+    func testOnboarding() {
+        let model = makeModel()
+        check("onboarding", size: CGSize(width: 680, height: 540)) { OnboardingView(model: model) }
+    }
+
     func testPlayerBar() {
         let model = makeModel()
         check("player", size: CGSize(width: 1100, height: 80)) { PlayerBar(model: model, player: model.player) }

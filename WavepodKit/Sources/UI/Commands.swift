@@ -8,6 +8,9 @@ public struct WavepodCommands: Commands {
     public init(model: AppModel) { self.model = model }
 
     public var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Welcome to wavepod") { model.showSettings = false; model.showOnboarding = true }
+        }
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") { model.openSettings() }.keyboardShortcut(",")
         }
