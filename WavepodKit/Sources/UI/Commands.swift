@@ -21,9 +21,9 @@ public struct WavepodCommands: Commands {
                 .keyboardShortcut("j")
         }
         CommandGroup(after: .sidebar) {
-            Button("Ask") { model.section = .library; model.toggleSidePane(.ask) }
+            Button("Transcript") { model.section = .library; model.toggleSidePane(.transcript) }
                 .keyboardShortcut("1")
-            Button("Summary") { model.section = .library; model.toggleSidePane(.summary) }
+            Button("Ask") { model.section = .library; model.toggleSidePane(.ask) }
                 .keyboardShortcut("2")
             Button("Chapters") { model.section = .library; model.toggleSidePane(.chapters) }
                 .keyboardShortcut("3")

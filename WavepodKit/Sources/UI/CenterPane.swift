@@ -216,18 +216,30 @@ struct SummaryView: View {
                         .font(type.caption)
                         .foregroundStyle(Palette.inkMuted)
                 }
-                .padding(20)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ContentUnavailableView {
-                    Label("No summary yet", systemImage: "text.append")
-                } description: {
-                    Text("Summaries are written on this Mac by the local model.")
-                } actions: {
-                    if model.isPersistent && !model.transcript.segments.isEmpty {
-                        Button(model.isGenerating ? "Writing…" : "Write Summary") { model.generateNotes() }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(model.isGenerating)
+                if model.isGenerating {
+                    VStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Writing the summary on this Mac…").font(type.callout).foregroundStyle(Palette.inkMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 60)
+                } else {
+                    ContentUnavailableView {
+                        Label("No summary yet", systemImage: "text.append")
+                    } description: {
+                        Text(model.installedModels.contains("language") || !model.isPersistent
+                             ? "Summaries are written on this Mac when a transcription finishes."
+                             : "Install the Ask model to get a summary of every episode, written on this Mac.")
+                    } actions: {
+                        if model.isPersistent && !model.installedModels.contains("language") {
+                            Button("Install Ask Model") { model.openSettings(.models) }.buttonStyle(PrimaryButtonStyle())
+                        } else if model.isPersistent && !model.transcript.segments.isEmpty {
+                            Button("Write Summary") { model.generateNotes() }.buttonStyle(PrimaryButtonStyle())
+                        }
                     }
                 }
             }

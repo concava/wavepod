@@ -59,7 +59,7 @@ final class SnapshotTests: XCTestCase {
     func testAboutPane() {
         let model = makeModel()
         model.sidePane = .about
-        check("about", size: CGSize(width: 360, height: 600)) { SidePaneView(model: model) }
+        check("about", size: CGSize(width: 420, height: 600)) { DetailSnapshot(model: model) }
     }
 
     func testTranscript() {
@@ -76,24 +76,24 @@ final class SnapshotTests: XCTestCase {
 
     func testSummary() {
         let model = makeModel()
-        model.sidePane = .summary
-        check("summary", size: CGSize(width: 360, height: 700)) { SidePaneView(model: model) }
+        check("summary", size: CGSize(width: 620, height: 700)) { SummaryCardSnapshot(model: model) }
     }
 
     func testChapters() {
         let model = makeModel()
         model.sidePane = .chapters
-        check("chapters", size: CGSize(width: 360, height: 500)) { SidePaneView(model: model) }
+        check("chapters", size: CGSize(width: 420, height: 500)) { DetailSnapshot(model: model) }
     }
 
     func testAskPane() {
         let model = makeModel()
-        check("ask", size: CGSize(width: 360, height: 700)) { SidePaneView(model: model) }
+        model.sidePane = .ask
+        check("ask", size: CGSize(width: 420, height: 700)) { DetailSnapshot(model: model) }
     }
 
-    func testComposer() {
+    func testPodcastCard() {
         let model = makeModel()
-        check("composer", size: CGSize(width: 760, height: 130)) { ComposerSnapshot(model: model) }
+        check("podcast", size: CGSize(width: 250, height: 500)) { PodcastCard(model: model).background(Palette.surface) }
     }
 
     func testPlayerBar() {
@@ -109,10 +109,16 @@ private struct TranscriptSnapshot: View {
     var body: some View { TranscriptView(model: model, focus: $focus).background(Palette.surface) }
 }
 
-private struct ComposerSnapshot: View {
+private struct SummaryCardSnapshot: View {
     let model: AppModel
     @FocusState var focus: AppModel.FocusTarget?
-    var body: some View { AskComposer(model: model, focus: $focus).background(Palette.surface) }
+    var body: some View { SummaryCard(model: model, focus: $focus).background(Palette.surface) }
+}
+
+private struct DetailSnapshot: View {
+    let model: AppModel
+    @FocusState var focus: AppModel.FocusTarget?
+    var body: some View { DetailCard(model: model, focus: $focus).background(Palette.surface) }
 }
 
 private struct WorkspaceSnapshot: View {

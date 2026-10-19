@@ -1,3 +1,4 @@
+import AppKit
 import Library
 import Player
 import SwiftUI
@@ -13,24 +14,27 @@ public struct RootView: View {
     public var body: some View {
         HStack(spacing: 0) {
             SidebarView(model: model)
-            VStack(spacing: 0) {
-                if let notice = model.notice {
-                    NoticeBar(text: notice)
-                }
+            VStack(spacing: 8) {
                 Group {
                     switch model.section {
-                    case .home: HomeView(model: model)
+                    // The episode view is its own row of cards, so it sits straight on the paper.
                     case .library: Workspace(model: model, focus: $focus)
-                    default: LibrarySection(model: model)
+                    case .home: HomeView(model: model).elevated(cornerRadius: 14)
+                    default: LibrarySection(model: model).elevated(cornerRadius: 14)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if model.section == .library || model.player.duration > 0 {
                     PlayerBar(model: model, player: model.player)
+                        .elevated(cornerRadius: 14)
                 }
             }
-            .elevated(cornerRadius: 14)
             .padding([.trailing, .bottom], 8)
+            .overlay(alignment: .top) {
+                if let notice = model.notice {
+                    NoticeBar(text: notice).padding(.top, 10)
+                }
+            }
         }
         .background(Palette.paper)
         .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
@@ -45,7 +49,7 @@ public struct RootView: View {
                 .accessibilityLabel(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
             }
             ToolbarItem(placement: .principal) {
-                CommandField(model: model, focus: $focus)
+                CommandField(model: model)
             }
             ToolbarItem(placement: .primaryAction) {
                 AppearanceButton(model: model)
@@ -73,7 +77,8 @@ public struct RootView: View {
         .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
         .tint(Palette.accent)
         .onChange(of: model.focusRequest) { _, request in
-            guard let request else { return }
+            // The command field lives in the toolbar, a focus scope of its own, and takes ⌘K itself.
+            guard let request, request != .command else { return }
             if request == .ask { model.section = .library }
             focus = request
             model.focusRequest = nil
@@ -83,10 +88,8 @@ public struct RootView: View {
 
 struct CommandField: View {
     @Bindable var model: AppModel
-    var focus: FocusState<AppModel.FocusTarget?>.Binding
+    @FocusState private var isFocused: Bool
     @Environment(\.typography) private var type
-
-    private var isFocused: Bool { focus.wrappedValue == .command }
 
     var body: some View {
         let field = HStack(spacing: 10) {
@@ -94,11 +97,12 @@ struct CommandField: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Palette.inkMuted)
                 .accessibilityHidden(true)
-            TextField("Search or paste a podcast, Spotify or YouTube link", text: $model.commandText)
+            TextField(Self.placeholder, text: $model.commandText)
                 .textFieldStyle(.plain)
                 .font(type.body)
-                .focused(focus, equals: .command)
+                .focused($isFocused)
                 .onSubmit { model.submitCommand() }
+                .onExitCommand { model.commandText = ""; isFocused = false }
                 .accessibilityLabel("Search or open a link")
             if model.commandText.isEmpty {
                 Text("⌘K")
@@ -124,6 +128,7 @@ struct CommandField: View {
         .padding(.trailing, 8)
         .frame(width: 460, height: 30)
 
+        Group {
         if #available(macOS 26, *) {
             // The toolbar already draws a capsule around principal items; a second shape inside it would double the edge.
             field
@@ -132,6 +137,32 @@ struct CommandField: View {
                 .background(Palette.surface, in: Capsule())
                 .overlay(Capsule().strokeBorder(isFocused ? Palette.accent : Palette.rule))
         }
+        }
+        .onChange(of: model.focusRequest) { _, request in
+            guard request == .command else { return }
+            isFocused = true
+            model.focusRequest = nil
+            // SwiftUI focus does not always reach a toolbar item, so also hand the field to AppKit directly.
+            DispatchQueue.main.async { Self.focusInToolbar(placeholder: Self.placeholder) }
+        }
+    }
+
+    static let placeholder = "Search or paste a podcast, Spotify or YouTube link"
+
+    static func focusInToolbar(placeholder: String) {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
+              let frame = window.contentView?.superview,
+              let field = find(in: frame, placeholder: placeholder) else { return }
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(field)
+    }
+
+    private static func find(in view: NSView, placeholder: String) -> NSTextField? {
+        if let field = view as? NSTextField, field.isEditable, field.placeholderString == placeholder { return field }
+        for subview in view.subviews {
+            if let found = find(in: subview, placeholder: placeholder) { return found }
+        }
+        return nil
     }
 }
 
@@ -165,12 +196,15 @@ struct NoticeBar: View {
 
     var body: some View {
         Text(text)
-            .font(type.callout)
+            .font(type.label)
             .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity)
-            .background(Palette.accentSoft)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(
+                Capsule().fill(Palette.surface)
+                    .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
+                    .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
+            )
             .accessibilityAddTraits(.updatesFrequently)
     }
 }

@@ -64,13 +64,13 @@ public final class AppModel {
 
     /// What the episode view's right-hand pane shows next to the transcript.
     public enum SidePane: String, CaseIterable, Identifiable, Sendable {
-        case ask, summary, chapters, about
+        case transcript, ask, chapters, about
         public var id: String { rawValue }
         public var title: String { rawValue.capitalized }
         public var symbol: String {
             switch self {
+            case .transcript: "text.quote"
             case .ask: "bubble.left.and.text.bubble.right"
-            case .summary: "text.append"
             case .chapters: "list.number"
             case .about: "info.circle"
             }
@@ -109,7 +109,7 @@ public final class AppModel {
     public var hideSetup = UserDefaults.standard.bool(forKey: "hideSetup") {
         didSet { UserDefaults.standard.set(hideSetup, forKey: "hideSetup") }
     }
-    public var sidePane: SidePane = .ask
+    public var sidePane: SidePane = .transcript
     public var showSidePane = UserDefaults.standard.object(forKey: "showSidePane") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showSidePane, forKey: "showSidePane") }
     }
@@ -129,6 +129,8 @@ public final class AppModel {
     public internal(set) var chapters: [Chapter]
     public internal(set) var summary: EpisodeSummary?
     public internal(set) var chat: [ChatMessage]
+    /// The podcast's feed, when the episode came from one; imported files have none.
+    public internal(set) var feedURL: URL?
 
     // Transcript view options
     public var showSpeakerLabels = true
@@ -154,6 +156,7 @@ public final class AppModel {
     @ObservationIgnored var services: WorkspaceServices?
     @ObservationIgnored private var workspaceTask: Task<Void, Never>?
     @ObservationIgnored private var loadedJobs = false
+    @ObservationIgnored var autoNoted: Set<String> = []
     public var isPersistent = false
     public var speakerEvidence: [SpeakerID: [SpeakerEvidence]] = [:]
     public var savedEpisodes: [EpisodeListing] = []
@@ -207,7 +210,7 @@ public final class AppModel {
                         guard let self else { return }
                         if let services = self.services {
                             do {
-                                self.isPowerPaused = WorkspaceServices.onBattery()
+                                self.isPowerPaused = PowerPolicy.shouldPause(currentlyPaused: self.isPowerPaused)
                                 try await services.queue.setOnBattery(self.isPowerPaused)
                                 await services.queue.start()
                             } catch { self.show(error.localizedDescription) }
@@ -227,7 +230,7 @@ public final class AppModel {
         episode = record.episode; transcript = record.transcript; speakers = record.speakers
         speakerEvidence = record.speakerEvidence
         paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
-        summary = record.summary; chat = record.chat
+        summary = record.summary; chat = record.chat; feedURL = record.feedURL
         if reloadPlayer { player.load(episode, audioURL: record.audioURL) }
     }
 
