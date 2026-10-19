@@ -254,37 +254,69 @@ struct QueueRow: View {
     let model: AppModel
     let job: TranscriptionJob
     var last = false
+    @State private var hovering = false
     @Environment(\.typography) private var type
 
+    private var record: EpisodeListing? {
+        guard job.state == .completed else { return nil }
+        return model.savedEpisodes.first { $0.id == JobQueue.episodeID(job.episode) }
+    }
+
     var body: some View {
+        Group {
+            if let record {
+                // A finished job is one line: the whole row opens its transcript.
+                Button { model.showSettings = false; model.open(record) } label: { content }
+                    .buttonStyle(.plain)
+                    .background(hovering ? Palette.sunken : .clear)
+                    .onHover { hovering = $0 }
+                    .help("Open the transcript")
+                    .accessibilityHint("Opens the transcript")
+            } else {
+                content
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if !last { Divider().overlay(Palette.rule).padding(.horizontal, 18) }
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(job.episode.title).font(type.body.weight(.medium)).foregroundStyle(Palette.ink).lineLimit(1)
                 Spacer()
-                Text(job.state.rawValue.capitalized).font(type.callout).foregroundStyle(Palette.inkMuted)
+                if record != nil {
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Palette.inkMuted).opacity(hovering ? 1 : 0)
+                        .accessibilityHidden(true)
+                } else {
+                    Text(job.state.rawValue.capitalized).font(type.callout).foregroundStyle(Palette.inkMuted)
+                }
             }
-            if job.state == .running || job.state == .queued || job.state == .paused {
-                ProgressView(value: job.fraction).tint(Palette.accent)
-            }
-            Text(job.batteryPaused ? "Paused to save battery. Resumes when the Mac is plugged in." : job.stage)
-                .font(type.callout).foregroundStyle(Palette.inkMuted)
-            if let error = job.error {
-                Text(error).font(type.callout).foregroundStyle(.red).textSelection(.enabled)
-            }
-            HStack(spacing: 8) {
-                if job.state == .running || job.state == .queued {
-                    Button("Pause") { model.manageJob(job, action: "pause") }.buttonStyle(SecondaryButtonStyle())
-                    Button("Cancel") { model.manageJob(job, action: "cancel") }.buttonStyle(SecondaryButtonStyle())
-                } else if job.state != .completed {
-                    Button("Resume") { model.manageJob(job, action: "resume") }.buttonStyle(SecondaryButtonStyle())
-                } else if let record = model.savedEpisodes.first(where: { $0.id == JobQueue.episodeID(job.episode) }) {
-                    Button("Open Transcript") { model.showSettings = false; model.open(record) }.buttonStyle(SecondaryButtonStyle())
+            if job.state == .completed {
+                Text(job.episode.showTitle ?? "Completed").font(type.callout).foregroundStyle(Palette.inkMuted).lineLimit(1)
+            } else {
+                if job.state == .running || job.state == .queued || job.state == .paused {
+                    ProgressView(value: job.fraction).tint(Palette.accent)
+                }
+                Text(job.batteryPaused ? "Paused to save battery. Resumes when the Mac is plugged in." : job.stage)
+                    .font(type.callout).foregroundStyle(Palette.inkMuted)
+                if let error = job.error {
+                    Text(error).font(type.callout).foregroundStyle(.red).textSelection(.enabled)
+                }
+                HStack(spacing: 8) {
+                    if job.state == .running || job.state == .queued {
+                        Button("Pause") { model.manageJob(job, action: "pause") }.buttonStyle(SecondaryButtonStyle())
+                        Button("Cancel") { model.manageJob(job, action: "cancel") }.buttonStyle(SecondaryButtonStyle())
+                    } else {
+                        Button("Resume") { model.manageJob(job, action: "resume") }.buttonStyle(SecondaryButtonStyle())
+                    }
                 }
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
-        .overlay(alignment: .bottom) {
-            if !last { Divider().overlay(Palette.rule).padding(.horizontal, 18) }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }

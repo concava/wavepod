@@ -163,6 +163,8 @@ public final class AppModel {
     public var jobs: [TranscriptionJob] = []
     public var subscriptions: [Subscription] = []
     public var resolvedShow: ResolvedShow?
+    /// Each followed podcast's feed episodes, fetched when the Podcasts page opens, keyed by feed URL.
+    public var podcastEpisodes: [String: [ResolvedEpisode]] = [:]
     public var resolutionCandidates: [ScoredCandidate] = []
     public var searchHits: [SearchHit] = []
     public var meaningSearch = false
