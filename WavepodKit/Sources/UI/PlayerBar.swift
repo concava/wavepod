@@ -35,6 +35,9 @@ struct PlayerBar: View {
                     Button { player.togglePlayback() } label: {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 15, weight: .semibold))
+                            .contentTransition(.symbolEffect(.replace))
+                            // The triangle's visual mass sits left of its box; nudge it toward the point.
+                            .offset(x: player.isPlaying ? 0 : 1.5)
                             .foregroundStyle(Palette.onAccent)
                             .frame(width: 36, height: 36)
                             .background(Palette.ink, in: Circle())

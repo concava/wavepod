@@ -11,6 +11,11 @@ public enum Palette {
     public static let ink = dynamic(0x1C1B19, 0xECE8E1)
     public static let inkMuted = dynamic(0x6B665E, 0xA39E95)
     public static let rule = dynamic(0xE4DFD6, 0x2E3235)
+    /// The keycap in the home greeting.
+    public static let key = dynamic(0xF6C27A, 0x8A5A1C)
+    public static let keyEdge = dynamic(0xC9862E, 0xC98A3E)
+    /// Selected and hovered sidebar rows.
+    public static let selection = dynamic(0xEAE5DC, 0x2A2E31)
     public static let accent = dynamic(0x0F5E63, 0x5FB3B3)
     public static let onAccent = dynamic(0xFFFFFF, 0x0E1A1B)
     public static let accentSoft = dynamic(0xE3EEEC, 0x1F3536)
@@ -57,6 +62,12 @@ public struct Typography: Sendable {
     public var callout: Font { .system(size: size(12)) }
     public var caption: Font { .system(size: size(11)) }
     public var label: Font { .system(size: size(12), weight: .medium) }
+    /// Page headings and large numbers use the serif, as in a printed page.
+    public var display: Font { .system(size: size(28), weight: .semibold, design: .serif) }
+    public var stat: Font { .system(size: size(30), design: .serif) }
+    /// Small tracked capitals for date and group labels.
+    public var eyebrow: Font { .system(size: size(11), weight: .semibold) }
+    public var nav: Font { .system(size: size(14), weight: .medium) }
     public var timestamp: Font { .system(size: size(11), weight: .medium, design: .monospaced) }
     public var speaker: Font { .system(size: size(12), weight: .semibold) }
 
@@ -74,12 +85,52 @@ extension EnvironmentValues {
     }
 }
 
+/// Pressed controls shrink to 0.96 over 150 ms; disabled ones and Reduce Motion keep their size.
+struct PressScale: ViewModifier {
+    let isPressed: Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed && isEnabled && !reduceMotion ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.15), value: isPressed)
+    }
+}
+
+/// A raised surface: fill plus two soft shadows instead of a border. Increase Contrast adds a visible edge back.
+struct Elevated: ViewModifier {
+    var cornerRadius: CGFloat = 14
+    var fill: Color = Palette.surface
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        content
+            .clipShape(shape)
+            .background(
+                shape.fill(fill)
+                    .shadow(color: .black.opacity(0.05), radius: 1, y: 1)
+                    .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            )
+            .overlay(shape.strokeBorder(contrast == .increased ? Palette.inkMuted : .clear))
+    }
+}
+
+extension View {
+    func pressScale(_ isPressed: Bool) -> some View { modifier(PressScale(isPressed: isPressed)) }
+    func elevated(cornerRadius: CGFloat = 14, fill: Color = Palette.surface) -> some View {
+        modifier(Elevated(cornerRadius: cornerRadius, fill: fill))
+    }
+}
+
+/// An animation that becomes none under Reduce Motion.
+func motion(_ animation: Animation, reduced: Bool) -> Animation? { reduced ? nil : animation }
+
 /// A rounded pane on the paper background.
 struct PaneBackground: ViewModifier {
     func body(content: Content) -> some View {
-        content
-            .background(Palette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Palette.rule))
+        content.elevated(cornerRadius: 12)
     }
 }
 
@@ -97,6 +148,7 @@ struct IconButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? Palette.rule : Palette.sunken,
                         in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             .contentShape(Rectangle())
+            .pressScale(configuration.isPressed)
     }
 }
 
@@ -111,6 +163,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .background(Palette.accent.opacity(configuration.isPressed ? 0.85 : 1),
                         in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
+            .pressScale(configuration.isPressed)
     }
 }
 
@@ -126,6 +179,7 @@ struct SecondaryButtonStyle: ButtonStyle {
                         in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.rule))
             .contentShape(Rectangle())
+            .pressScale(configuration.isPressed)
     }
 }
 

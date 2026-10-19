@@ -6,56 +6,70 @@ import SwiftUI
 public struct RootView: View {
     @Bindable var model: AppModel
     @FocusState private var focus: AppModel.FocusTarget?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(model: AppModel) { self.model = model }
 
     public var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             SidebarView(model: model)
-                .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 260)
-        } detail: {
             VStack(spacing: 0) {
                 if let notice = model.notice {
                     NoticeBar(text: notice)
                 }
                 Group {
-                    if model.section == .library {
-                        Workspace(model: model, focus: $focus)
-                    } else {
-                        LibrarySection(model: model)
+                    switch model.section {
+                    case .home: HomeView(model: model)
+                    case .library: Workspace(model: model, focus: $focus)
+                    default: LibrarySection(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                PlayerBar(model: model, player: model.player)
+                if model.section == .library || model.player.duration > 0 {
+                    PlayerBar(model: model, player: model.player)
+                }
             }
-            .background(Palette.paper)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    CommandField(model: model, focus: $focus)
+            .elevated(cornerRadius: 14)
+            .padding([.trailing, .bottom], 8)
+        }
+        .background(Palette.paper)
+        .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    model.sidebarCollapsed.toggle()
+                } label: {
+                    Image(systemName: "sidebar.left")
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    if model.isPersistent {
-                        Button("Open Audio…", systemImage: "plus", action: model.chooseFile)
-                            .help("Open an audio or video file")
-                    }
+                .help(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
+                .accessibilityLabel(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
+            }
+            ToolbarItem(placement: .principal) {
+                CommandField(model: model, focus: $focus)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
+                    Menu("Generate", systemImage: "sparkles") {
+                        Button("Summary") { model.generateNotes() }
+                        Button("Chapters") { model.generateNotes(chaptersOnly: true) }
+                    }.disabled(model.isGenerating)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
-                        Menu("Generate", systemImage: "sparkles") {
-                            Button("Summary") { model.generateNotes() }
-                            Button("Chapters") { model.generateNotes(chaptersOnly: true) }
-                        }.disabled(model.isGenerating)
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    AppearanceButton(model: model)
-                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                AppearanceButton(model: model)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Settings", systemImage: "gearshape") { model.openSettings() }
+                    .help("Settings (⌘,)")
             }
         }
         .dropDestination(for: URL.self) { urls, _ in
             let files = urls.filter(\.isFileURL)
             for file in files { model.importFile(file) }
             return !files.isEmpty
+        }
+        .sheet(isPresented: $model.showSettings) {
+            SettingsView(model: model)
         }
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
@@ -68,7 +82,7 @@ public struct RootView: View {
         .tint(Palette.accent)
         .onChange(of: model.focusRequest) { _, request in
             guard let request else { return }
-            if request != .transcript { model.section = .library }
+            if request == .ask { model.section = .library }
             focus = request
             model.focusRequest = nil
         }
@@ -135,6 +149,7 @@ struct AppearanceButton: View {
             model.cycleAppearance()
         } label: {
             Image(systemName: symbol)
+                .contentTransition(.symbolEffect(.replace))
         }
         .help("Appearance: \(model.appearance.rawValue.capitalized)")
         .accessibilityLabel("Appearance")

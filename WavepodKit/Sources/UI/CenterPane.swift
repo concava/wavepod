@@ -121,6 +121,7 @@ struct TranscriptToolbar: View {
 struct TranscriptView: View {
     let model: AppModel
     var focus: FocusState<AppModel.FocusTarget?>.Binding
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let current = model.currentParagraphIndex
@@ -148,7 +149,7 @@ struct TranscriptView: View {
             .focusEffectDisabled()
             .onChange(of: current) { _, new in
                 guard model.followPlayback, model.player.isPlaying, let new else { return }
-                withAnimation(.easeInOut(duration: 0.35)) {
+                withAnimation(motion(.easeInOut(duration: 0.35), reduced: reduceMotion)) {
                     proxy.scrollTo(model.paragraphs[new].id, anchor: .init(x: 0.5, y: 0.3))
                 }
             }
