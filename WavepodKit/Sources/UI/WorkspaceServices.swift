@@ -227,8 +227,7 @@ extension AppModel {
                 if chaptersOnly {
                     record.chapters = claims.sorted { $0.start < $1.start }.map { Chapter(title: $0.claim, start: $0.start, summary: $0.quote) }
                 } else {
-                    record.summary = EpisodeSummary(overview: claims.prefix(3).map(\.claim).joined(separator: " "),
-                                                    points: claims.map { SummaryPoint(text: $0.claim, citation: $0.citation) }, quotes: Array(claims.prefix(3).map(\.citation)))
+                    record.summary = EpisodeSummaryStyle.summary(from: claims)
                 }
                 try services.store.save(record)
                 if episode.id == id { install(record, reloadPlayer: false) }

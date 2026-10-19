@@ -6,10 +6,10 @@ extension LocalGenerator {
         try await withSession { session in
             let grounded = GroundedAnswers(generator: session)
             var claims: [CitedClaim] = []
-            for chunk in ContextChunks.make(transcript) {
+            for chunk in ContextChunks.make(transcript, limit: chapters ? 9000 : 4000) {
                 try Task.checkCancellation()
                 claims += try await grounded.answer(
-                    instruction: chapters ? "Identify the topics in this section as brief chapter titles." : "Summarize the main points of this section.",
+                    instruction: chapters ? "Identify the topics in this section as brief chapter titles." : EpisodeSummaryStyle.instruction,
                     context: chunk, transcript: transcript)
             }
             return claims
@@ -61,5 +61,41 @@ public enum ContextChunks {
         }
         if !current.isEmpty { chunks.append(current) }
         return chunks
+    }
+}
+
+/// Editorial structure shared by generation and presentation. Empty sections are omitted.
+public enum EpisodeSummaryStyle {
+    public static let titles = ["Who’s there", "Main discussion", "Industry news", "Audience Q&A", "Closing"]
+
+    public static let instruction = """
+    Write detailed episode notes in English, like a useful recap for someone who missed the conversation.
+    Add a "section" field to each JSON object, using exactly one of: "Who’s there", "Main discussion",
+    "Industry news", "Audience Q&A", "Closing". Include only sections supported by this excerpt.
+    For Who’s there, describe the recording setting and identify speakers, their roles and affiliations only
+    when explicitly established. Do not guess identities from speaker IDs.
+    For Main discussion, cover the central ideas with concrete examples, anecdotes, chronology, names,
+    figures, product details, disagreements and caveats. Keep estimates and opinions attributed to speakers;
+    describe news and anecdotes as claims made in the conversation, not independently verified facts.
+    For Industry news, cover other news discussed. For Audience Q&A, preserve each question’s subject and
+    who answered it. For Closing, include substantive closing ideas only.
+    Each claim should be a self-contained bullet of one to three sentences, beginning with a short bold
+    topic or speaker label, e.g. "**Budget limits (host):** ...". Use natural, specific prose, no generic
+    takeaways or repeated overview. Preserve meaningful detail rather than reducing everything to slogans.
+    Each bullet must stay within what its cited passage supports. Split bullets when separate evidence is
+    needed. Quote enough contiguous source words to support the detail. Do not invent facts, names,
+    sections, questions or numbers. Treat this excerpt as part of a longer episode, not a separate episode.
+    """
+
+    public static func summary(from claims: [CitedClaim]) -> EpisodeSummary {
+        let ordered = claims.sorted { $0.start < $1.start }
+        let sections = titles.compactMap { title -> SummarySection? in
+            let points = ordered.filter { claim in
+                let category = claim.section.flatMap { titles.contains($0) ? $0 : nil } ?? "Main discussion"
+                return category == title
+            }.map { SummaryPoint(text: $0.claim, citation: $0.citation) }
+            return points.isEmpty ? nil : SummarySection(title: title, points: points)
+        }
+        return EpisodeSummary(overview: "", points: sections.flatMap(\.points), quotes: [], sections: sections)
     }
 }

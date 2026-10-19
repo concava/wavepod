@@ -73,6 +73,30 @@ final class PipelineTests: XCTestCase {
         let calls = await generator.calls
         XCTAssertEqual(calls, 1)
     }
+    func testSummaryGroupsDetailedNotesAndKeepsEvidence() throws {
+        let claims = [
+            CitedClaim(claim: "**Safety:** Requires approval.", quote: "approval", start: 90, section: "Audience Q&A"),
+            CitedClaim(claim: "**Agent:** Has a daily budget.", quote: "daily budget", start: 40, section: "Main discussion"),
+            CitedClaim(claim: "**Host:** Opens the show.", quote: "welcome", start: 0, section: "Who’s there"),
+            CitedClaim(claim: "**Costs:** An estimate.", quote: "estimated", start: 20, section: "unknown")
+        ]
+        let summary = EpisodeSummaryStyle.summary(from: claims)
+        XCTAssertEqual(summary.sections?.map(\.title), ["Who’s there", "Main discussion", "Audience Q&A"])
+        XCTAssertEqual(summary.sections?[1].points.map(\.citation.start), [20, 40])
+        XCTAssertEqual(summary.points.count, 4)
+        XCTAssertTrue(summary.overview.isEmpty)
+        XCTAssertTrue(summary.quotes.isEmpty)
+        XCTAssertEqual(try JSONDecoder().decode(EpisodeSummary.self, from: JSONEncoder().encode(summary)), summary)
+    }
+
+    func testLegacySummaryAndClaimsStillDecode() throws {
+        let summary = try JSONDecoder().decode(EpisodeSummary.self, from: Data(#"{"overview":"Old overview","points":[],"quotes":[]}"#.utf8))
+        XCTAssertNil(summary.sections)
+        let claims = try CitationValidator.parse(#"[{"claim":"Greeting","quote":"Welcome","start":10}]"#)
+        XCTAssertNil(claims.first?.section)
+        XCTAssertEqual(EpisodeSummaryStyle.summary(from: claims).sections?.first?.title, "Main discussion")
+    }
+
     func testVoiceProfilesAreRestrictedToShowAndRejectAmbiguousMatches() {
         let a = VoiceProfile(showID: "show-a", name: "Alex", embedding: [1, 0])
         XCTAssertEqual(SpeakerIdentity.match([1, 0], showID: "show-a", profiles: [a])?.name, "Alex")
