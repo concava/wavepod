@@ -5,7 +5,10 @@ public struct CitedClaim: Codable, Sendable, Equatable {
     public var claim: String
     public var quote: String
     public var start: Double
-    public init(claim: String, quote: String, start: Double) { self.claim = claim; self.quote = quote; self.start = start }
+    public var section: String?
+    public init(claim: String, quote: String, start: Double, section: String? = nil) {
+        self.claim = claim; self.quote = quote; self.start = start; self.section = section
+    }
     public var citation: Citation { Citation(start: start, quote: quote) }
 }
 

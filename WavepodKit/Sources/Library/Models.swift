@@ -159,15 +159,29 @@ public struct SummaryPoint: Hashable, Sendable, Codable, Identifiable {
     }
 }
 
+public struct SummarySection: Hashable, Sendable, Codable, Identifiable {
+    public var id: String { title }
+    public var title: String
+    public var points: [SummaryPoint]
+
+    public init(title: String, points: [SummaryPoint]) {
+        self.title = title
+        self.points = points
+    }
+}
+
 public struct EpisodeSummary: Hashable, Sendable, Codable {
     public var overview: String
     public var points: [SummaryPoint]
     public var quotes: [Citation]
+    /// Optional so summaries saved before sectioned notes still decode.
+    public var sections: [SummarySection]?
 
-    public init(overview: String, points: [SummaryPoint], quotes: [Citation]) {
+    public init(overview: String, points: [SummaryPoint], quotes: [Citation], sections: [SummarySection]? = nil) {
         self.overview = overview
         self.points = points
         self.quotes = quotes
+        self.sections = sections
     }
 }
 

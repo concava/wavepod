@@ -122,6 +122,15 @@ struct SummaryCard: View {
                         .foregroundStyle(Palette.inkMuted)
                 }
                 Spacer(minLength: 8)
+                if model.summary != nil {
+                    Button { model.generateNotes() } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(IconButtonStyle())
+                    .disabled(model.isGenerating)
+                    .help("Regenerate summary")
+                    .accessibilityLabel("Regenerate summary")
+                }
                 Button {
                     model.toggleEpisodePlayback()
                 } label: {

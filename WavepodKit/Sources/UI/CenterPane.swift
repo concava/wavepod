@@ -187,24 +187,30 @@ struct SummaryView: View {
             AnswersSection(model: model)
             if let summary = model.summary {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text(summary.overview)
-                        .font(type.reading)
-                        .foregroundStyle(Palette.ink)
-                        .lineSpacing(5)
-                        .textSelection(.enabled)
+                    if !summary.overview.isEmpty {
+                        Text(summary.overview)
+                            .font(type.reading)
+                            .foregroundStyle(Palette.ink)
+                            .lineSpacing(5)
+                            .textSelection(.enabled)
+                    }
 
-                    SectionHeading("Key points")
-                    ForEach(summary.points) { point in
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            TimestampPill(time: point.citation.start) { model.play(from: point.citation.start) }
-                            Text(point.text)
-                                .font(type.reading)
-                                .foregroundStyle(Palette.ink)
-                                .fixedSize(horizontal: false, vertical: true)
+                    ForEach(summary.sections ?? [SummarySection(title: "Key points", points: summary.points)]) { section in
+                        SectionHeading(section.title)
+                        ForEach(section.points) { point in
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                TimestampPill(time: point.citation.start) { model.play(from: point.citation.start) }
+                                Text(.init(point.text))
+                                    .font(type.reading)
+                                    .foregroundStyle(Palette.ink)
+                                    .lineSpacing(5)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
 
-                    SectionHeading("Quotes")
+                    if !summary.quotes.isEmpty { SectionHeading("Quotes") }
                     ForEach(summary.quotes, id: \.self) { quote in
                         HStack(alignment: .top, spacing: 12) {
                             Rectangle().fill(Palette.accent).frame(width: 3)

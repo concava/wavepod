@@ -115,7 +115,7 @@ final class AutomationTests: XCTestCase {
         try await service.completePending(item.id)
         let generated = await calls.chapters
         XCTAssertEqual(generated, [false, true])
-        XCTAssertEqual(try store.episode(item.id)?.summary?.overview, "Summary")
+        XCTAssertEqual(try store.episode(item.id)?.summary?.points.first?.text, "Summary")
         XCTAssertEqual(try store.episode(item.id)?.chapters.first?.title, "Chapter")
         XCTAssertEqual(try store.episode(item.id)?.notesPending, false)
     }
