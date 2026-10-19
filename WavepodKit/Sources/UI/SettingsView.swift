@@ -6,7 +6,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var model: AppModel
     @Environment(\.typography) private var type
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         HStack(spacing: 0) {
@@ -37,7 +36,7 @@ struct SettingsView: View {
                     HStack(alignment: .firstTextBaseline) {
                         Text(model.settingsPane.title).font(type.display).foregroundStyle(Palette.ink)
                         Spacer()
-                        Button("Done") { dismiss() }
+                        Button("Done") { model.showSettings = false }
                             .buttonStyle(SecondaryButtonStyle())
                             .keyboardShortcut(.cancelAction)
                     }

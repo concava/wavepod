@@ -64,9 +64,24 @@ public struct RootView: View {
             for file in files { model.importFile(file) }
             return !files.isEmpty
         }
-        .sheet(isPresented: $model.showSettings) {
-            SettingsView(model: model)
+        .overlay {
+            // Settings floats over a dimmed window instead of a sheet, so a click outside it closes it.
+            if model.showSettings {
+                ZStack {
+                    Color.black.opacity(0.28)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.showSettings = false }
+                        .accessibilityHidden(true)
+                    SettingsView(model: model)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: .black.opacity(0.18), radius: 30, y: 12)
+                        .accessibilityAddTraits(.isModal)
+                }
+                .transition(.opacity)
+            }
         }
+        .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showSettings)
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
                 HStack { Text("Translation · \(model.translationLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }
