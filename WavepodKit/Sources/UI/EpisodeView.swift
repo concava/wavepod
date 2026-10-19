@@ -123,10 +123,10 @@ struct SummaryCard: View {
                 }
                 Spacer(minLength: 8)
                 Button {
-                    model.player.isPlaying ? model.player.pause() : model.play(from: model.player.currentTime)
+                    model.toggleEpisodePlayback()
                 } label: {
-                    Label(model.player.isPlaying ? "Pause" : "Play",
-                          systemImage: model.player.isPlaying ? "pause.fill" : "play.fill")
+                    Label(model.isViewedEpisodePlaying ? "Pause" : "Play",
+                          systemImage: model.isViewedEpisodePlaying ? "pause.fill" : "play.fill")
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -244,7 +244,7 @@ struct DetailCard: View {
                 case .transcript:
                     TranscriptView(model: model, focus: focus)
                         .overlay(alignment: .bottom) {
-                            if !model.followPlayback && model.player.isPlaying {
+                            if !model.followPlayback && model.isViewedEpisodePlaying {
                                 Button { model.followPlayback = true } label: {
                                     Label("Follow Playback", systemImage: "arrow.down.to.line")
                                 }

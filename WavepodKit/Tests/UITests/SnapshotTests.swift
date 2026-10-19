@@ -51,7 +51,7 @@ final class SnapshotTests: XCTestCase {
         check("workspace", size: CGSize(width: 1280, height: 760)) {
             VStack(spacing: 0) {
                 WorkspaceSnapshot(model: model)
-                PlayerBar(model: model, player: model.player)
+                PlayerBar(player: model.player)
             }
         }
     }
@@ -123,6 +123,16 @@ final class SnapshotTests: XCTestCase {
         check("onboarding", size: CGSize(width: 680, height: 540)) { OnboardingView(model: model) }
     }
 
+    func testPlayerBarWhileBrowsing() {
+        let model = makeModel()
+        var episode = SampleData.episode
+        episode.id = "browsed"; episode.showName = "A different show"; episode.title = "A different episode"
+        episode.artworkHue = 0.8; episode.duration = 7200
+        model.open(EpisodeRecord(episode: episode, transcript: SampleData.transcript))
+        // The transport must render exactly like its original baseline while another episode is viewed.
+        check("player", size: CGSize(width: 1100, height: 80), testName: "testPlayerBar()") { PlayerBar(player: model.player) }
+    }
+
     func testAskSettings() {
         let model = makeModel()
         let previous = model.askProvider
@@ -136,7 +146,7 @@ final class SnapshotTests: XCTestCase {
 
     func testPlayerBar() {
         let model = makeModel()
-        check("player", size: CGSize(width: 1100, height: 80)) { PlayerBar(model: model, player: model.player) }
+        check("player", size: CGSize(width: 1100, height: 80)) { PlayerBar(player: model.player) }
     }
 }
 
@@ -167,6 +177,120 @@ private struct WorkspaceSnapshot: View {
 
 @MainActor
 final class AppModelTests: XCTestCase {
+    private func anotherEpisode() -> EpisodeRecord {
+        var episode = SampleData.episode
+        episode.id = "another-episode"; episode.title = "Another episode"
+        return EpisodeRecord(episode: episode, transcript: SampleData.transcript, chapters: SampleData.chapters)
+    }
+
+    func testBrowsingAndRefreshingDoNotReplaceOrPausePlayback() {
+        let model = AppModel()
+        let playing = model.player.episode
+        model.player.seek(to: 42); model.player.rate = 1.5; model.player.volume = 0.4
+        model.player.play()
+        defer { model.player.pause() }
+        let record = anotherEpisode()
+        model.open(record)
+        model.section = .home
+        model.settingsPane = .general
+        model.mergeLines = false
+        model.install(record) // A refreshed transcript/summary must leave the transport alone too.
+        XCTAssertEqual(model.episode.id, record.id)
+        XCTAssertEqual(model.player.episode, playing)
+        XCTAssertTrue(model.player.isPlaying)
+        XCTAssertEqual(model.player.currentTime, 42)
+        XCTAssertEqual(model.player.rate, 1.5)
+        XCTAssertEqual(model.player.volume, 0.4)
+        XCTAssertFalse(model.isViewedEpisodePlaying)
+        XCTAssertNil(model.currentParagraphIndex)
+        XCTAssertNil(model.currentChapterIndex)
+    }
+
+    func testExplicitPlaySwitchesEpisodeAndSameEpisodeResumes() {
+        let model = AppModel()
+        defer { model.player.pause() }
+        model.player.jump(to: 42)
+        let record = anotherEpisode()
+        model.open(record)
+        model.toggleEpisodePlayback()
+        XCTAssertEqual(model.player.episode?.id, record.id)
+        XCTAssertEqual(model.player.currentTime, 0)
+        XCTAssertTrue(model.isViewedEpisodePlaying)
+        model.player.seek(to: 25)
+        model.toggleEpisodePlayback()
+        XCTAssertFalse(model.player.isPlaying)
+        model.open(record)
+        model.toggleEpisodePlayback()
+        XCTAssertEqual(model.player.currentTime, 25)
+        XCTAssertTrue(model.isViewedEpisodePlaying)
+        XCTAssertNotNil(model.currentParagraphIndex)
+    }
+
+    func testOpeningSearchLocationOnlyNavigatesTheTranscript() {
+        let model = AppModel()
+        model.player.jump(to: 42)
+        defer { model.player.pause() }
+        let playing = model.player.episode
+        model.open(anotherEpisode(), at: 12)
+        XCTAssertEqual(model.player.episode, playing)
+        XCTAssertTrue(model.player.isPlaying)
+        XCTAssertEqual(model.player.currentTime, 42)
+        XCTAssertEqual(model.transcriptLocation?.time, 12)
+        XCTAssertFalse(model.followPlayback)
+    }
+
+    func testTimestampExplicitlySwitchesToViewedEpisode() {
+        let model = AppModel()
+        defer { model.player.pause() }
+        model.player.jump(to: 42)
+        let record = anotherEpisode()
+        model.open(record)
+        model.play(from: 12)
+        XCTAssertEqual(model.player.episode?.id, record.id)
+        XCTAssertEqual(model.player.currentTime, 12)
+        XCTAssertTrue(model.player.isPlaying)
+    }
+
+    func testReusingTransportDoesNotResetItsEpisodeOrPosition() {
+        let original = AppModel()
+        original.player.jump(to: 42)
+        defer { original.player.pause() }
+        let model = AppModel(player: original.player)
+        XCTAssertTrue(model.player.isPlaying)
+        XCTAssertEqual(model.player.currentTime, 42)
+        XCTAssertEqual(model.player.episode, original.player.episode)
+    }
+
+    func testDownloadingViewedAudioDoesNotInterruptCurrentPlayback() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("source.wav")
+        try Data("fixture".utf8).write(to: source)
+        let model = AppModel()
+        model.services = try WorkspaceServices(root: root)
+        model.player.jump(to: 42)
+        defer { model.player.pause() }
+        let playing = model.player.episode
+        for id in ["another-episode", playing!.id] {
+            var record = anotherEpisode()
+            record.episode.id = id
+            record.episode.enclosureURL = source
+            try model.services!.store.save(record)
+            model.open(record)
+            model.downloadAudio()
+            for _ in 0..<100 {
+                if model.episodeAudioURL != nil { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertNotNil(model.episodeAudioURL)
+            XCTAssertEqual(model.player.episode, playing)
+            XCTAssertTrue(model.player.isPlaying)
+            XCTAssertGreaterThanOrEqual(model.player.currentTime, 42)
+            XCTAssertNotNil(try model.services!.store.episode(record.id)?.audioURL)
+        }
+    }
+
     func testRenameAppliesEverywhereAndConfirms() {
         let model = AppModel()
         let id = SampleData.producer

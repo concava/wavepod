@@ -107,6 +107,16 @@ An explicit empty answer is now accepted at once instead of being retried. Peak 
 plus embeddings; the run took 7 minutes for 12 questions (about 35 s per question). One window and 12 questions is
 a first check, not the 20-questions-per-episode evaluation the definition of done asks for.
 
+## Playback while browsing
+
+The viewed episode and the player’s loaded episode are independent. Opening library items, changing sections,
+refreshing transcripts/summaries, completed jobs and audio downloads do not load or pause the transport. The
+Search results navigate to the matching transcript passage without playing it. The
+bottom bar reads artwork, title, duration and position from the player. Only Play Episode or a timestamp,
+chapter or citation action loads the viewed episode; the bottom controls and playback keyboard commands always
+operate on the loaded episode. Playing the same episode resumes its position. Transcript/chapter highlights
+and follow scrolling apply only when the viewed episode matches the loaded episode.
+
 ## Verification
 
 ```sh

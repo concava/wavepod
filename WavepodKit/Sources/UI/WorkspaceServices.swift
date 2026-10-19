@@ -63,7 +63,12 @@ extension AppModel {
     public func open(_ record: EpisodeRecord, at start: Double? = nil) {
         install(record)
         section = .library
-        if let start { play(from: start) }
+        if let start {
+            sidePane = .transcript
+            showSidePane = true
+            followPlayback = false
+            transcriptLocation = TranscriptLocation(time: start)
+        }
         writeMissingNotes()
     }
 
@@ -264,7 +269,7 @@ extension AppModel {
                     try AudioRetention.prune(subscription, store: services.store, directory: services.root)
                 }
                 let retained = try services.store.episode(id)?.audioURL
-                if episode.id == id { player.load(episode, audioURL: retained) }
+                if episode.id == id { episodeAudioURL = retained }
                 show(retained == nil ? "Audio removed by this show's retention setting" : "Audio downloaded")
             } catch { show(error.localizedDescription) }
         }
@@ -297,7 +302,7 @@ extension AppModel {
             do {
                 let claims = try await notes.generate(id, chapters: kind == .chapters)
                 guard let record = try services.store.episode(id) else { return }
-                if episode.id == id { install(record, reloadPlayer: false) }
+                if episode.id == id { install(record) }
                 if claims.isEmpty { show("Not found in this episode: no claims passed citation checking.") }
             } catch { show(error.localizedDescription) }
         }
