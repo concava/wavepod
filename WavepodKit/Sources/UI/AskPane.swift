@@ -6,6 +6,7 @@ struct AskPane: View {
     var focus: FocusState<AppModel.FocusTarget?>.Binding
     @State private var draft = ""
     @Environment(\.typography) private var type
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     static let maxLength = 2000
 
@@ -40,7 +41,7 @@ struct AskPane: View {
                 }
                 .onChange(of: model.chat.count) {
                     if let last = model.chat.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        withAnimation(motion(.default, reduced: reduceMotion)) { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
             }

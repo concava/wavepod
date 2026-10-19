@@ -1,4 +1,3 @@
-import Engine
 import Library
 import Pipeline
 import Resolver
@@ -8,57 +7,9 @@ struct LibrarySection: View {
     @Bindable var model: AppModel
     var body: some View {
         switch model.section {
-        case .queue: QueueSection(model: model)
         case .shows: ShowsSection(model: model)
         case .search: SearchSection(model: model)
-        case .settings: SettingsSection(model: model)
-        case .library: EmptyView()
-        }
-    }
-}
-
-struct QueueSection: View {
-    let model: AppModel
-    var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text("Transcription queue").font(.title2)
-                Spacer()
-                Button("Open Audio…", action: model.chooseFile)
-            }.padding()
-            if model.isPowerPaused && !model.jobs.contains(where: { $0.state == .running }) {
-                Label("Paused on battery. Jobs resume on external power.", systemImage: "battery.50percent")
-                    .font(.callout).foregroundStyle(.secondary).padding(.horizontal)
-            }
-            if let explanation = OfflineDiarizationSupport.current.explanation {
-                Text(explanation).font(.callout).foregroundStyle(.secondary).padding(.horizontal)
-            }
-            if model.jobs.isEmpty {
-                ContentUnavailableView("The queue is empty", systemImage: "tray", description: Text("Paste a podcast link or open an audio file."))
-            } else {
-                List(model.jobs) { job in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(job.episode.title).font(.headline)
-                            Spacer()
-                            Text(job.state.rawValue.capitalized).foregroundStyle(.secondary)
-                        }
-                        ProgressView(value: job.fraction)
-                        Text(job.batteryPaused ? "Paused on battery. Resumes on external power." : job.stage).font(.caption)
-                        if let error = job.error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
-                        HStack {
-                            if job.state == .running || job.state == .queued {
-                                Button("Pause") { model.manageJob(job, action: "pause") }
-                                Button("Cancel") { model.manageJob(job, action: "cancel") }
-                            } else if job.state != .completed {
-                                Button("Resume") { model.manageJob(job, action: "resume") }
-                            } else if let record = model.savedEpisodes.first(where: { $0.id == JobQueue.episodeID(job.episode) }) {
-                                Button("Open transcript") { model.open(record) }
-                            }
-                        }
-                    }.padding(.vertical, 8)
-                }
-            }
+        case .home, .library: EmptyView()
         }
     }
 }
@@ -68,7 +19,7 @@ struct ShowsSection: View {
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
-                Text("Shows").font(.title2)
+                Text("Podcasts").font(.title2)
                 Spacer()
                 Button("Check for Episodes", action: model.refreshShows).disabled(model.isRefreshing)
             }.padding()
@@ -113,7 +64,7 @@ struct ShowsSection: View {
                             Button("Unsubscribe", role: .destructive) { model.unsubscribe(show) }
                         }
                     }
-                    if model.subscriptions.isEmpty { Text("Paste a show's feed or website link to subscribe.").foregroundStyle(.secondary) }
+                    if model.subscriptions.isEmpty { Text("Paste a podcast's feed or website link to follow it.").foregroundStyle(.secondary) }
                 }
             }
         }
@@ -142,51 +93,5 @@ struct SearchSection: View {
                 }
             }
         }
-    }
-}
-
-struct SettingsSection: View {
-    @Bindable var model: AppModel
-    var body: some View {
-        Form {
-            Section("Transcription") {
-                Picker("Engine", selection: $model.engineChoice) {
-                    Text("On this Mac").tag("native")
-                    Text("My Scriberr server").tag("scriberr")
-                }
-                if model.engineChoice == "scriberr" {
-                    TextField("Server URL", text: $model.scriberrURL)
-                    SecureField("API key (saved in Keychain)", text: $model.scriberrKey)
-                }
-                Button("Save Engine", action: model.saveEngine)
-                if let explanation = OfflineDiarizationSupport.current.explanation {
-                    Text(explanation).font(.callout).foregroundStyle(.secondary)
-                }
-                Text("Transcription pauses on battery and in Low Power Mode. Jobs resume from saved checkpoints.").font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Models on this Mac") {
-                Button("Install Transcription Models") { model.installModels("native") }
-                Button("Install Local Language Model") { model.installModels("language") }
-                Button("Install Meaning Search Model") { model.installModels("embeddings") }
-                Text(model.modelStatus).font(.caption).textSelection(.enabled)
-                Button(model.isIndexing ? "Indexing…" : "Rebuild Meaning Search Index", action: model.indexLibrary).disabled(model.isIndexing)
-            }.disabled(model.isInstalling)
-            Section("Shows") {
-                Toggle("Check shows in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
-                Text("Checks hourly with conditional requests. New episodes are transcribed only for shows where you enable it.").font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Network log") {
-                Text("Audio stays on this Mac unless you select your own Scriberr server. Model downloads and feed requests are listed below.").font(.caption)
-                ForEach(model.networkEntries.suffix(80).reversed()) { entry in
-                    HStack {
-                        Text(entry.date, style: .time).monospacedDigit()
-                        Text("\(entry.method) \(entry.host)")
-                        Spacer()
-                        Text(entry.purpose)
-                        if let status = entry.status { Text(String(status)) }
-                    }.font(.caption)
-                }
-            }
-        }.formStyle(.grouped)
     }
 }

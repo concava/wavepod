@@ -71,7 +71,7 @@ extension AppModel {
     public func enqueue(_ episode: ResolvedEpisode) {
         guard let services else { show("Open the app to import an episode."); return }
         Task {
-            do { try await services.queue.enqueue(episode); section = .queue; await refreshWorkspace() }
+            do { try await services.queue.enqueue(episode); section = .home; show("Transcribing \(episode.title)"); await refreshWorkspace() }
             catch { show(error.localizedDescription) }
         }
     }

@@ -6,56 +6,70 @@ import SwiftUI
 public struct RootView: View {
     @Bindable var model: AppModel
     @FocusState private var focus: AppModel.FocusTarget?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(model: AppModel) { self.model = model }
 
     public var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             SidebarView(model: model)
-                .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 260)
-        } detail: {
             VStack(spacing: 0) {
                 if let notice = model.notice {
                     NoticeBar(text: notice)
                 }
                 Group {
-                    if model.section == .library {
-                        Workspace(model: model, focus: $focus)
-                    } else {
-                        LibrarySection(model: model)
+                    switch model.section {
+                    case .home: HomeView(model: model)
+                    case .library: Workspace(model: model, focus: $focus)
+                    default: LibrarySection(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                PlayerBar(model: model, player: model.player)
+                if model.section == .library || model.player.duration > 0 {
+                    PlayerBar(model: model, player: model.player)
+                }
             }
-            .background(Palette.paper)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    CommandField(model: model, focus: $focus)
+            .elevated(cornerRadius: 14)
+            .padding([.trailing, .bottom], 8)
+        }
+        .background(Palette.paper)
+        .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    model.sidebarCollapsed.toggle()
+                } label: {
+                    Image(systemName: "sidebar.left")
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    if model.isPersistent {
-                        Button("Open Audio…", systemImage: "plus", action: model.chooseFile)
-                            .help("Open an audio or video file")
-                    }
+                .help(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
+                .accessibilityLabel(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
+            }
+            ToolbarItem(placement: .principal) {
+                CommandField(model: model, focus: $focus)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
+                    Menu("Generate", systemImage: "sparkles") {
+                        Button("Summary") { model.generateNotes() }
+                        Button("Chapters") { model.generateNotes(chaptersOnly: true) }
+                    }.disabled(model.isGenerating)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
-                        Menu("Generate", systemImage: "sparkles") {
-                            Button("Summary") { model.generateNotes() }
-                            Button("Chapters") { model.generateNotes(chaptersOnly: true) }
-                        }.disabled(model.isGenerating)
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    AppearanceButton(model: model)
-                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                AppearanceButton(model: model)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Settings", systemImage: "gearshape") { model.openSettings() }
+                    .help("Settings (⌘,)")
             }
         }
         .dropDestination(for: URL.self) { urls, _ in
             let files = urls.filter(\.isFileURL)
             for file in files { model.importFile(file) }
             return !files.isEmpty
+        }
+        .sheet(isPresented: $model.showSettings) {
+            SettingsView(model: model)
         }
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
@@ -68,7 +82,7 @@ public struct RootView: View {
         .tint(Palette.accent)
         .onChange(of: model.focusRequest) { _, request in
             guard let request else { return }
-            if request != .transcript { model.section = .library }
+            if request == .ask { model.section = .library }
             focus = request
             model.focusRequest = nil
         }
@@ -101,9 +115,12 @@ struct CommandField: View {
     var focus: FocusState<AppModel.FocusTarget?>.Binding
     @Environment(\.typography) private var type
 
+    private var isFocused: Bool { focus.wrappedValue == .command }
+
     var body: some View {
-        HStack(spacing: 8) {
+        let field = HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Palette.inkMuted)
                 .accessibilityHidden(true)
             TextField("Search or paste a podcast, Spotify or YouTube link", text: $model.commandText)
@@ -112,18 +129,38 @@ struct CommandField: View {
                 .focused(focus, equals: .command)
                 .onSubmit { model.submitCommand() }
                 .accessibilityLabel("Search or open a link")
-            Text("⌘K")
-                .font(type.caption)
+            if model.commandText.isEmpty {
+                Text("⌘K")
+                    .font(type.caption.weight(.medium))
+                    .foregroundStyle(Palette.inkMuted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .accessibilityHidden(true)
+            } else {
+                Button {
+                    model.commandText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
                 .foregroundStyle(Palette.inkMuted)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 4))
-                .accessibilityHidden(true)
+                .help("Clear")
+                .accessibilityLabel("Clear search")
+            }
         }
-        .padding(.horizontal, 10)
-        .frame(width: 440, height: 28)
-        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.rule))
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .frame(width: 460, height: 30)
+
+        if #available(macOS 26, *) {
+            // The toolbar already draws a capsule around principal items; a second shape inside it would double the edge.
+            field
+        } else {
+            field
+                .background(Palette.surface, in: Capsule())
+                .overlay(Capsule().strokeBorder(isFocused ? Palette.accent : Palette.rule))
+        }
     }
 }
 
@@ -135,6 +172,7 @@ struct AppearanceButton: View {
             model.cycleAppearance()
         } label: {
             Image(systemName: symbol)
+                .contentTransition(.symbolEffect(.replace))
         }
         .help("Appearance: \(model.appearance.rawValue.capitalized)")
         .accessibilityLabel("Appearance")

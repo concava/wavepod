@@ -36,8 +36,8 @@ comparison in the Phase 1 rerun if it exposes per-speaker embeddings.
 
 **Decision (2026-10-19, owner approved): keep the app's macOS 14 minimum, but require macOS 15 for
 FluidAudio offline speaker detection.** Audio transcribed on macOS 14 has one speaker (`S1`) and no voice
-embeddings. Queue and Settings explain the limitation and the reason to upgrade. Publisher transcripts keep
-their supplied labels because they bypass local inference.
+embeddings. The Transcription and Queue panes in Settings explain the limitation and the reason to upgrade.
+Publisher transcripts keep their supplied labels because they bypass local inference.
 
 FluidAudio [issue #878](https://github.com/FluidInference/FluidAudio/issues/878) reports an Apple BNNS defect:
 Core ML predictions falling back to CPU can crash with `EXC_BAD_ACCESS` / `SIGBUS` in `libBNNS`. Its

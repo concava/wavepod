@@ -15,24 +15,49 @@ import UniformTypeIdentifiers
 @Observable
 public final class AppModel {
     public enum Section: String, CaseIterable, Identifiable, Sendable {
-        case library, shows, queue, search, settings
+        case home, library, shows, search
         public var id: String { rawValue }
+        /// Episode opens from Home or Recent and Search from the command field, so the sidebar lists only these.
+        public static let sidebar: [Section] = [.home, .shows]
         public var title: String {
             switch self {
-            case .library: "Library"
-            case .shows: "Shows"
-            case .queue: "Queue"
+            case .home: "Home"
+            case .library: "Episode"
+            case .shows: "Podcasts"
             case .search: "Search"
-            case .settings: "Settings"
             }
         }
         public var symbol: String {
             switch self {
-            case .library: "books.vertical"
+            case .home: "house"
+            case .library: "text.quote"
             case .shows: "square.stack"
-            case .queue: "list.bullet.indent"
             case .search: "magnifyingglass"
-            case .settings: "gearshape"
+            }
+        }
+    }
+
+    public enum SettingsPane: String, CaseIterable, Identifiable, Sendable {
+        case general, transcription, queue, models, shows, privacy
+        public var id: String { rawValue }
+        public var title: String {
+            switch self {
+            case .general: "General"
+            case .transcription: "Transcription"
+            case .queue: "Queue"
+            case .models: "Models"
+            case .shows: "Podcasts"
+            case .privacy: "Data and Privacy"
+            }
+        }
+        public var symbol: String {
+            switch self {
+            case .general: "slider.horizontal.3"
+            case .transcription: "waveform"
+            case .queue: "list.bullet.indent"
+            case .models: "shippingbox"
+            case .shows: "dot.radiowaves.left.and.right"
+            case .privacy: "lock.shield"
             }
         }
     }
@@ -65,7 +90,16 @@ public final class AppModel {
     }
 
     // Navigation and layout
-    public var section: Section = .library
+    public var section: Section = .home
+    /// The sidebar shrinks to an icon rail instead of disappearing.
+    public var sidebarCollapsed = UserDefaults.standard.bool(forKey: "sidebarCollapsed") {
+        didSet { UserDefaults.standard.set(sidebarCollapsed, forKey: "sidebarCollapsed") }
+    }
+    public var showSettings = false
+    public var settingsPane: SettingsPane = .general
+    public var hideSetup = UserDefaults.standard.bool(forKey: "hideSetup") {
+        didSet { UserDefaults.standard.set(hideSetup, forKey: "hideSetup") }
+    }
     public var centerTab: CenterTab = .transcript
     public var appearance: Appearance = .system
     public var textScale: Double = 1
@@ -102,6 +136,7 @@ public final class AppModel {
 
     @ObservationIgnored var services: WorkspaceServices?
     @ObservationIgnored private var workspaceTask: Task<Void, Never>?
+    @ObservationIgnored private var loadedJobs = false
     public var isPersistent = false
     public var speakerEvidence: [SpeakerID: [SpeakerEvidence]] = [:]
     public var savedEpisodes: [EpisodeListing] = []
@@ -123,6 +158,8 @@ public final class AppModel {
     public var scriberrURL = UserDefaults.standard.string(forKey: "scriberrURL") ?? "http://localhost:8080"
     public var scriberrKey = ""
     public var backgroundChecks = SMAppService.agent(plistName: "app.wavepod.feeds.plist").status == .enabled
+    public var namedVoices = 0
+    public var installedModels: Set<String> = []
     public var translationText = ""
     public var showTranslation = false
 
@@ -181,12 +218,19 @@ public final class AppModel {
         guard let services else { return }
         do {
             let latestJobs = await services.queue.snapshot()
-            let newCompletion = Set(latestJobs.filter { $0.state == .completed }.map(\.id))
-                .subtracting(jobs.filter { $0.state == .completed }.map(\.id))
+            // Jobs completed before launch are history, not news: only a completion seen while running opens the episode.
+            let newCompletion = loadedJobs ? Set(latestJobs.filter { $0.state == .completed }.map(\.id))
+                .subtracting(jobs.filter { $0.state == .completed }.map(\.id)) : []
             jobs = latestJobs
+            loadedJobs = true
             savedEpisodes = try services.store.items()
             subscriptions = try services.store.values(Subscription.self, kind: "subscription")
             networkEntries = await services.client.log()
+            namedVoices = (try? services.store.values(VoiceProfile.self, kind: "voice").count) ?? 0
+            let models = services.root.appendingPathComponent("models")
+            installedModels = Set(["parakeet", "language", "embeddings"].filter {
+                FileManager.default.fileExists(atPath: models.appendingPathComponent($0).path)
+            })
             if let job = jobs.first(where: { newCompletion.contains($0.id) }),
                let record = savedEpisodes.first(where: { $0.id == JobQueue.episodeID(job.episode) }) {
                 open(record)
@@ -327,6 +371,11 @@ public final class AppModel {
         } else { section = .search; performSearch() }
     }
 
+    public func openSettings(_ pane: SettingsPane? = nil) {
+        if let pane { settingsPane = pane }
+        showSettings = true
+    }
+
     // MARK: Ask this episode
 
     public var isAnswering = false
@@ -376,6 +425,7 @@ public final class AppModel {
     public func cycleAppearance() {
         let all = Appearance.allCases
         appearance = all[(all.firstIndex(of: appearance)! + 1) % all.count]
+        show("\(appearance.rawValue.capitalized) mode")
     }
 
     public func adjustTextSize(by step: Int) {
