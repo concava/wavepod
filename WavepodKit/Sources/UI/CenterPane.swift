@@ -272,11 +272,20 @@ struct AnswersSection: View {
     var body: some View {
         if !model.chat.isEmpty || model.isAnswering {
             VStack(alignment: .leading, spacing: 14) {
-                SectionHeading("Answers")
+                HStack {
+                    SectionHeading("Answers")
+                    Spacer()
+                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : "On this Mac") { model.openSettings(.ask) }
+                        .font(type.caption).buttonStyle(.plain).foregroundStyle(Palette.inkMuted)
+                        .help("Choose where answers run")
+                }
                 if model.isAnswering {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Answering on this Mac…").font(type.callout).foregroundStyle(Palette.inkMuted)
+                        Text(model.askProgress.isEmpty ? "Answering…" : model.askProgress)
+                            .font(type.callout).foregroundStyle(Palette.inkMuted).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Button("Stop", action: model.cancelAnswer).buttonStyle(ChipStyle(prominent: false))
                     }
                 }
                 ForEach(exchanges, id: \.question.id) { exchange in

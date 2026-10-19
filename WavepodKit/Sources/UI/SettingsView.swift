@@ -54,6 +54,7 @@ struct SettingsView: View {
         switch model.settingsPane {
         case .general: general
         case .transcription: transcription
+        case .ask: AskSettings(model: model)
         case .queue: queue
         case .models: models
         case .shows: shows

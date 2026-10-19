@@ -38,12 +38,13 @@ public final class AppModel {
     }
 
     public enum SettingsPane: String, CaseIterable, Identifiable, Sendable {
-        case general, transcription, queue, models, shows, privacy
+        case general, transcription, ask, queue, models, shows, privacy
         public var id: String { rawValue }
         public var title: String {
             switch self {
             case .general: "General"
             case .transcription: "Transcription"
+            case .ask: "Ask"
             case .queue: "Queue"
             case .models: "Models"
             case .shows: "Podcasts"
@@ -54,6 +55,7 @@ public final class AppModel {
             switch self {
             case .general: "slider.horizontal.3"
             case .transcription: "waveform"
+            case .ask: "bubble.left.and.text.bubble.right"
             case .queue: "list.bullet.indent"
             case .models: "shippingbox"
             case .shows: "dot.radiowaves.left.and.right"
@@ -145,6 +147,21 @@ public final class AppModel {
 
     // Command field and Ask
     public var commandText = ""
+    public var askProvider = UserDefaults.standard.string(forKey: "askProvider") ?? "local" {
+        didSet { UserDefaults.standard.set(askProvider, forKey: "askProvider") }
+    }
+    public var chatGPTProfileID = UserDefaults.standard.string(forKey: "chatGPTProfile") ?? "" {
+        didSet { UserDefaults.standard.set(chatGPTProfileID, forKey: "chatGPTProfile") }
+    }
+    public var chatGPTModelID = "" {
+        didSet { UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)") }
+    }
+    public var chatGPTProfiles: [ChatGPTProfile] = []
+    public var chatGPTModels: [ChatGPTModel] = []
+    public var chatGPTStatus = "Connect an eligible ChatGPT account to use your plan."
+    public var isConnectingChatGPT = false
+    public var showChatGPTPlanNotice = false
+    @ObservationIgnored var chatGPTConnectionTask: Task<Void, Never>?
     /// The language of the last translation; answers always follow the question's language.
     public var translationLanguage: AskLanguage = .en
     /// One-line status shown under the top bar ("Copied transcript", "Link resolution arrives in Phase 2", …).
@@ -239,6 +256,7 @@ public final class AppModel {
     }
 
     func install(_ record: EpisodeRecord, reloadPlayer: Bool = true) {
+        cancelAnswer()
         episode = record.episode; transcript = record.transcript; speakers = record.speakers
         speakerEvidence = record.speakerEvidence
         paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
@@ -419,6 +437,9 @@ public final class AppModel {
     // MARK: Ask this episode
 
     public var isAnswering = false
+    public var askProgress = ""
+    @ObservationIgnored private var answerTask: Task<Void, Never>?
+    public func cancelAnswer() { answerTask?.cancel() }
 
     public func ask(_ question: String) {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -432,32 +453,44 @@ public final class AppModel {
         }
         persistWorkspace()
         isAnswering = true
-        let id = episode.id, source = transcript
-        Task {
-            defer { isAnswering = false }
+        let id = episode.id, source = transcript, language = "Auto", history = Array(chat.dropLast())
+        let provider = askProvider, account = chatGPTProfileID
+        let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
+        askProgress = "Preparing transcript…"
+        answerTask = Task { [self] in
+            defer { isAnswering = false; askProgress = ""; answerTask = nil }
             do {
-                var context = PassageSearch.best(for: q, in: source, limit: 12)
-                // Semantic retrieval supplies cross-language and paraphrase matches when installed/indexed.
-                if FileManager.default.fileExists(atPath: services.root.appendingPathComponent("models/embeddings/config.json").path) {
-                    let vector = try await services.embeddings.encode([q], query: true).first ?? []
-                    let hits = try services.store.semanticSearch(vector, model: services.embeddings.modelID, episodeID: id, limit: 12)
-                    let ids = Set(hits.map(\.segmentID))
-                    let semantic = source.segments.filter { ids.contains($0.id) }
-                    let semanticIDs = Set(semantic.map(\.id))
-                    context = Array((semantic + context.filter { !semanticIDs.contains($0.id) }).prefix(12))
+                let progress: @Sendable (String) async -> Void = { [weak self] status in
+                    await MainActor.run { if self?.episode.id == id { self?.askProgress = status } }
                 }
-                let passages = context
-                let claims = try await services.generator.withSession { generator in
-                    try await GroundedAnswers(generator: generator).answer(
-                        instruction: "Answer this question in the language it is asked in: \(q)", context: passages, transcript: source)
+                let claims: [CitedClaim]
+                if provider == "chatgpt" {
+                    claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model), contextLimit: 40_000)
+                        .answer(question: q, language: language, history: history, transcript: source, progress: progress)
+                } else {
+                    claims = try await services.generator.withSession { generator in
+                        try await EpisodeAnswers(generator: generator).answer(question: q, language: language, history: history, transcript: source, progress: progress)
+                    }
                 }
-                let answer = ChatMessage(role: .assistant, text: claims.isEmpty ? "Not found in this episode." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now)
-                guard var record = try services.store.episode(id) else { return }
-                record.chat.append(answer)
-                try services.store.save(record)
-                if episode.id == id { chat = record.chat }
-            } catch { show(error.localizedDescription) }
+                try Task.checkCancellation()
+                saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now), episodeID: id)
+            } catch is CancellationError {
+                saveAskMessage(ChatMessage(role: .assistant, text: "Stopped before completing the answer.", date: .now), episodeID: id)
+            } catch {
+                let text = Task.isCancelled ? "Stopped before completing the answer." : "I couldn’t complete this answer: \(error.localizedDescription)"
+                saveAskMessage(ChatMessage(role: .assistant, text: text, date: .now), episodeID: id)
+            }
         }
+    }
+
+    private func saveAskMessage(_ message: ChatMessage, episodeID: String) {
+        guard let services else { return }
+        do {
+            guard var record = try services.store.episode(episodeID) else { return }
+            record.chat.append(message)
+            try services.store.save(record)
+            if episode.id == episodeID { chat = record.chat }
+        } catch { show(error.localizedDescription) }
     }
 
     // MARK: Appearance and notices

@@ -13,6 +13,10 @@ timestamp checked; subscribed shows can be transcribed automatically. See
 
 - Decisions: [`docs/decisions/`](docs/decisions/)
 - Engine benchmark: [`bench/`](bench/)
+- Ask: reads every transcript section, supports follow-up questions and cites the original words. Local is the
+  default; **Settings → Ask → My ChatGPT plan** optionally connects your existing eligible plan for cloud
+  answers. Questions, recent conversation and transcript text go to OpenAI in that mode; audio does not.
+  See the [Ask decision](docs/decisions/0010-ask-long-transcripts.md) for coverage and validation limits.
 - Swift modules and tests: [`WavepodKit/`](WavepodKit/) (`Networking`, `Resolver`, `Engine`, `NativeEngine`, `Pipeline`, `Speakers`, `Library`, `LLM`, `Player`, `UI`)
 
 ```sh
