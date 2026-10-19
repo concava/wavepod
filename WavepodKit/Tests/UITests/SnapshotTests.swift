@@ -105,6 +105,17 @@ final class SnapshotTests: XCTestCase {
         check("onboarding", size: CGSize(width: 680, height: 540)) { OnboardingView(model: model) }
     }
 
+    func testAskSettings() {
+        let model = makeModel()
+        let previous = model.askProvider
+        defer { model.askProvider = previous }
+        model.settingsPane = .ask
+        for provider in ["local", "chatgpt"] {
+            model.askProvider = provider
+            check("ask-settings-\(provider)", size: CGSize(width: 900, height: 620)) { SettingsView(model: model) }
+        }
+    }
+
     func testPlayerBar() {
         let model = makeModel()
         check("player", size: CGSize(width: 1100, height: 80)) { PlayerBar(model: model, player: model.player) }
