@@ -22,7 +22,7 @@ public struct RootView: View {
                     if model.section == .library {
                         Workspace(model: model, focus: $focus)
                     } else {
-                        SectionPlaceholder(section: model.section)
+                        LibrarySection(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -34,9 +34,34 @@ public struct RootView: View {
                     CommandField(model: model, focus: $focus)
                 }
                 ToolbarItem(placement: .primaryAction) {
+                    if model.isPersistent {
+                        Button("Open Audio…", systemImage: "plus", action: model.chooseFile)
+                            .help("Open an audio or video file")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
+                        Menu("Generate", systemImage: "sparkles") {
+                            Button("Summary") { model.generateNotes() }
+                            Button("Chapters") { model.generateNotes(chaptersOnly: true) }
+                        }.disabled(model.isGenerating)
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
                     AppearanceButton(model: model)
                 }
             }
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter(\.isFileURL)
+            for file in files { model.importFile(file) }
+            return !files.isEmpty
+        }
+        .sheet(isPresented: $model.showTranslation) {
+            VStack(alignment: .leading) {
+                HStack { Text("Translation · \(model.askLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }
+                ScrollView { Text(model.translationText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+            }.padding().frame(width: 640, height: 560)
         }
         .environment(\.typography, Typography(scale: model.textScale))
         .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
@@ -138,27 +163,5 @@ struct NoticeBar: View {
             .frame(maxWidth: .infinity)
             .background(Palette.accentSoft)
             .accessibilityAddTraits(.updatesFrequently)
-    }
-}
-
-struct SectionPlaceholder: View {
-    let section: AppModel.Section
-
-    var body: some View {
-        ContentUnavailableView {
-            Label(section.title, systemImage: section.symbol)
-        } description: {
-            Text(description)
-        }
-    }
-
-    var description: String {
-        switch section {
-        case .library: ""
-        case .shows: "Subscriptions with automatic transcription arrive in Phase 5."
-        case .queue: "The transcription queue with progress, pause and resume arrives in Phase 3."
-        case .search: "Keyword and meaning search across every episode arrives in Phase 5."
-        case .settings: "Engines, models, storage and the network log arrive with the pipeline."
-        }
     }
 }

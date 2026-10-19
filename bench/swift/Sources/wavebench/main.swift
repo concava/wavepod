@@ -4,6 +4,7 @@
 //   wavebench whisperkit-vad <model> [ids...]   same model, VAD windows decoded independently
 //   wavebench parakeet [ids...]             FluidAudio Parakeet TDT v3 "ultra" (en/es only)
 //   wavebench diarize [ids...]              FluidAudio offline pyannote pipeline
+//   wavebench stress-diarize <ane|default|app> <audio>   one diarization run, for the macOS 14 stress test
 //
 // Output matches the Python runners: results/raw/<engine>/<id>.json with {text, proc_s, load_s}, or
 // {rttm, proc_s, load_s} for diarization. Peak memory is measured outside, with /usr/bin/time -l.
@@ -11,9 +12,10 @@
 // Run from the bench/ directory. podeval points it elsewhere with WB_MANIFEST and WB_RESULTS (absolute paths);
 // audio paths in a manifest may be absolute or relative to bench/.
 
-import FluidAudio
+@preconcurrency import CoreML
+@preconcurrency import FluidAudio
 import Foundation
-import WhisperKit
+@preconcurrency import WhisperKit
 
 struct Sentence: Decodable {
     let start: Double
@@ -235,6 +237,51 @@ func runDiarize(ids: [String]) async throws {
     }
 }
 
+/// One offline diarization in this process, with the models routed one of three ways (docs/decisions/0003):
+/// `ane` = .cpuAndNeuralEngine, which FluidAudio reports crashing in libBNNS on macOS 14 (positive control);
+/// `default` = FluidAudio's own loading (.all, FBank pinned to the CPU); `app` = what NativeEngine ships
+/// (all four models on .all). Run it many times as separate processes: a crash then costs one run, not the test.
+func runStressDiarize(mode: String, audio: URL) async throws {
+    let manager = OfflineDiarizerManager()
+    switch mode {
+    case "ane":
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .cpuAndNeuralEngine
+        try await manager.prepareModels(configuration: configuration)
+    case "default":
+        try await manager.prepareModels()
+    case "app":
+        try await manager.prepareModels()  // download and compile once, then load the way the app does
+        let root = OfflineDiarizerModels.defaultModelsDirectory()
+        guard let plda = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?
+            .compactMap({ $0 as? URL }).first(where: { $0.lastPathComponent == "plda-parameters.json" }) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let folder = plda.deletingLastPathComponent()
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .all
+        func model(_ name: String) throws -> MLModel {
+            try MLModel(contentsOf: folder.appendingPathComponent("\(name).mlmodelc"), configuration: configuration)
+        }
+        let parameters = try JSONSerialization.jsonObject(with: Data(contentsOf: plda)) as? [String: Any]
+        guard let tensors = parameters?["tensors"] as? [String: Any], let psi = tensors["psi"] as? [String: Any],
+              let encoded = psi["data_base64"] as? String, let bytes = Data(base64Encoded: encoded) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        var floats = [Float](repeating: 0, count: bytes.count / 4)
+        _ = floats.withUnsafeMutableBytes { bytes.copyBytes(to: $0) }
+        manager.initialize(models: try OfflineDiarizerModels(
+            segmentationModel: model("Segmentation"), fbankModel: model("FBank"), embeddingModel: model("Embedding"),
+            pldaRhoModel: model("PldaRho"), pldaPsi: floats.map(Double.init), compilationDuration: 0))
+    default:
+        throw CocoaError(.featureUnsupported)
+    }
+    let t = ContinuousClock.now
+    let result = try await manager.process(audio)
+    let speakers = Set(result.segments.map(\.speakerId)).count
+    print(String(format: "ok mode=%@ segments=%d speakers=%d seconds=%.1f", mode, result.segments.count, speakers, seconds(since: t)))
+}
+
 var args = Array(CommandLine.arguments.dropFirst())
 guard !args.isEmpty else {
     print("usage: wavebench whisperkit <model> [ids...] | parakeet [ids...] | diarize [ids...]")
@@ -267,6 +314,8 @@ case "parakeet-short":
     }
 case "diarize":
     try await runDiarize(ids: args)
+case "stress-diarize":
+    try await runStressDiarize(mode: args[0], audio: URL(fileURLWithPath: args[1]))
 default:
     print("unknown command \(command)")
     exit(2)

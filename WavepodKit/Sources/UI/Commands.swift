@@ -8,6 +8,9 @@ public struct WavepodCommands: Commands {
     public init(model: AppModel) { self.model = model }
 
     public var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Open Audio or Video…", action: model.chooseFile).keyboardShortcut("o")
+        }
         CommandGroup(after: .textEditing) {
             Button("Search or Open Link…") { model.focusRequest = .command }
                 .keyboardShortcut("k")

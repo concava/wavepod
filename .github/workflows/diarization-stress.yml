@@ -1,0 +1,89 @@
+# macOS 14 diarization stress test (docs/decisions/0003, "Risk: macOS 14 crash in Apple's BNNS").
+#
+# GitHub's macos-14 runners are Apple Silicon VMs without a Neural Engine, so Core ML falls back to the BNNS CPU path
+# on every prediction: the crash path, deterministically. Each mode runs N diarizations, each in its own process, so
+# a crash costs one run. `ane` (.cpuAndNeuralEngine) is the positive control FluidAudio reports crashing on macOS 14;
+# `default` is FluidAudio's own routing; `app` is what NativeEngine ships. macOS 15 is the negative control.
+# The job fails only if `app` crashes.
+name: diarization-stress
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Diarizations per mode and OS
+        default: "100"
+  push:
+    branches: [phase-3-pipeline]
+    paths:
+      - .github/workflows/diarization-stress.yml
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build wavebench (minimum macOS 14)
+        run: swift build -c release --package-path bench/swift
+      - name: Fetch a short VoxConverse test file (CC BY 4.0)
+        run: |
+          cd bench
+          uv run --no-project --with soundfile python prepare_voxconverse.py --minutes 4
+          cp "$(ls data/voxconverse/*.wav | head -1)" ../clip.wav
+          # Artifacts skip hidden paths such as .build/, so stage the binary at the top level.
+          cp swift/.build/release/wavebench ../wavebench
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stress-inputs
+          path: |
+            wavebench
+            clip.wav
+
+  stress:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+        mode: [ane, default, app]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: stress-inputs
+      - name: Run diarizations
+        env:
+          RUNS: ${{ inputs.runs || '100' }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          chmod +x wavebench
+          WB=./wavebench
+          sw_vers
+          # The first run downloads and compiles the models; it counts like any other.
+          ok=0; crashed=0; failed=0; codes=""
+          for i in $(seq 1 "$RUNS"); do
+            set +e
+            "$WB" stress-diarize "$MODE" clip.wav > run.log 2>&1
+            code=$?
+            set -e
+            if [ $code -eq 0 ]; then ok=$((ok + 1))
+            elif [ $code -ge 128 ]; then crashed=$((crashed + 1)); codes="$codes $code"; tail -5 run.log
+            else failed=$((failed + 1)); codes="$codes $code"; tail -5 run.log
+            fi
+          done
+          tail -1 run.log
+          os="$(sw_vers -productVersion)"
+          echo "| Runner | Mode | Runs | OK | Crashed (signal) | Failed | Exit codes |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ${{ matrix.os }} ($os) | \`$MODE\` | $RUNS | $ok | $crashed | $failed |$codes |" >> "$GITHUB_STEP_SUMMARY"
+          echo "{\"os\": \"$os\", \"mode\": \"$MODE\", \"runs\": $RUNS, \"ok\": $ok, \"crashed\": $crashed, \"failed\": $failed}" > result.json
+          cat result.json
+          # Only the shipping configuration gates; the controls are evidence.
+          if [ "$MODE" = app ] && [ $((crashed + failed)) -gt 0 ]; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.os }}-${{ matrix.mode }}
+          path: result.json

@@ -45,6 +45,9 @@ struct AskPane: View {
                 }
             }
 
+            if model.isAnswering {
+                HStack { ProgressView().controlSize(.small); Text("Working on this Mac…").font(type.caption); Spacer() }.padding(12)
+            }
             Divider().overlay(Palette.rule)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .bottom, spacing: 8) {

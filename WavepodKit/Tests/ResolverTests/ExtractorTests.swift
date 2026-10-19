@@ -6,7 +6,7 @@ private struct FixtureProcess: ProcessExecuting {
     var status: Int32 = 0
     func run(executable: URL, arguments: [String]) async throws -> ProcessOutput {
         XCTAssertEqual(executable.path, "/fixture/yt-dlp")
-        XCTAssertEqual(arguments, ["-J", "--no-playlist", "https://www.youtube.com/watch?v=abcdefghijk"])
+        XCTAssertEqual(arguments, ["--ignore-config", "--no-plugin-dirs", "-J", "--no-playlist", "-f", "bestaudio[ext=m4a]", "https://www.youtube.com/watch?v=abcdefghijk"])
         return ProcessOutput(data: try fixture("video.json"), status: status)
     }
 }

@@ -1,21 +1,19 @@
 import Foundation
+import Networking
 
 public protocol HTTPFetching: Sendable {
     func get(_ url: URL, headers: [String: String]) async throws -> (Data, HTTPURLResponse)
 }
 
-/// CLI transport. Apps inject their allow-listed, logged client instead.
+/// CLI and app use the same logged transport. Feed metadata may introduce enclosure/CDN hosts.
 public struct URLSessionFetcher: HTTPFetching {
-    private let session: URLSession
-
-    public init(session: URLSession = .shared) { self.session = session }
-
+    private let client: HTTPClient
+    public init(client: HTTPClient = .shared) { self.client = client }
     public func get(_ url: URL, headers: [String: String]) async throws -> (Data, HTTPURLResponse) {
+        try await client.allow(url)
         var request = URLRequest(url: url)
         request.allHTTPHeaderFields = headers
-        let (data, response) = try await session.data(for: request)
-        guard let response = response as? HTTPURLResponse else { throw ResolverError.invalidResponse }
-        return (data, response)
+        return try await client.data(request, purpose: "feed", maximumBytes: 128 * 1024 * 1024)
     }
 }
 

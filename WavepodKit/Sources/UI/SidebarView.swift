@@ -11,6 +11,18 @@ struct SidebarView: View {
                     .font(type.body)
                     .tag(section)
             }
+            if !model.savedEpisodes.isEmpty {
+                Section("Episodes") {
+                    ForEach(model.savedEpisodes) { record in
+                        Button { model.open(record) } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(record.episode.title).lineLimit(2)
+                                Text(record.episode.showName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .top, spacing: 0) {

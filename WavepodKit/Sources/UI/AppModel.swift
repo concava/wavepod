@@ -1,4 +1,11 @@
 import AppKit
+import Engine
+import LLM
+import Networking
+import Pipeline
+import Resolver
+import Speakers
+import ServiceManagement
 import Library
 import Observation
 import Player
@@ -64,13 +71,13 @@ public final class AppModel {
     public var textScale: Double = 1
 
     // Episode in the workspace
-    public private(set) var episode: Episode
-    public private(set) var speakers: [SpeakerID: Speaker]
-    public private(set) var transcript: Transcript
-    public private(set) var paragraphs: [Paragraph]
-    public private(set) var chapters: [Chapter]
-    public private(set) var summary: EpisodeSummary?
-    public private(set) var chat: [ChatMessage]
+    public internal(set) var episode: Episode
+    public internal(set) var speakers: [SpeakerID: Speaker]
+    public internal(set) var transcript: Transcript
+    public internal(set) var paragraphs: [Paragraph]
+    public internal(set) var chapters: [Chapter]
+    public internal(set) var summary: EpisodeSummary?
+    public internal(set) var chat: [ChatMessage]
 
     // Transcript view options
     public var showSpeakerLabels = true
@@ -88,12 +95,38 @@ public final class AppModel {
     public var commandText = ""
     public var askLanguage: AskLanguage = .auto
     /// One-line status shown under the top bar ("Copied transcript", "Link resolution arrives in Phase 2", …).
-    public private(set) var notice: String?
+    public internal(set) var notice: String?
 
     public let player: PlayerModel
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
 
-    public init(player: PlayerModel = PlayerModel()) {
+    @ObservationIgnored var services: WorkspaceServices?
+    @ObservationIgnored private var workspaceTask: Task<Void, Never>?
+    public var isPersistent = false
+    public var speakerEvidence: [SpeakerID: [SpeakerEvidence]] = [:]
+    public var savedEpisodes: [EpisodeListing] = []
+    public var jobs: [TranscriptionJob] = []
+    public var subscriptions: [Subscription] = []
+    public var resolvedShow: ResolvedShow?
+    public var resolutionCandidates: [ScoredCandidate] = []
+    public var searchHits: [SearchHit] = []
+    public var meaningSearch = false
+    public var isPowerPaused = false
+    public var isRefreshing = false
+    public var isResolving = false
+    public var isIndexing = false
+    public var isGenerating = false
+    public var isInstalling = false
+    public var modelStatus = "Models are downloaded once and run on this Mac."
+    public var networkEntries: [NetworkEntry] = []
+    public var engineChoice = UserDefaults.standard.string(forKey: "engine") ?? "native"
+    public var scriberrURL = UserDefaults.standard.string(forKey: "scriberrURL") ?? "http://localhost:8080"
+    public var scriberrKey = ""
+    public var backgroundChecks = SMAppService.agent(plistName: "app.wavepod.feeds.plist").status == .enabled
+    public var translationText = ""
+    public var showTranslation = false
+
+    public init(player: PlayerModel = PlayerModel(), persistent: Bool = false) {
         self.player = player
         episode = SampleData.episode
         speakers = SampleData.speakers
@@ -103,6 +136,73 @@ public final class AppModel {
         summary = SampleData.summary
         chat = SampleData.chat
         player.load(episode)
+        isPersistent = persistent
+        if persistent {
+            episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
+                              descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
+            speakers = [:]; transcript = Transcript(language: "und", segments: [])
+            paragraphs = []; chapters = []; summary = nil; chat = []
+            player.load(episode)
+            do {
+                services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
+                savedEpisodes = try services!.store.items()
+                if let item = savedEpisodes.first, let record = try services!.store.episode(item.id) { install(record) }
+                workspaceTask = Task { [weak self] in
+                    var checks = 0
+                    while !Task.isCancelled {
+                        guard let self else { return }
+                        if let services = self.services {
+                            do {
+                                self.isPowerPaused = WorkspaceServices.onBattery()
+                                try await services.queue.setOnBattery(self.isPowerPaused)
+                                await services.queue.start()
+                            } catch { self.show(error.localizedDescription) }
+                        }
+                        checks += 1
+                        if checks % 3600 == 0 { self.refreshShows() }
+                        await self.refreshWorkspace()
+                        try? await Task.sleep(for: .seconds(1))
+                    }
+                }
+                refreshShows()
+            } catch { show("Could not open the library: \(error.localizedDescription)") }
+        }
+    }
+
+    func install(_ record: EpisodeRecord, reloadPlayer: Bool = true) {
+        episode = record.episode; transcript = record.transcript; speakers = record.speakers
+        speakerEvidence = record.speakerEvidence
+        paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
+        summary = record.summary; chat = record.chat
+        if reloadPlayer { player.load(episode, audioURL: record.audioURL) }
+    }
+
+    func refreshWorkspace() async {
+        guard let services else { return }
+        do {
+            let latestJobs = await services.queue.snapshot()
+            let newCompletion = Set(latestJobs.filter { $0.state == .completed }.map(\.id))
+                .subtracting(jobs.filter { $0.state == .completed }.map(\.id))
+            jobs = latestJobs
+            savedEpisodes = try services.store.items()
+            subscriptions = try services.store.values(Subscription.self, kind: "subscription")
+            networkEntries = await services.client.log()
+            if let job = jobs.first(where: { newCompletion.contains($0.id) }),
+               let record = savedEpisodes.first(where: { $0.id == JobQueue.episodeID(job.episode) }) {
+                open(record)
+                if FileManager.default.fileExists(atPath: services.root.appendingPathComponent("models/embeddings/config.json").path) { indexLibrary() }
+            }
+        } catch { show(error.localizedDescription) }
+    }
+
+    func persistWorkspace() {
+        guard let services, !episode.id.isEmpty else { return }
+        do {
+            guard var record = try services.store.episode(episode.id) else { return }
+            record.speakers = speakers; record.chat = chat; record.summary = summary; record.chapters = chapters
+            try services.store.save(record)
+            savedEpisodes = try services.store.items()
+        } catch { show(error.localizedDescription) }
     }
 
     // MARK: Speakers
@@ -115,10 +215,25 @@ public final class AppModel {
     public func rename(_ id: SpeakerID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, var speaker = speakers[id] else { return }
+        let previousName = speaker.name
+        let wasConfirmed = speaker.isConfirmed
         speaker.name = trimmed
         speaker.isConfirmed = true
         speaker.suggestionConfidence = nil
         speakers[id] = speaker
+        persistWorkspace()
+        if let services {
+            do {
+                if let record = try services.store.episode(episode.id), let embedding = record.embeddings[id.rawValue], let feed = record.feedURL {
+                    if wasConfirmed, previousName != trimmed {
+                        try services.store.remove(kind: "voice", id: feed.absoluteString + "|" + previousName.lowercased())
+                    }
+                    let profileID = feed.absoluteString + "|" + trimmed.lowercased()
+                    let profile = VoiceProfile(id: profileID, showID: feed.absoluteString, name: trimmed, embedding: embedding)
+                    try services.store.put(profile, kind: "voice", id: profileID)
+                }
+            } catch { show(error.localizedDescription) }
+        }
     }
 
     public func confirm(_ id: SpeakerID) {
@@ -182,37 +297,77 @@ public final class AppModel {
 
     // MARK: Command field
 
-    /// A pasted link goes to link resolution (Phase 2); anything else is a search.
+    /// Resolve URLs; search text across the saved library.
     public func submitCommand() {
         let text = commandText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        if let url = URL(string: text), let scheme = url.scheme, ["http", "https"].contains(scheme.lowercased()) {
-            show("Opening links arrives with link resolution (Phase 2): \(url.host ?? text)")
-        } else {
-            section = .search
-        }
+        if text.hasPrefix("/") || text.hasPrefix("~/") { importFile(URL(fileURLWithPath: (text as NSString).expandingTildeInPath)); return }
+        if let url = URL(string: text), ["http", "https", "file"].contains(url.scheme?.lowercased() ?? "") {
+            if url.isFileURL { importFile(url); return }
+            guard let services, !isResolving else { return }
+            isResolving = true
+            Task {
+                defer { isResolving = false }
+                do {
+                    if case .youtube = LinkClassifier.classify(text) {
+                        let executable = services.root.appendingPathComponent("tools/yt-dlp")
+                        if !FileManager.default.isExecutableFile(atPath: executable.path) {
+                            show("Installing the verified YouTube extractor…")
+                            _ = try await YtDlpInstaller(fetcher: URLSessionFetcher(client: services.client)).install(in: executable.deletingLastPathComponent())
+                        }
+                    }
+                    switch try await services.resolver.resolve(text) {
+                    case .episode(let episode): enqueue(episode)
+                    case .show(let show): resolvedShow = show; section = .shows
+                    case .needsConfirmation(let candidates): resolutionCandidates = candidates; section = .shows
+                    case .notFound(let reason): show(reason)
+                    }
+                } catch { show(error.localizedDescription) }
+            }
+        } else { section = .search; performSearch() }
     }
 
     // MARK: Ask this episode
 
     public var isAnswering = false
 
-    /// Until the local model ships (Phase 5) this returns the passages that best match the question, each with its
-    /// timestamp, and says so. It never writes an answer the transcript does not contain.
     public func ask(_ question: String) {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return }
+        guard !q.isEmpty, !isAnswering else { return }
         chat.append(ChatMessage(role: .user, text: q, date: .now))
-        let matches = PassageSearch.best(for: q, in: transcript, limit: 2)
-        if matches.isEmpty {
-            chat.append(ChatMessage(role: .assistant,
-                                    text: "I couldn't find anything about that in this episode.", date: .now))
-        } else {
-            chat.append(ChatMessage(
-                role: .assistant,
-                text: "The local model isn't installed yet, so here are the passages that best match your question.",
-                citations: matches.map { Citation(start: $0.start, quote: $0.words.map(\.text).joined(separator: " ")) },
-                date: .now))
+        guard let services else {
+            let matches = PassageSearch.best(for: q, in: transcript, limit: 2)
+            chat.append(ChatMessage(role: .assistant, text: matches.isEmpty ? "I couldn't find anything about that in this episode." : "Matching transcript passages:",
+                                    citations: matches.map { Citation(start: $0.start, quote: $0.words.map(\.text).joined(separator: " ")) }, date: .now))
+            return
+        }
+        persistWorkspace()
+        isAnswering = true
+        let id = episode.id, source = transcript, language = askLanguage.title
+        Task {
+            defer { isAnswering = false }
+            do {
+                var context = PassageSearch.best(for: q, in: source, limit: 12)
+                // Semantic retrieval supplies cross-language and paraphrase matches when installed/indexed.
+                if FileManager.default.fileExists(atPath: services.root.appendingPathComponent("models/embeddings/config.json").path) {
+                    let vector = try await services.embeddings.encode([q], query: true).first ?? []
+                    let hits = try services.store.semanticSearch(vector, model: services.embeddings.modelID, episodeID: id, limit: 12)
+                    let ids = Set(hits.map(\.segmentID))
+                    let semantic = source.segments.filter { ids.contains($0.id) }
+                    let semanticIDs = Set(semantic.map(\.id))
+                    context = Array((semantic + context.filter { !semanticIDs.contains($0.id) }).prefix(12))
+                }
+                let passages = context
+                let claims = try await services.generator.withSession { generator in
+                    try await GroundedAnswers(generator: generator).answer(
+                        instruction: "Answer this question in \(language): \(q)", context: passages, transcript: source)
+                }
+                let answer = ChatMessage(role: .assistant, text: claims.isEmpty ? "Not found in this episode." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now)
+                guard var record = try services.store.episode(id) else { return }
+                record.chat.append(answer)
+                try services.store.save(record)
+                if episode.id == id { chat = record.chat }
+            } catch { show(error.localizedDescription) }
         }
     }
 
@@ -240,7 +395,7 @@ public final class AppModel {
     }
 }
 
-/// Keyword overlap over transcript segments. A placeholder for the embedding retrieval in Phase 5.
+/// Keyword retrieval remains available before the optional embedding model is installed.
 enum PassageSearch {
     static let stopwords: Set<String> = ["the", "and", "that", "this", "what", "when", "where", "which", "with",
                                          "were", "was", "did", "does", "about", "from", "they", "their", "there",
