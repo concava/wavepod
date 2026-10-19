@@ -63,3 +63,41 @@ public enum ContextChunks {
         return chunks
     }
 }
+
+public protocol NotesGenerating: Sendable {
+    var isAvailable: Bool { get }
+    func notes(_ transcript: Transcript, chapters: Bool) async throws -> [CitedClaim]
+}
+
+extension LocalGenerator: NotesGenerating {
+    public var isAvailable: Bool { FileManager.default.fileExists(atPath: directory.appendingPathComponent("config.json").path) }
+}
+
+public struct EpisodeNotesService: Sendable {
+    public let store: LibraryStore
+    public let generator: any NotesGenerating
+    public init(store: LibraryStore, generator: any NotesGenerating) { self.store = store; self.generator = generator }
+    @discardableResult public func generate(_ id: String, chapters: Bool) async throws -> [CitedClaim] {
+        guard let source = try store.episode(id), !source.transcript.segments.isEmpty else { return [] }
+        let claims = try await generator.notes(source.transcript, chapters: chapters)
+        guard var record = try store.episode(id) else { return claims }
+        if chapters {
+            record.chapters = claims.sorted { $0.start < $1.start }.map { Chapter(title: $0.claim, start: $0.start, summary: $0.quote) }
+        } else {
+            record.summary = EpisodeSummary(overview: claims.prefix(3).map(\.claim).joined(separator: " "),
+                                            points: claims.map { SummaryPoint(text: $0.claim, citation: $0.citation) },
+                                            quotes: Array(claims.prefix(3).map(\.citation)))
+        }
+        try store.save(record)
+        return claims
+    }
+    public func completePending(_ id: String) async throws {
+        guard let record = try store.episode(id), record.notesPending == true,
+              !record.transcript.segments.isEmpty, generator.isAvailable else { return }
+        try await generate(id, chapters: false)
+        try await generate(id, chapters: true)
+        guard var latest = try store.episode(id) else { return }
+        latest.notesPending = false
+        try store.save(latest)
+    }
+}

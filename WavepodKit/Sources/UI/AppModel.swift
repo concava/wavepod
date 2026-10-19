@@ -223,7 +223,13 @@ public final class AppModel {
                 .subtracting(jobs.filter { $0.state == .completed }.map(\.id)) : []
             jobs = latestJobs
             loadedJobs = true
+            let previous = savedEpisodes.first(where: { $0.id == episode.id })
             savedEpisodes = try services.store.items()
+            if let latest = savedEpisodes.first(where: { $0.id == episode.id }),
+               previous?.summarized != latest.summarized || previous?.notesPending != latest.notesPending,
+               let record = try services.store.episode(latest.id) {
+                install(record, reloadPlayer: false)
+            }
             subscriptions = try services.store.values(Subscription.self, kind: "subscription")
             networkEntries = await services.client.log()
             namedVoices = (try? services.store.values(VoiceProfile.self, kind: "voice").count) ?? 0
@@ -243,7 +249,7 @@ public final class AppModel {
         guard let services, !episode.id.isEmpty else { return }
         do {
             guard var record = try services.store.episode(episode.id) else { return }
-            record.speakers = speakers; record.chat = chat; record.summary = summary; record.chapters = chapters
+            record.speakers = speakers; record.chat = chat
             try services.store.save(record)
             savedEpisodes = try services.store.items()
         } catch { show(error.localizedDescription) }

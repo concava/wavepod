@@ -47,9 +47,12 @@ import Resolver
             while true {
                 try await queue.setOnBattery(!testing && onBattery())
                 let jobs = await queue.snapshot()
-                if !jobs.contains(where: { $0.state == .running || $0.state == .queued }) { break }
+                let busy = await queue.isBusy()
+                if !busy, !jobs.contains(where: { $0.state == .running || $0.state == .queued }) { break }
                 try await Task.sleep(for: .seconds(2))
             }
+            await queue.retryPendingSummaries()
+            await queue.shutdown()
         } catch { NSLog("wavepod feed check: %@", error.localizedDescription) }
     }
 }
