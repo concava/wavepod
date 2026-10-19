@@ -139,6 +139,15 @@ public final class AppModel {
     public var chatGPTModelID = "" {
         didSet { UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)") }
     }
+    public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable") ?? ClaudePlan.detectedExecutable {
+        didSet { UserDefaults.standard.set(claudeExecutable, forKey: "claudeExecutable"); claudeStatus = "Connect your Claude plan." }
+    }
+    public var claudeModel = UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet" {
+        didSet { UserDefaults.standard.set(claudeModel, forKey: "claudeModel") }
+    }
+    public var claudeStatus = "Connect your Claude plan."
+    public var isConnectingClaude = false
+    @ObservationIgnored var claudeConnectionTask: Task<Void, Never>?
     public var chatGPTProfiles: [ChatGPTProfile] = []
     public var chatGPTModels: [ChatGPTModel] = []
     public var chatGPTStatus = "Connect an eligible ChatGPT account to use your plan."
@@ -416,6 +425,7 @@ public final class AppModel {
         let id = episode.id, source = transcript, language = askLanguage.title, history = Array(chat.dropLast())
         let provider = askProvider, account = chatGPTProfileID
         let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
+        let claudePath = claudeExecutable, claudeChoice = claudeModel
         askProgress = "Preparing transcript…"
         answerTask = Task { [self] in
             defer { isAnswering = false; askProgress = ""; answerTask = nil }
@@ -426,6 +436,9 @@ public final class AppModel {
                 let claims: [CitedClaim]
                 if provider == "chatgpt" {
                     claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model), contextLimit: 40_000)
+                        .answer(question: q, language: language, history: history, transcript: source, progress: progress)
+                } else if provider == "claude" {
+                    claims = try await EpisodeAnswers(generator: ClaudeGenerator(plan: services.claude, executable: claudePath, model: claudeChoice), contextLimit: 40_000)
                         .answer(question: q, language: language, history: history, transcript: source, progress: progress)
                 } else {
                     claims = try await services.generator.withSession { generator in

@@ -92,10 +92,11 @@ final class SnapshotTests: XCTestCase {
 
     func testAskSettings() {
         let model = makeModel()
-        let previous = model.askProvider
-        defer { model.askProvider = previous }
+        let previous = model.askProvider, previousClaude = model.claudeExecutable
+        defer { model.askProvider = previous; model.claudeExecutable = previousClaude }
+        model.claudeExecutable = ""
         model.settingsPane = .ask
-        for provider in ["local", "chatgpt"] {
+        for provider in ["local", "chatgpt", "claude"] {
             model.askProvider = provider
             check("ask-settings-\(provider)", size: CGSize(width: 900, height: 620)) { SettingsView(model: model) }
         }

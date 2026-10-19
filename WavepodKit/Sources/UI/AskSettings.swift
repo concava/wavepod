@@ -67,10 +67,11 @@ struct AskSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsGroup(title: "Answer model") {
-                SettingRow(title: "Run answers", detail: "Local is the default. Your transcript stays on this Mac. ChatGPT can be faster and uses your existing eligible plan.", last: true) {
+                SettingRow(title: "Run answers", detail: "Local is the default. Choose an eligible ChatGPT or Claude plan for cloud answers.", last: true) {
                     Picker("Answer model", selection: $model.askProvider) {
                         Text("On this Mac").tag("local")
                         Text("My ChatGPT plan").tag("chatgpt")
+                        Text("My Claude plan").tag("claude")
                     }.labelsHidden().fixedSize()
                 }
             }
@@ -103,6 +104,8 @@ struct AskSettings: View {
                     Button("Refresh models") { Task { await model.loadChatGPTModels() } }
                     Link("Manage usage", destination: URL(string: "https://chatgpt.com/#settings/Usage")!)
                 }
+            } else if model.askProvider == "claude" {
+                ClaudeSettings(model: model)
             } else {
                 Text("Uses the language model installed in Models. Every transcript section is read before producing an answer; long episodes take longer on the local model.")
                     .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)

@@ -83,7 +83,7 @@ struct AskPane: View {
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Palette.rule))
 
                 HStack {
-                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : "Local model") { model.openSettings(.ask) }
+                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : model.askProvider == "claude" ? "Claude plan" : "Local model") { model.openSettings(.ask) }
                         .font(type.caption).buttonStyle(.plain).foregroundStyle(Palette.inkMuted)
                         .help("Choose where answers run")
                     Picker(selection: $model.askLanguage) {
