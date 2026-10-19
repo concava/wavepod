@@ -19,6 +19,7 @@ public struct EpisodeRecord: Codable, Sendable, Identifiable {
     public var chapters: [Chapter]
     public var summary: EpisodeSummary?
     public var chat: [ChatMessage]
+    public var notesPending: Bool?
     public var audioURL: URL?
     public var feedURL: URL?
     public var speakerEvidence: [SpeakerID: [SpeakerEvidence]]
@@ -36,7 +37,12 @@ public struct EpisodeRecord: Codable, Sendable, Identifiable {
 public struct EpisodeListing: Sendable, Identifiable {
     public var id: String { episode.id }
     public var episode: Episode
-    public init(episode: Episode) { self.episode = episode }
+    public var downloaded: Bool
+    public var summarized: Bool
+    public var notesPending: Bool
+    public init(episode: Episode, downloaded: Bool = false, summarized: Bool = false, notesPending: Bool = false) {
+        self.episode = episode; self.downloaded = downloaded; self.summarized = summarized; self.notesPending = notesPending
+    }
 }
 
 public struct SearchHit: Identifiable, Sendable {
@@ -53,6 +59,9 @@ public struct Subscription: Codable, Sendable, Identifiable {
     public var id: String { feedURL.absoluteString }
     public var feedURL: URL
     public var title: String
+    public var autoDownload: Bool
+    public var autoSummarize: Bool
+    public var keepLatest: Int?
     public var autoTranscribe: Bool
     public var checked: Date?
     public var nextCheck: Date?
@@ -60,8 +69,27 @@ public struct Subscription: Codable, Sendable, Identifiable {
     public var modified: String?
     /// Seeded at subscription time so enabling automation never imports an entire back catalogue.
     public var seen: Set<String>
-    public init(feedURL: URL, title: String, autoTranscribe: Bool = false, seen: Set<String> = []) {
+    public init(feedURL: URL, title: String, autoTranscribe: Bool = true, seen: Set<String> = [],
+                autoDownload: Bool = true, autoSummarize: Bool = true, keepLatest: Int? = nil) {
         self.feedURL = feedURL; self.title = title; self.autoTranscribe = autoTranscribe; self.seen = seen
+        self.autoDownload = autoDownload; self.autoSummarize = autoSummarize; self.keepLatest = keepLatest
+    }
+    enum CodingKeys: String, CodingKey {
+        case feedURL, title, autoTranscribe, autoDownload, autoSummarize, keepLatest, checked, nextCheck, etag, modified, seen
+    }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        feedURL = try values.decode(URL.self, forKey: .feedURL)
+        title = try values.decode(String.self, forKey: .title)
+        autoTranscribe = try values.decodeIfPresent(Bool.self, forKey: .autoTranscribe) ?? false
+        autoDownload = try values.decodeIfPresent(Bool.self, forKey: .autoDownload) ?? false
+        autoSummarize = try values.decodeIfPresent(Bool.self, forKey: .autoSummarize) ?? false
+        keepLatest = try values.decodeIfPresent(Int.self, forKey: .keepLatest)
+        checked = try values.decodeIfPresent(Date.self, forKey: .checked)
+        nextCheck = try values.decodeIfPresent(Date.self, forKey: .nextCheck)
+        etag = try values.decodeIfPresent(String.self, forKey: .etag)
+        modified = try values.decodeIfPresent(String.self, forKey: .modified)
+        seen = try values.decode(Set<String>.self, forKey: .seen)
     }
 }
 
@@ -110,8 +138,13 @@ public final class LibraryStore: Sendable {
     /// Load only episode metadata for navigation; long transcripts stay on disk until opened.
     public func items() throws -> [EpisodeListing] {
         try db.read { db in
-            try String.fetchAll(db, sql: "SELECT json_extract(payload, '$.episode') FROM episodes ORDER BY date DESC,id").map {
-                EpisodeListing(episode: try JSONDecoder().decode(Episode.self, from: Data($0.utf8)))
+            try Row.fetchAll(db, sql: "SELECT json_extract(payload, '$.episode') AS episode, json_extract(payload, '$.audioURL') AS audio, json_type(payload, '$.summary') AS summary, json_extract(payload, '$.notesPending') AS pending FROM episodes ORDER BY date DESC,id").map { row in
+                let json: String = row["episode"]
+                let audio: String? = row["audio"]
+                let summary: String? = row["summary"]
+                return EpisodeListing(episode: try JSONDecoder().decode(Episode.self, from: Data(json.utf8)),
+                                      downloaded: audio.flatMap(URL.init(string:)).map { FileManager.default.fileExists(atPath: $0.path) } ?? false,
+                                      summarized: summary != nil && summary != "null", notesPending: (row["pending"] as Bool?) ?? false)
             }
         }
     }

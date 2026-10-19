@@ -43,6 +43,8 @@ struct ShowsSection: View {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(episode.title)
+                                    let status = model.episodeStatus(JobQueue.episodeID(episode))
+                                    if !status.isEmpty { Text(status).font(.caption).foregroundStyle(Palette.accent) }
                                     if let date = episode.pubDate { Text(date, style: .date).font(.caption).foregroundStyle(.secondary) }
                                 }
                                 Spacer()
@@ -59,8 +61,17 @@ struct ShowsSection: View {
                                 if let checked = show.checked { Text("Checked \(checked.formatted())").font(.caption).foregroundStyle(.secondary) }
                             }
                             Spacer()
-                            Toggle("Transcribe new episodes", isOn: Binding(get: { show.autoTranscribe }, set: { _ in model.toggleAuto(show) }))
-                                .fixedSize()
+                            Menu {
+                                Toggle("Download for offline playback", isOn: Binding(get: { show.autoDownload }, set: { model.updateSubscription(show, download: $0) }))
+                                Toggle("Transcribe new episodes", isOn: Binding(get: { show.autoTranscribe || show.autoSummarize }, set: { model.updateSubscription(show, transcribe: $0) }))
+                                Toggle("Summarize and create chapters", isOn: Binding(get: { show.autoSummarize }, set: { model.updateSubscription(show, summarize: $0) }))
+                                Menu("Keep downloaded episodes") {
+                                    Button(show.keepLatest == nil ? "Unlimited ✓" : "Unlimited") { model.updateSubscription(show, setRetention: true) }
+                                    ForEach([1, 3, 5, 10, 20, 50], id: \.self) { count in
+                                        Button("Latest \(count)\(show.keepLatest == count ? " ✓" : "")") { model.updateSubscription(show, keepLatest: count, setRetention: true) }
+                                    }
+                                }
+                            } label: { Label("Automation", systemImage: "gearshape") }.fixedSize()
                             Button("Unsubscribe", role: .destructive) { model.unsubscribe(show) }
                         }
                     }

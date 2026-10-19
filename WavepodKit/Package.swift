@@ -32,7 +32,7 @@ let package = Package(
         .target(name: "Engine", dependencies: ["Library", "Networking"]),
         .target(name: "NativeEngine", dependencies: ["Engine", .product(name: "WhisperKit", package: "WhisperKit"), .product(name: "FluidAudio", package: "FluidAudio")]),
         .target(name: "Speakers", dependencies: ["Library"]),
-        .target(name: "Pipeline", dependencies: ["Engine", "Resolver", "Speakers", "Library", "Networking"]),
+        .target(name: "Pipeline", dependencies: ["LLM", "Engine", "Resolver", "Speakers", "Library", "Networking"]),
         .target(name: "LLM", dependencies: ["Library", "Engine", "Networking", .product(name: "MLX", package: "mlx-swift"), .product(name: "MLXLLM", package: "mlx-swift-lm"), .product(name: "MLXLMCommon", package: "mlx-swift-lm"), .product(name: "MLXEmbedders", package: "mlx-swift-lm")]),
         .testTarget(name: "NativeEngineTests", dependencies: ["NativeEngine", "Pipeline"]),
         .testTarget(name: "PipelineTests", dependencies: ["Pipeline", "Speakers", "LLM", "Networking"]),
