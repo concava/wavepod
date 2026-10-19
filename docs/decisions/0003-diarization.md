@@ -67,6 +67,7 @@ measures the runtime's behavior directly, bypassing the new app OS guard.
 
 The macOS 14 runners are Apple Silicon VMs without an ANE. The results establish failure on that environment;
 they do not establish a physical Mac crash rate or prove that `.all` fails on every GPU/ANE combination.
+This run did not measure usable GPU availability or stress-test a physical Mac.
 However, #878 also reports intermittent field crashes on a physical M2 Pro running 14.6.1. A usable ANE can
 reduce CPU fallback, but is not evidence of safety. We therefore disable offline diarization on **all**
 macOS 14 Macs rather than gate by hardware or advertise `.all` as a fix. Upstream reports the defect fixed

@@ -3,7 +3,8 @@
 # GitHub's macos-14 runners are Apple Silicon VMs without a Neural Engine, so Core ML falls back to the BNNS CPU path
 # on every prediction: the crash path, deterministically. Each mode runs N diarizations, each in its own process, so
 # a crash costs one run. `ane` (.cpuAndNeuralEngine) is the positive control FluidAudio reports crashing on macOS 14;
-# `default` is FluidAudio's own routing; `app` is what NativeEngine ships. macOS 15 is the negative control.
+# `default` is FluidAudio's own routing; `app` uses NativeEngine's model routing, deliberately bypassing its
+# macOS 15 availability guard to measure the runtime defect. macOS 15 is the negative control.
 # The job fails only if `app` crashes.
 name: diarization-stress
 

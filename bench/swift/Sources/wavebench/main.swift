@@ -239,8 +239,9 @@ func runDiarize(ids: [String]) async throws {
 
 /// One offline diarization in this process, with the models routed one of three ways (docs/decisions/0003):
 /// `ane` = .cpuAndNeuralEngine, which FluidAudio reports crashing in libBNNS on macOS 14 (positive control);
-/// `default` = FluidAudio's own loading (.all, FBank pinned to the CPU); `app` = what NativeEngine ships
-/// (all four models on .all). Run it many times as separate processes: a crash then costs one run, not the test.
+/// `default` = FluidAudio's own loading (.all, FBank pinned to the CPU); `app` = NativeEngine's model routing
+/// (all four models on .all), bypassing the app's macOS 15 guard to measure the runtime defect on macOS 14.
+/// Run it many times as separate processes: a crash then costs one run, not the test.
 func runStressDiarize(mode: String, audio: URL) async throws {
     let manager = OfflineDiarizerManager()
     switch mode {
