@@ -3,7 +3,13 @@ import UI
 
 @main
 struct WavepodApp: App {
-    @State private var model = AppModel(persistent: true)
+    /// `-WavepodSampleData YES` opens the built-in sample episode instead of the library, for demos and screenshots.
+    @State private var model: AppModel = {
+        let sample = UserDefaults.standard.bool(forKey: "WavepodSampleData")
+        let model = AppModel(persistent: !sample)
+        if sample { model.section = .library }
+        return model
+    }()
 
     var body: some Scene {
         Window("wavepod", id: "main") {
