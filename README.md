@@ -24,7 +24,8 @@ wavepod has no signed download yet, so you build it from source. The first build
 **You need**
 
 - A Mac with Apple Silicon (M1 or later) running **macOS 15 or later**.
-- **Xcode 16 or later** from the App Store, opened once so it finishes installing its components.
+- A current **Xcode** from the App Store (tested with Xcode 27), opened once so it finishes installing its
+  components.
 - [Homebrew](https://brew.sh), for XcodeGen.
 - About 10 GB of free disk space: roughly 6 GB for the build and 3 GB for the models.
 
@@ -95,23 +96,10 @@ On battery, the queue pauses below 20 % and resumes at 25 % or when you plug in.
 | ⌘R | Check followed podcasts for new episodes (on Podcasts) |
 | ⌘, | Settings |
 
-## Development
+## Documentation
 
-Status: **Phase 5, library, local AI and shows.** A checkpointed on-device pipeline (or your own Scriberr server)
-fills a persistent library; speakers are suggested from per-show voice profiles; keyword and meaning search open
-the exact moment; summaries, chapters, translation and Ask run on a local model with every cited timestamp checked;
-followed shows can be transcribed automatically. See the [implementation notes](docs/implementation.md) and the
-golden-set harness in [`eval/`](eval/).
-
-- Decisions: [`docs/decisions/`](docs/decisions/), including [Ask on long transcripts](docs/decisions/0010-ask-long-transcripts.md)
-- Engine benchmark: [`bench/`](bench/)
-- Swift modules and tests: [`WavepodKit/`](WavepodKit/) (`Networking`, `Resolver`, `Engine`, `NativeEngine`,
-  `Pipeline`, `Speakers`, `Library`, `LLM`, `Player`, `UI`)
-
-```sh
-(cd WavepodKit && swift test)                      # unit + snapshot tests
-(cd WavepodKit && SNAPSHOT_RECORD=1 swift test)    # re-record snapshots after a deliberate UI change
-open build/dd/Build/Products/Debug/wavepod.app --args -WavepodSampleData YES   # the sample episode, no library
-```
+- [How wavepod works](docs/architecture.md): the processes, modules, the path of an episode, storage and privacy.
+- [Developing wavepod](docs/development.md): build, tests, the golden-set evaluation and the release checklist.
+- [Decisions](docs/decisions/README.md): why things are the way they are, with the evidence.
 
 License: [Apache-2.0](LICENSE).
