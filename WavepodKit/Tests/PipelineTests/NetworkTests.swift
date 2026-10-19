@@ -2,6 +2,7 @@ import Engine
 import Foundation
 import Networking
 import Library
+import LLM
 import Pipeline
 import Resolver
 import XCTest
@@ -96,6 +97,104 @@ final class NetworkTests: XCTestCase {
         try await monitor.refresh(now: now.addingTimeInterval(30))
         XCTAssertEqual(FixtureProtocol.fixtures.count(), 1)
         XCTAssertEqual(try store.values(Subscription.self, kind: "subscription").first?.etag, "new-tag")
+        await queue.shutdown()
+    }
+    func testMonitorAutomationFlagsAndSummaryImpliesTranscription() async throws {
+        let feed = Data(#"<rss version="2.0"><channel><title>Show</title><item><title>Old</title><guid>old</guid></item><item><title>New</title><guid>new</guid></item></channel></rss>"#.utf8)
+        FixtureProtocol.fixtures.configure { _ in (200, [:], feed) }
+        for download in [false, true] {
+            for transcribe in [false, true] {
+                for summarize in [false, true] {
+                    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                    let store = try LibraryStore(url: folder.appendingPathComponent("library.sqlite"))
+                    let url = URL(string: "https://feed.example/rss")!
+                    let show = Subscription(feedURL: url, title: "Show", autoTranscribe: transcribe,
+                                            seen: [url.absoluteString + "|old"], autoDownload: download, autoSummarize: summarize)
+                    try store.put(show, kind: "subscription", id: show.id)
+                    let client = client()
+                    let queue = try JobQueue(store: store, directory: folder.appendingPathComponent("jobs"), client: client)
+                    try await queue.setOnBattery(true)
+                    try await SubscriptionMonitor(store: store, client: client, queue: queue).refresh()
+                    let jobs = await queue.snapshot()
+                    XCTAssertEqual(jobs.count, download || transcribe || summarize ? 1 : 0)
+                    if let job = jobs.first {
+                        XCTAssertEqual(job.automation?.download, download)
+                        XCTAssertEqual(job.automation?.transcribe, transcribe || summarize)
+                        XCTAssertEqual(job.automation?.summarize, summarize)
+                        XCTAssertEqual(job.episode.title, "New")
+                    }
+                    XCTAssertEqual(try store.values(Subscription.self, kind: "subscription").first?.seen.count, 2)
+                    await queue.shutdown()
+                    try FileManager.default.removeItem(at: folder)
+                }
+            }
+        }
+    }
+    func testAutomatedQueueRunsNotesAfterPublisherTranscriptAndKeepsDownload() async throws {
+        FixtureProtocol.fixtures.configure { request in
+            if request.url!.pathExtension == "vtt" {
+                return (200, [:], Data("WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nhello\n".utf8))
+            }
+            return (200, ["Content-Length": "5"], Data("audio".utf8))
+        }
+        for available in [false, true] {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            let store = try LibraryStore(url: folder.appendingPathComponent("library.sqlite"))
+            let calls = NotesCalls()
+            let queue = try JobQueue(store: store, directory: folder.appendingPathComponent("jobs"), client: client(),
+                                     notesGenerator: FakeNotes(isAvailable: available, calls: calls))
+            let episode = ResolvedEpisode(title: "Episode", enclosureURL: URL(string: "https://feed.example/audio.mp3")!,
+                transcripts: [TranscriptLink(url: URL(string: "https://feed.example/transcript.vtt")!, type: "text/vtt")])
+            try await queue.enqueue(episode, automation: SubscriptionAutomation(download: true, transcribe: false, summarize: true))
+            for _ in 0..<200 {
+                if await queue.snapshot().first?.state == .completed { break }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let jobs = await queue.snapshot()
+            XCTAssertEqual(jobs.first?.state, .completed, jobs.first?.error ?? "")
+            let saved = try XCTUnwrap(store.episode(JobQueue.episodeID(episode)))
+            XCTAssertEqual(saved.notesPending, !available)
+            XCTAssertEqual(saved.summary != nil, available)
+            XCTAssertEqual(try String(contentsOf: XCTUnwrap(saved.audioURL), encoding: .utf8), "audio")
+            let generated = await calls.chapters
+            XCTAssertEqual(generated, available ? [false, true] : [])
+            await queue.shutdown()
+            try FileManager.default.removeItem(at: folder)
+        }
+    }
+    func testDownloadOnlyDoesNotInvokeTranscriptionOrNotes() async throws {
+        FixtureProtocol.fixtures.configure { request in
+            if request.url!.pathExtension == "vtt" { return (200, [:], Data("WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nhello\n".utf8)) }
+            return (200, ["Content-Length": "5"], Data("audio".utf8))
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try LibraryStore(url: folder.appendingPathComponent("library.sqlite"))
+        let calls = NotesCalls()
+        let queue = try JobQueue(store: store, directory: folder.appendingPathComponent("jobs"), client: client(),
+                                 notesGenerator: FakeNotes(isAvailable: true, calls: calls))
+        let episode = ResolvedEpisode(title: "Offline", enclosureURL: URL(string: "https://feed.example/audio.mp3")!,
+            transcripts: [TranscriptLink(url: URL(string: "https://feed.example/transcript.vtt")!, type: "text/vtt")])
+        try await queue.enqueue(episode, automation: SubscriptionAutomation(download: true, transcribe: false, summarize: false))
+        for _ in 0..<200 {
+            if await queue.snapshot().first?.state == .completed { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let jobs = await queue.snapshot()
+        XCTAssertEqual(jobs.first?.state, .completed, jobs.first?.error ?? "")
+        let saved = try XCTUnwrap(store.episode(JobQueue.episodeID(episode)))
+        XCTAssertTrue(saved.transcript.segments.isEmpty)
+        XCTAssertNotNil(saved.audioURL)
+        let generated = await calls.chapters
+        XCTAssertEqual(generated, [])
+        let upgradeID = try await queue.enqueue(episode)
+        for _ in 0..<200 {
+            if await queue.snapshot().first(where: { $0.id == upgradeID })?.state == .completed { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let upgraded = try XCTUnwrap(store.episode(JobQueue.episodeID(episode)))
+        XCTAssertFalse(upgraded.transcript.segments.isEmpty)
+        XCTAssertEqual(upgraded.audioURL, saved.audioURL)
         await queue.shutdown()
     }
     func testModelInstallerIncludesExternalChatTemplate() async throws {

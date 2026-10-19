@@ -89,7 +89,7 @@ struct HomeView: View {
                     VStack(spacing: 0) {
                         ForEach(group.items) { item in
                             FeedRow(leading: Timecode.format(item.episode.duration), title: item.episode.title,
-                                    detail: item.episode.showName, isLast: item.id == group.items.last?.id) {
+                                    detail: [item.episode.showName, model.episodeStatus(item.id)].filter { !$0.isEmpty }.joined(separator: " · "), isLast: item.id == group.items.last?.id) {
                                 model.open(item)
                             }
                         }

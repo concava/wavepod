@@ -2,6 +2,7 @@ import Darwin
 import Engine
 import Foundation
 import Library
+import LLM
 import Networking
 import OSLog
 import Resolver
@@ -16,6 +17,7 @@ public struct TranscriptionJob: Codable, Sendable, Identifiable {
     public var fraction: Double
     public var error: String?
     public var batteryPaused: Bool
+    public var automation: SubscriptionAutomation?
     public var engineID: String
     public init(episode: ResolvedEpisode, engineID: String = "native") {
         id = UUID(); self.episode = episode; state = .queued; stage = "Waiting"; fraction = 0
@@ -29,6 +31,8 @@ public actor JobQueue {
     private let client: HTTPClient
     private let engine: any Engine
     private let diarizer: any Diarizing
+    private let notes: EpisodeNotesService
+    private var lastNotesCheck: Date?
     private let inferenceGate: InferenceGate
     private var jobs: [TranscriptionJob]
     private var worker: Task<Void, Never>?
@@ -40,8 +44,9 @@ public actor JobQueue {
     private let signposter = OSSignposter(subsystem: "app.wavepod", category: "Pipeline")
 
     public init(store: LibraryStore, directory: URL, client: HTTPClient,
-                engine: any Engine = IsolatedEngine(), diarizer: any Diarizing = IsolatedEngine(), inferenceGate: InferenceGate = .shared) throws {
+                engine: any Engine = IsolatedEngine(), diarizer: any Diarizing = IsolatedEngine(), notesGenerator: (any NotesGenerating)? = nil, inferenceGate: InferenceGate = .shared) throws {
         self.store = store; self.directory = directory; self.client = client
+        notes = EpisodeNotesService(store: store, generator: notesGenerator ?? LocalGenerator(directory: directory.deletingLastPathComponent().appendingPathComponent("models/language")))
         self.engine = engine; self.diarizer = diarizer; self.inferenceGate = inferenceGate
         jobs = try store.values(TranscriptionJob.self, kind: "job").map {
             var job = $0
@@ -59,6 +64,7 @@ public actor JobQueue {
         if lease >= 0 { flock(lease, LOCK_UN); close(lease); lease = -1 }
     }
     public func hasLease() -> Bool { lease >= 0 }
+    public func isBusy() -> Bool { worker != nil }
     public func snapshot() -> [TranscriptionJob] {
         if lease < 0, let saved = try? store.values(TranscriptionJob.self, kind: "job") { return saved }
         if let current, let saved = try? store.values(TranscriptionJob.self, kind: "job"),
@@ -84,11 +90,15 @@ public actor JobQueue {
         current = next.id
         worker = Task { await self.process(next.id) }
     }
-    @discardableResult public func enqueue(_ episode: ResolvedEpisode) throws -> UUID {
+    @discardableResult public func enqueue(_ episode: ResolvedEpisode, automation: SubscriptionAutomation? = nil) throws -> UUID {
         jobs = try store.values(TranscriptionJob.self, kind: "job")
         let key = Self.episodeID(episode)
-        if let old = jobs.first(where: { Self.episodeID($0.episode) == key && ![.cancelled, .failed].contains($0.state) }) { return old.id }
-        let job = TranscriptionJob(episode: episode, engineID: engine.id)
+        let needsTranscript = automation?.transcribe ?? true
+        let hasTranscript = try store.episode(key)?.transcript.segments.isEmpty == false
+        if let old = jobs.first(where: { Self.episodeID($0.episode) == key && ![.cancelled, .failed].contains($0.state)
+            && ($0.state != .completed || !needsTranscript || hasTranscript) }) { return old.id }
+        var job = TranscriptionJob(episode: episode, engineID: engine.id)
+        job.automation = automation
         try store.put(job, kind: "job", id: job.id.uuidString)
         jobs.append(job)
         start()
@@ -154,9 +164,31 @@ public actor JobQueue {
             let folder = directory.appendingPathComponent(id.uuidString)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let resolver = Resolver(fetcher: URLSessionFetcher(client: client))
-            var record: EpisodeRecord?
-            // A timed publisher transcript bypasses download, ASR and diarization altogether.
-            if job.episode.transcripts.count > 0 {
+            let previous = try store.episode(Self.episodeID(job.episode))
+            var record = job.automation != nil && previous?.transcript.segments.isEmpty == false ? previous : nil
+            var downloaded = previous?.audioURL.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+            if job.automation?.download == true, downloaded == nil {
+                guard let enclosure = job.episode.enclosureURL else { throw EngineError.unavailable("This episode has no downloadable audio.") }
+                let destination = directory.deletingLastPathComponent().appendingPathComponent("audio/\(id.uuidString).\(enclosure.pathExtension.isEmpty ? "audio" : enclosure.pathExtension)")
+                try stage(id, "Downloading for offline playback", 0.02)
+                if !FileManager.default.fileExists(atPath: destination.path) {
+                    if enclosure.isFileURL {
+                        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        try FileManager.default.copyItem(at: enclosure, to: destination)
+                    } else { try await client.allow(enclosure); try await client.download(enclosure, to: destination) }
+                }
+                downloaded = destination
+            }
+            if let downloaded, previous?.audioURL != downloaded {
+                var offline = previous ?? makeRecord(job.episode, transcript: Transcript(language: job.episode.language ?? "und", segments: []), embeddings: [:], audio: downloaded)
+                offline.audioURL = downloaded
+                try store.save(offline)
+            }
+            if job.automation?.transcribe == false, record == nil {
+                record = makeRecord(job.episode, transcript: Transcript(language: job.episode.language ?? "und", segments: []), embeddings: [:], audio: downloaded)
+            }
+            // A timed publisher transcript bypasses decode, ASR and diarization.
+            if record == nil, job.episode.transcripts.count > 0 {
                 try stage(id, "Published transcript", 0.05)
                 for link in TranscriptLink.preferred(job.episode.transcripts) {
                     do {
@@ -190,7 +222,7 @@ public actor JobQueue {
                     asset = cached
                 } else {
                     guard let enclosure = job.episode.enclosureURL else { throw EngineError.unavailable("This episode has no downloadable audio.") }
-                    let source = folder.appendingPathComponent("source.\(enclosure.pathExtension.isEmpty ? "audio" : enclosure.pathExtension)")
+                    let source = downloaded ?? folder.appendingPathComponent("source.\(enclosure.pathExtension.isEmpty ? "audio" : enclosure.pathExtension)")
                     try stage(id, "Downloading", 0.05)
                     if !FileManager.default.fileExists(atPath: source.path) {
                         if enclosure.isFileURL {
@@ -224,16 +256,71 @@ public actor JobQueue {
                 record.chapters = (try? await resolver.chapters(chapters))?.map { Chapter(title: $0.title, start: $0.start, summary: "") } ?? []
             }
             try Task.checkCancellation()
+            if let downloaded { record.audioURL = downloaded }
+            if let previous {
+                record.chat = previous.chat
+                record.summary = previous.summary
+                if !previous.chapters.isEmpty { record.chapters = previous.chapters }
+                if !previous.speakers.isEmpty { record.speakers = previous.speakers; record.speakerEvidence = previous.speakerEvidence }
+            }
+            record.notesPending = job.automation?.summarize == true
+            if job.automation != nil, downloaded == nil { record.audioURL = nil }
             try store.save(record)
+            if job.automation != nil {
+                for name in try FileManager.default.contentsOfDirectory(atPath: folder.path)
+                    where name == "decoded.wav" || name.hasPrefix("source.") {
+                    try FileManager.default.removeItem(at: folder.appendingPathComponent(name))
+                }
+            }
+            if record.notesPending == true {
+                try stage(id, "Summarizing", 0.97)
+                do { try await notes.completePending(record.id) }
+                catch is CancellationError { throw CancellationError() }
+                catch { logger.notice("Summary pending: \(error.localizedDescription, privacy: .public)") }
+            }
             try update(id) { $0.state = .completed; $0.stage = "Complete"; $0.fraction = 1; $0.error = nil }
+            do {
+                if let show = try store.values(Subscription.self, kind: "subscription").first(where: { $0.feedURL == record.feedURL }) {
+                    try AudioRetention.prune(show, store: store, directory: directory.deletingLastPathComponent())
+                }
+            } catch { logger.notice("Audio retention: \(error.localizedDescription, privacy: .public)") }
         } catch is CancellationError {
             // Explicit paused/cancelled state was persisted before cancelling the worker.
         } catch {
             logger.error("Job failed: \(error.localizedDescription, privacy: .public)")
             try? update(id) { $0.state = .failed; $0.error = error.localizedDescription }
+            if let feed = jobs.first(where: { $0.id == id })?.episode.feedURL,
+               let shows = try? store.values(Subscription.self, kind: "subscription"),
+               let show = shows.first(where: { $0.feedURL == feed }) {
+                try? AudioRetention.prune(show, store: store, directory: directory.deletingLastPathComponent())
+            }
         }
         current = nil; worker = nil
         start()
+        await retryPendingSummaries()
+    }
+    public func retryPendingSummaries(force: Bool = false) async {
+        guard lease >= 0, worker == nil, !onBattery else { return }
+        if !force, let lastNotesCheck, Date().timeIntervalSince(lastNotesCheck) < 3600 { return }
+        lastNotesCheck = .now
+        let task = Task { await self.completePendingSummaries() }
+        worker = task
+        await task.value
+        worker = nil
+        start()
+    }
+    private func completePendingSummaries() async {
+        do {
+            let shows = try store.values(Subscription.self, kind: "subscription")
+            for record in try store.episodes() where record.notesPending == true {
+                guard shows.contains(where: { $0.feedURL == record.feedURL && $0.autoSummarize }) else { continue }
+                do {
+                    try Task.checkCancellation()
+                    try await notes.completePending(record.id)
+                } catch is CancellationError { return }
+                catch { logger.notice("Summary pending: \(error.localizedDescription, privacy: .public)") }
+            }
+        } catch { logger.notice("Summary pending: \(error.localizedDescription, privacy: .public)") }
     }
     public nonisolated static func episodeID(_ episode: ResolvedEpisode) -> String {
         // GUIDs are only unique within a feed. Never use a title or Swift's process-random hash as an ID.

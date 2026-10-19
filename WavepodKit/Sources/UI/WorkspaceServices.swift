@@ -108,13 +108,32 @@ extension AppModel {
             self.resolvedShow = nil
         } catch { self.show(error.localizedDescription) }
     }
-    public func toggleAuto(_ show: Subscription) {
+    public func updateSubscription(_ show: Subscription, download: Bool? = nil, transcribe: Bool? = nil,
+                                   summarize: Bool? = nil, keepLatest: Int? = nil, setRetention: Bool = false) {
         guard let services else { return }
         do {
-            var updated = show; updated.autoTranscribe.toggle()
+            guard var updated = try services.store.values(Subscription.self, kind: "subscription").first(where: { $0.id == show.id }) else { return }
+            if let download { updated.autoDownload = download }
+            if let transcribe { updated.autoTranscribe = transcribe; if !transcribe { updated.autoSummarize = false } }
+            if let summarize { updated.autoSummarize = summarize; if summarize { updated.autoTranscribe = true } }
+            if setRetention { updated.keepLatest = keepLatest }
             try services.store.put(updated, kind: "subscription", id: show.id)
+            if setRetention { try AudioRetention.prune(updated, store: services.store, directory: services.root) }
             subscriptions = try services.store.values(Subscription.self, kind: "subscription")
+            savedEpisodes = try services.store.items()
         } catch { self.show(error.localizedDescription) }
+    }
+    public func episodeStatus(_ id: String) -> String {
+        var states: [String] = []
+        if let item = savedEpisodes.first(where: { $0.id == id }) {
+            if item.downloaded { states.append("Downloaded") }
+            if item.notesPending { states.append("Summary pending") }
+            else if item.summarized { states.append("Summarized") }
+        }
+        if let job = jobs.last(where: { JobQueue.episodeID($0.episode) == id && $0.state != .completed && $0.state != .cancelled }) {
+            states.append(job.state == .running ? (job.automation?.transcribe == false || job.stage == "Summarizing" || job.stage.hasPrefix("Download") ? job.stage : "Transcribing · \(job.stage)") : job.state.rawValue.capitalized)
+        }
+        return states.joined(separator: " · ")
     }
     public func unsubscribe(_ subscription: Subscription) {
         guard let services else { return }
@@ -180,6 +199,7 @@ extension AppModel {
                 }
                 modelStatus = "Models installed"
                 if kind == "embeddings" { indexLibrary() }
+                if kind == "language" { await services.queue.retryPendingSummaries(force: true); await refreshWorkspace() }
             } catch { modelStatus = error.localizedDescription }
         }
     }
@@ -214,8 +234,12 @@ extension AppModel {
                 guard var record = try services.store.episode(id) else { return }
                 record.audioURL = destination
                 try services.store.save(record)
-                if episode.id == id { player.load(episode, audioURL: destination) }
-                show("Audio downloaded")
+                if let subscription = try services.store.values(Subscription.self, kind: "subscription").first(where: { $0.feedURL == record.feedURL }) {
+                    try AudioRetention.prune(subscription, store: services.store, directory: services.root)
+                }
+                let retained = try services.store.episode(id)?.audioURL
+                if episode.id == id { player.load(episode, audioURL: retained) }
+                show(retained == nil ? "Audio removed by this show's retention setting" : "Audio downloaded")
             } catch { show(error.localizedDescription) }
         }
     }
@@ -241,17 +265,12 @@ extension AppModel {
         guard let services, !isGenerating, !transcript.segments.isEmpty else { return }
         isGenerating = true
         defer { isGenerating = false }
-        let id = episode.id, source = transcript
+        let id = episode.id
+        let notes = EpisodeNotesService(store: services.store, generator: services.generator)
         for kind in kinds {
             do {
-                let claims = try await services.generator.notes(source, chapters: kind == .chapters)
-                guard var record = try services.store.episode(id) else { return }
-                if kind == .chapters {
-                    record.chapters = claims.sorted { $0.start < $1.start }.map { Chapter(title: $0.claim, start: $0.start, summary: $0.quote) }
-                } else {
-                    record.summary = EpisodeSummaryStyle.summary(from: claims)
-                }
-                try services.store.save(record)
+                let claims = try await notes.generate(id, chapters: kind == .chapters)
+                guard let record = try services.store.episode(id) else { return }
                 if episode.id == id { install(record, reloadPlayer: false) }
                 if claims.isEmpty { show("Not found in this episode: no claims passed citation checking.") }
             } catch { show(error.localizedDescription) }
