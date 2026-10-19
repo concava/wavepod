@@ -70,10 +70,10 @@ struct EpisodePane: View {
 
     private var playButton: some View {
         Button {
-            model.player.isPlaying ? model.player.pause() : model.play(from: model.player.currentTime)
+            model.toggleEpisodePlayback()
         } label: {
-            Label(model.player.isPlaying ? "Pause" : "Play Episode",
-                  systemImage: model.player.isPlaying ? "pause.fill" : "play.fill")
+            Label(model.isViewedEpisodePlaying ? "Pause" : "Play Episode",
+                  systemImage: model.isViewedEpisodePlaying ? "pause.fill" : "play.fill")
         }
         .buttonStyle(PrimaryButtonStyle())
     }

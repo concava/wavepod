@@ -3,7 +3,6 @@ import Player
 import SwiftUI
 
 struct PlayerBar: View {
-    let model: AppModel
     @Bindable var player: PlayerModel
     @State private var showVolume = false
     @Environment(\.typography) private var type
@@ -12,13 +11,13 @@ struct PlayerBar: View {
         VStack(spacing: 6) {
             HStack(spacing: 12) {
                 HStack(spacing: 10) {
-                    ArtworkView(hue: model.episode.artworkHue, cornerRadius: 6)
+                    ArtworkView(hue: player.episode?.artworkHue ?? 0.15, cornerRadius: 6)
                         .frame(width: 38, height: 38)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(model.episode.showName)
+                        Text(player.episode?.showName ?? "wavepod")
                             .font(type.caption)
                             .foregroundStyle(Palette.inkMuted)
-                        Text(model.episode.title)
+                        Text(player.episode?.title ?? "Choose an episode to play")
                             .font(type.callout.weight(.medium))
                             .foregroundStyle(Palette.ink)
                     }

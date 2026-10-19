@@ -66,7 +66,11 @@ extension AppModel {
     public func open(_ record: EpisodeRecord, at start: Double? = nil) {
         install(record)
         section = .library
-        if let start { play(from: start) }
+        if let start {
+            centerTab = .transcript
+            followPlayback = false
+            transcriptLocation = TranscriptLocation(time: start)
+        }
     }
     public func enqueue(_ episode: ResolvedEpisode) {
         guard let services else { show("Open the app to import an episode."); return }
@@ -210,7 +214,7 @@ extension AppModel {
                 guard var record = try services.store.episode(id) else { return }
                 record.audioURL = destination
                 try services.store.save(record)
-                if episode.id == id { player.load(episode, audioURL: destination) }
+                if episode.id == id { episodeAudioURL = destination }
                 show("Audio downloaded")
             } catch { show(error.localizedDescription) }
         }
@@ -231,7 +235,7 @@ extension AppModel {
                                                     points: claims.map { SummaryPoint(text: $0.claim, citation: $0.citation) }, quotes: Array(claims.prefix(3).map(\.citation)))
                 }
                 try services.store.save(record)
-                if episode.id == id { install(record, reloadPlayer: false) }
+                if episode.id == id { install(record) }
                 if claims.isEmpty { show("Not found in this episode: no claims passed citation checking.") }
             } catch { show(error.localizedDescription) }
         }

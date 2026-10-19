@@ -147,6 +147,10 @@ struct TranscriptView: View {
             .focusable()
             .focused(focus, equals: .transcript)
             .focusEffectDisabled()
+            .onChange(of: model.transcriptLocation, initial: true) { _, location in
+                guard let location, let index = model.paragraphs.index(at: location.time) else { return }
+                proxy.scrollTo(model.paragraphs[index].id, anchor: .init(x: 0.5, y: 0.3))
+            }
             .onChange(of: current) { _, new in
                 guard model.followPlayback, model.player.isPlaying, let new else { return }
                 withAnimation(motion(.easeInOut(duration: 0.35), reduced: reduceMotion)) {

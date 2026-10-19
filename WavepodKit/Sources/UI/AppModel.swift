@@ -120,6 +120,8 @@ public final class AppModel {
     }
     /// Keep the current paragraph in view while playing. Turned off when the user scrolls away, back on with "Follow".
     public var followPlayback = true
+    struct TranscriptLocation: Equatable { let id = UUID(); let time: Seconds }
+    var transcriptLocation: TranscriptLocation?
 
     // Keyboard focus requested by a menu command (⌘K, ⌘J); RootView moves focus and clears it.
     public enum FocusTarget: Sendable { case command, ask, transcript }
@@ -130,6 +132,8 @@ public final class AppModel {
     public var askLanguage: AskLanguage = .auto
     /// One-line status shown under the top bar ("Copied transcript", "Link resolution arrives in Phase 2", …).
     public internal(set) var notice: String?
+
+    var episodeAudioURL: URL?
 
     public let player: PlayerModel
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
@@ -172,14 +176,14 @@ public final class AppModel {
         chapters = SampleData.chapters
         summary = SampleData.summary
         chat = SampleData.chat
-        player.load(episode)
+        if !persistent, player.episode == nil { player.load(episode) }
         isPersistent = persistent
         if persistent {
             episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
                               descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
             paragraphs = []; chapters = []; summary = nil; chat = []
-            player.load(episode)
+            if player.episode == nil { player.load(episode) }
             do {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
                 savedEpisodes = try services!.store.items()
@@ -206,12 +210,13 @@ public final class AppModel {
         }
     }
 
-    func install(_ record: EpisodeRecord, reloadPlayer: Bool = true) {
+    func install(_ record: EpisodeRecord) {
         episode = record.episode; transcript = record.transcript; speakers = record.speakers
         speakerEvidence = record.speakerEvidence
         paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
         summary = record.summary; chat = record.chat
-        if reloadPlayer { player.load(episode, audioURL: record.audioURL) }
+        episodeAudioURL = record.audioURL
+        transcriptLocation = nil
     }
 
     func refreshWorkspace() async {
@@ -287,13 +292,22 @@ public final class AppModel {
 
     // MARK: Playback helpers
 
-    public var currentParagraphIndex: Int? { paragraphs.index(at: player.currentTime) }
+    public var isViewingLoadedEpisode: Bool { !episode.id.isEmpty && player.episode?.id == episode.id }
+    public var isViewedEpisodePlaying: Bool { isViewingLoadedEpisode && player.isPlaying }
+    public var currentParagraphIndex: Int? { isViewingLoadedEpisode ? paragraphs.index(at: player.currentTime) : nil }
 
     public var currentChapterIndex: Int? {
-        chapters.lastIndex { $0.start <= player.currentTime }
+        isViewingLoadedEpisode ? chapters.lastIndex { $0.start <= player.currentTime } : nil
+    }
+
+    public func toggleEpisodePlayback() {
+        if isViewedEpisodePlaying { player.pause() }
+        else { play(from: isViewingLoadedEpisode ? player.currentTime : 0) }
     }
 
     public func play(from time: Seconds) {
+        guard !episode.id.isEmpty else { return }
+        if !isViewingLoadedEpisode { player.load(episode, audioURL: episodeAudioURL) }
         followPlayback = true
         player.jump(to: time)
     }

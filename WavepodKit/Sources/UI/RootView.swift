@@ -26,7 +26,7 @@ public struct RootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if model.section == .library || model.player.duration > 0 {
-                    PlayerBar(model: model, player: model.player)
+                    PlayerBar(player: model.player)
                 }
             }
             .elevated(cornerRadius: 14)
