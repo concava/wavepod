@@ -81,7 +81,7 @@ jobs:
           echo "| ${{ matrix.os }} ($os) | \`$MODE\` | $RUNS | $ok | $crashed | $failed |$codes |" >> "$GITHUB_STEP_SUMMARY"
           echo "{\"os\": \"$os\", \"mode\": \"$MODE\", \"runs\": $RUNS, \"ok\": $ok, \"crashed\": $crashed, \"failed\": $failed}" > result.json
           cat result.json
-          # Only the shipping configuration gates; the controls are evidence.
+          # Only app model routing gates this runtime reproducer; the controls are evidence.
           if [ "$MODE" = app ] && [ $((crashed + failed)) -gt 0 ]; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()

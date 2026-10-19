@@ -6,8 +6,8 @@ import XCTest
 
 final class OfflineDiarizationTests: XCTestCase {
     func testMacOS14UsesOneSpeakerAcrossWindowsAndIgnoresOldDiarization() async throws {
-        for hasOldCheckpoint in [false, true] {
-            let folder = try fixture()
+        for (hasOldCheckpoint, includeASRSpeakers) in [(false, false), (false, true), (true, true)] {
+            let folder = try fixture(includeASRSpeakers: includeASRSpeakers)
             if hasOldCheckpoint {
                 // Even an unreadable old checkpoint must not affect the macOS 14 fallback.
                 try Data("old checkpoint".utf8).write(to: folder.appendingPathComponent("diar-0.json"))
@@ -75,7 +75,8 @@ final class OfflineDiarizationTests: XCTestCase {
             word.overlap = true
             let raw = RawTranscript(language: "en", words: [RawWord(word, speaker: includeASRSpeakers ? label : nil)],
                 turns: includeASRSpeakers ? [SpeakerTurn(speaker: label, start: 0, end: 2)] : [],
-                embeddings: includeASRSpeakers ? [label: [1, 0]] : [:])
+                // Distinct cached voices would otherwise stitch into S1 and S2.
+                embeddings: includeASRSpeakers ? [label: index == 0 ? [1, 0] : [0, 1]] : [:])
             try JSONEncoder().encode(raw).write(to: folder.appendingPathComponent("asr-\(index).json"))
         }
         return folder

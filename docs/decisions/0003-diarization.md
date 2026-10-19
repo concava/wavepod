@@ -61,7 +61,9 @@ The `stress-inputs` artifact's `clip.wav` is 306.432 s, mono, 16 kHz PCM16, SHA-
 | macos-14 / 14.8.9 | `app` | 100 | 0 | 100 | 0 |
 | macos-15 / 15.7.9 | `ane` | 100 | 100 | 0 | 0 |
 | macos-15 / 15.7.9 | `default` | 100 | 100 | 0 | 0 |
-| macos-15 / pending | `app` | pending | pending | pending | pending |
+| macos-15 / 15.7.9 | `app` | 100 | 100 | 0 | 0 |
+
+**All 300 attempts crashed on macOS 14.8.9; all 300 succeeded on macOS 15.7.9.**
 
 Modes: `ane` uses `.cpuAndNeuralEngine`; `default` uses FluidAudio's built-in routing (including CPU-only
 FBank); `app` uses Wavepod's shipped routing, loading **all four** offline models with `.all`. This test
