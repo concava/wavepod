@@ -1,5 +1,6 @@
 import AppKit
 import Library
+import Resolver
 import SnapshotTesting
 import SwiftUI
 import XCTest
@@ -98,6 +99,23 @@ final class SnapshotTests: XCTestCase {
     func testPodcastCard() {
         let model = makeModel()
         check("podcast", size: CGSize(width: 250, height: 500)) { PodcastCard(model: model).background(Palette.surface) }
+    }
+
+    /// A followed podcast with eight episodes shows only the newest five.
+    func testPodcastFeedCard() {
+        let model = makeModel()
+        let feed = URL(string: "https://example.com/feed.xml")!
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        let episodes = (0..<8).map { i in
+            ResolvedEpisode(title: "Episode \(i + 1): a conversation about building things", feedURL: feed,
+                            showTitle: "Example Show", pubDate: start.addingTimeInterval(Double(i) * 604_800),
+                            duration: 3600 + Double(i) * 120, guid: "ep-\(i)")
+        }
+        check("podcast-feed", size: CGSize(width: 760, height: 420)) {
+            PodcastFeedCard(model: model, title: "Example Show", feedURL: feed, episodes: episodes,
+                            subscription: Subscription(feedURL: feed, title: "Example Show", autoTranscribe: true))
+                .padding(20)
+        }
     }
 
     func testOnboarding() {

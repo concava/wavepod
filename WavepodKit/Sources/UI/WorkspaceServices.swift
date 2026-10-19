@@ -151,7 +151,31 @@ extension AppModel {
             defer { isRefreshing = false }
             do { try await services.subscriptions.refresh(force: true); await refreshWorkspace() }
             catch { show(error.localizedDescription) }
+            podcastEpisodes = [:]
+            loadPodcastEpisodes()
         }
+    }
+    /// Fetches the feed of every followed podcast whose episodes are not loaded yet.
+    public func loadPodcastEpisodes() {
+        guard let services else { return }
+        for show in subscriptions where podcastEpisodes[show.id] == nil {
+            podcastEpisodes[show.id] = []
+            Task {
+                if case .show(let feed) = try? await services.resolver.resolve(show.feedURL.absoluteString) {
+                    podcastEpisodes[show.id] = feed.episodes
+                } else { podcastEpisodes[show.id] = nil }
+            }
+        }
+    }
+    public func isFollowing(_ feedURL: URL) -> Bool { subscriptions.contains { $0.feedURL == feedURL } }
+    /// Where one feed episode stands: in the library, being transcribed, or not started.
+    public func status(of episode: ResolvedEpisode) -> PodcastEpisodeStatus {
+        let id = JobQueue.episodeID(episode)
+        if let saved = savedEpisodes.first(where: { $0.id == id }) { return .saved(saved) }
+        if let job = jobs.first(where: { JobQueue.episodeID($0.episode) == id && $0.state != .cancelled && $0.state != .completed }) {
+            return job.state == .running ? .running(job.fraction) : .waiting(job.state == .failed ? "Failed" : job.state.rawValue.capitalized)
+        }
+        return .new
     }
     public func performSearch() {
         guard let services else { return }
@@ -290,5 +314,17 @@ extension AppModel {
                 showTranslation = true
             } catch { show(error.localizedDescription) }
         }
+    }
+}
+
+public enum PodcastEpisodeStatus {
+    case new, waiting(String), running(Double), saved(EpisodeListing)
+}
+
+extension ResolvedShow {
+    /// The newest `count` episodes, newest first.
+    func latest(_ count: Int = 5) -> [ResolvedEpisode] { Self.latest(episodes, count) }
+    static func latest(_ episodes: [ResolvedEpisode], _ count: Int = 5) -> [ResolvedEpisode] {
+        Array(episodes.sorted { ($0.pubDate ?? .distantPast) > ($1.pubDate ?? .distantPast) }.prefix(count))
     }
 }
