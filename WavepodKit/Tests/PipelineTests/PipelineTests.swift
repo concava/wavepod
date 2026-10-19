@@ -5,6 +5,7 @@ import Library
 import Networking
 import Pipeline
 import Resolver
+import Speakers
 import XCTest
 
 final class PipelineTests: XCTestCase {
@@ -44,6 +45,15 @@ final class PipelineTests: XCTestCase {
         WindowStitcher.append(second, start: 1790, keepFrom: 1795, keepUntil: 1810, to: &combined)
         XCTAssertEqual(combined.words.map(\.word.text), ["keep", "overlap"])
         XCTAssertEqual(Set(combined.turns.map(\.speaker)).count, 1)
+    }
+    func testVoiceProfilesAreRestrictedToShowAndRejectAmbiguousMatches() {
+        let a = VoiceProfile(showID: "show-a", name: "Alex", embedding: [1, 0])
+        XCTAssertEqual(SpeakerIdentity.match([1, 0], showID: "show-a", profiles: [a])?.name, "Alex")
+        XCTAssertNil(SpeakerIdentity.match([1, 0], showID: "show-b", profiles: [a]))
+        let b = VoiceProfile(showID: "show-a", name: "Blair", embedding: [0.99, 0.01])
+        XCTAssertNil(SpeakerIdentity.match([1, 0], showID: "show-a", profiles: [a, b]))
+        XCTAssertNil(VectorMath.cosine([0, 0], [1, 0]))
+        XCTAssertNil(VectorMath.cosine([.nan], [1]))
     }
     func testDatabaseReopensFTSAndPreservesVectorsAcrossSpeakerRename() throws {
         let url = try temporary().appendingPathComponent("library.sqlite")

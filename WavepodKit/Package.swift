@@ -27,9 +27,10 @@ let package = Package(
         .target(name: "Resolver", dependencies: ["Networking"]),
         .target(name: "Engine", dependencies: ["Library", "Networking"]),
         .target(name: "NativeEngine", dependencies: ["Engine", .product(name: "WhisperKit", package: "WhisperKit"), .product(name: "FluidAudio", package: "FluidAudio")]),
-        .target(name: "Pipeline", dependencies: ["Engine", "Resolver", "Library", "Networking"]),
+        .target(name: "Speakers", dependencies: ["Library"]),
+        .target(name: "Pipeline", dependencies: ["Engine", "Resolver", "Speakers", "Library", "Networking"]),
         .testTarget(name: "NativeEngineTests", dependencies: ["NativeEngine", "Pipeline"]),
-        .testTarget(name: "PipelineTests", dependencies: ["Pipeline", "Networking"]),
+        .testTarget(name: "PipelineTests", dependencies: ["Pipeline", "Speakers", "Networking"]),
         .executableTarget(name: "wavepod-resolve", dependencies: ["Resolver"]),
         // The shipping pipeline, in-process, for eval/podeval.
         .executableTarget(name: "wavepod-transcribe", dependencies: ["NativeEngine", "Pipeline"]),
@@ -39,7 +40,7 @@ let package = Package(
         // Playback clock and transport. AVPlayer-backed in the app, simulated in previews and tests.
         .target(name: "Player", dependencies: ["Library"]),
         // SwiftUI views and design tokens.
-        .target(name: "UI", dependencies: ["Library", "Player", "Resolver", "Pipeline"]),
+        .target(name: "UI", dependencies: ["Library", "Player", "Resolver", "Pipeline", "Speakers"]),
         .testTarget(name: "LibraryTests", dependencies: ["Library"]),
         .testTarget(
             name: "UITests",

@@ -3,6 +3,7 @@ import Engine
 import Networking
 import Pipeline
 import Resolver
+import Speakers
 import Library
 import Observation
 import Player
@@ -197,11 +198,25 @@ public final class AppModel {
     public func rename(_ id: SpeakerID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, var speaker = speakers[id] else { return }
+        let previousName = speaker.name
+        let wasConfirmed = speaker.isConfirmed
         speaker.name = trimmed
         speaker.isConfirmed = true
         speaker.suggestionConfidence = nil
         speakers[id] = speaker
         persistWorkspace()
+        if let services {
+            do {
+                if let record = try services.store.episode(episode.id), let embedding = record.embeddings[id.rawValue], let feed = record.feedURL {
+                    if wasConfirmed, previousName != trimmed {
+                        try services.store.remove(kind: "voice", id: feed.absoluteString + "|" + previousName.lowercased())
+                    }
+                    let profileID = feed.absoluteString + "|" + trimmed.lowercased()
+                    let profile = VoiceProfile(id: profileID, showID: feed.absoluteString, name: trimmed, embedding: embedding)
+                    try services.store.put(profile, kind: "voice", id: profileID)
+                }
+            } catch { show(error.localizedDescription) }
+        }
     }
 
     public func confirm(_ id: SpeakerID) {

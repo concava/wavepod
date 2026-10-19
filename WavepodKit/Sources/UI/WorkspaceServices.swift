@@ -7,6 +7,7 @@ import Library
 import Networking
 import Pipeline
 import Resolver
+import Speakers
 
 struct WorkspaceServices: Sendable {
     let root: URL

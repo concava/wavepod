@@ -4,7 +4,8 @@
 //   wavepod-transcribe <audio> <output.json> --models <root> [--language es] [--work <checkpoint dir>]
 //
 // The model root has the layout Settings installs: parakeet/, whisper/, vad/, diarizer/.
-// Output: {"words": [[start, end, word, speaker], …], "rttm": "…", "text": "…", "proc_s": …, "language": "…"}.
+// Output: {"words": [[start, end, word, speaker], …], "rttm": "…", "text": "…", "proc_s": …, "language": "…",
+//          "embeddings": {speaker: [Float]}}.
 
 import Engine
 import Foundation
@@ -63,6 +64,8 @@ let payload: [String: Any] = [
     "language": raw.language,
     "proc_s": seconds,
     "load_s": 0.0,
+    // One voice embedding per speaker label, for cross-episode identity checks (Phase 4).
+    "embeddings": raw.embeddings.mapValues { $0.map(Double.init) },
     "markers": transcript.segments.flatMap(\.words).filter { $0.text.hasPrefix("[") }.map { [$0.start, $0.end] },
 ]
 try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]).write(to: output)

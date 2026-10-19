@@ -132,6 +132,7 @@ struct TranscriptView: View {
                             showSpeaker: model.showSpeakerLabels,
                             currentTime: index == current ? model.player.currentTime : nil,
                             onSeek: { model.play(from: $0) },
+                            evidence: model.speakerEvidence[paragraph.speaker] ?? [],
                             onRename: { model.rename(paragraph.speaker, to: $0) }
                         )
                         .id(paragraph.id)
@@ -161,6 +162,7 @@ struct ParagraphView: View {
     /// Set only on the paragraph being played, so only that one re-renders as time moves.
     let currentTime: Double?
     let onSeek: (Double) -> Void
+    var evidence: [SpeakerEvidence] = []
     let onRename: (String) -> Void
     @Environment(\.typography) private var type
 
@@ -169,7 +171,7 @@ struct ParagraphView: View {
             HStack(spacing: 8) {
                 TimestampPill(time: paragraph.start, isActive: currentTime != nil) { onSeek(paragraph.start) }
                 if showSpeaker {
-                    SpeakerLabel(speaker: speaker, onRename: onRename)
+                    SpeakerLabel(speaker: speaker, evidence: evidence, onSeek: onSeek, onRename: onRename)
                 }
             }
             Text(attributedText)
@@ -210,6 +212,8 @@ struct ParagraphView: View {
 
 struct SpeakerLabel: View {
     let speaker: Speaker
+    var evidence: [SpeakerEvidence] = []
+    var onSeek: (Double) -> Void = { _ in }
     let onRename: (String) -> Void
     @State private var editing = false
     @State private var draft = ""
@@ -244,6 +248,18 @@ struct SpeakerLabel: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 220)
                     .onSubmit(commit)
+                ForEach(Array(evidence.enumerated()), id: \.offset) { _, item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Button("Use \(item.name) · \(item.source) · \(Int(item.confidence * 100))%") {
+                            draft = item.name
+                            commit()
+                        }
+                        if let citation = item.citation {
+                            Text("“\(citation.quote)”").font(type.caption).lineLimit(5)
+                            Button("Play evidence at \(Timecode.format(citation.start))") { onSeek(citation.start) }
+                        }
+                    }.frame(maxWidth: 280, alignment: .leading)
+                }
                 Text("Applies to every line of this speaker in this episode.")
                     .font(type.caption)
                     .foregroundStyle(Palette.inkMuted)

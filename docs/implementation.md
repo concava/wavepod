@@ -45,6 +45,20 @@ Data lives in `~/Library/Application Support/wavepod/`: `library.sqlite`, `jobs/
 The 3 h requirement holds with a wide margin: memory does not grow with length, because every stage works on one
 30-minute window. The references are machine drafts, so the WER figures compare engines, not absolute accuracy.
 
+## Phase 4: speakers
+
+Confirmed names create per-feed voice profiles. Later episodes compare only against that feed's profiles;
+ambiguous matches remain unnamed. Self-introductions require corroboration from feed people or description
+text. Feed mentions remain candidates, with their transcript quotes and timestamps, rather than silently naming
+a speaker. The speaker popover shows evidence, seeks to it, and confirms a candidate with one click. A rename
+updates the speaker mapping and durable record; transcript words remain untouched.
+
+Voice cosine thresholds (match ≥ 0.75, and ≥ 0.08 ahead of the runner-up) are conservative defaults, **not
+calibrated accuracy claims**. First evidence (2026-10-19): across the two full Itnig episodes, one voice recurs
+(cosine 0.89 between its two episode-level embeddings); every other cross-episode pair scores ≤ 0.31. A name
+confirmed once would therefore be suggested for that voice in the other episode, and for nobody else. Calibrating
+false matches and measuring the share of turns with the correct name need verified, named references.
+
 ## Verification
 
 ```sh

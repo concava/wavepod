@@ -5,6 +5,7 @@ import Library
 import Networking
 import OSLog
 import Resolver
+import Speakers
 
 public struct TranscriptionJob: Codable, Sendable, Identifiable {
     public enum State: String, Codable, Sendable { case queued, running, paused, failed, cancelled, completed }
@@ -239,16 +240,24 @@ public actor JobQueue {
         (episode.feedURL?.absoluteString ?? "file") + "|" + (episode.guid ?? episode.enclosureURL?.absoluteString ?? episode.title)
     }
     private func makeRecord(_ resolved: ResolvedEpisode, transcript: Transcript, embeddings: [String: [Float]], audio: URL?, audioDuration: Double = 0) -> EpisodeRecord {
-        // Speakers stay anonymous here; naming them from voices and introductions is Phase 4.
+        let showID = resolved.feedURL?.absoluteString ?? "file"
+        let profiles = (try? store.values(VoiceProfile.self, kind: "voice")) ?? []
         var speakers: [SpeakerID: Speaker] = [:]
+        var evidence: [SpeakerID: [SpeakerEvidence]] = [:]
         for (index, id) in Set(transcript.segments.map(\.speaker)).sorted(by: { $0.rawValue < $1.rawValue }).enumerated() {
-            speakers[id] = Speaker(id: id, name: "Speaker \(index + 1)", isConfirmed: false, colorIndex: index)
+            let voice = embeddings[id.rawValue].flatMap { SpeakerIdentity.match($0, showID: showID, profiles: profiles) }
+            let candidates = SpeakerIdentity.candidates(names: resolved.persons.map(\.name), description: resolved.descriptionHTML ?? "", transcript: transcript, speaker: id)
+            let suggestions = (voice.map { [$0] } ?? []) + candidates
+            evidence[id] = suggestions.map { SpeakerEvidence(name: $0.name, source: $0.source.rawValue, confidence: $0.confidence, citation: $0.evidence) }
+            let suggestion = suggestions.first { $0.source == .voice || $0.source == .introduction }
+            speakers[id] = Speaker(id: id, name: suggestion?.name ?? "Speaker \(index + 1)", isConfirmed: false,
+                                   suggestionConfidence: suggestion?.confidence, colorIndex: index)
         }
         let episode = Episode(id: Self.episodeID(resolved), showName: resolved.showTitle ?? "Imported audio", title: resolved.title,
                               pubDate: resolved.pubDate ?? .now, duration: max(resolved.duration ?? 0, transcript.duration, audioDuration),
                               descriptionHTML: resolved.descriptionHTML ?? "", sourceName: "Source", sourceURL: resolved.feedURL,
                               enclosureURL: resolved.enclosureURL, artworkHue: 0.15)
         return EpisodeRecord(episode: episode, transcript: transcript, speakers: speakers, audioURL: audio,
-                             feedURL: resolved.feedURL, embeddings: embeddings)
+                             feedURL: resolved.feedURL, embeddings: embeddings, speakerEvidence: evidence)
     }
 }
