@@ -60,7 +60,7 @@ The `stress-inputs` artifact's `clip.wav` is 306.432 s, mono, 16 kHz PCM16, SHA-
 | macos-14 / 14.8.9 | `default` | 100 | 0 | 100 | 0 |
 | macos-14 / 14.8.9 | `app` | 100 | 0 | 100 | 0 |
 | macos-15 / pending | `ane` | pending | pending | pending | pending |
-| macos-15 / pending | `default` | pending | pending | pending | pending |
+| macos-15 / 15.7.9 | `default` | 100 | 100 | 0 | 0 |
 | macos-15 / pending | `app` | pending | pending | pending | pending |
 
 Modes: `ane` uses `.cpuAndNeuralEngine`; `default` uses FluidAudio's built-in routing (including CPU-only
