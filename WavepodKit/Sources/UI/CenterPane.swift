@@ -279,7 +279,7 @@ struct AnswersSection: View {
                 HStack {
                     SectionHeading("Answers")
                     Spacer()
-                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : "On this Mac") { model.openSettings(.ask) }
+                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : model.askProvider == "claude" ? "Claude plan" : "On this Mac") { model.openSettings(.ask) }
                         .font(type.caption).buttonStyle(.plain).foregroundStyle(Palette.inkMuted)
                         .help("Choose where answers run")
                 }

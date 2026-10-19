@@ -1,6 +1,6 @@
-# 0010 — Ask reads the whole episode; ChatGPT plan usage is optional
+# 0010 — Ask reads the whole episode; cloud plan usage is optional
 
-- Status: Accepted for implementation; live ChatGPT account consent/inference needs interactive verification
+- Status: Accepted for implementation; live cloud account consent/inference needs interactive verification
 - Date: 2026-10-19
 
 ## Problem
@@ -63,13 +63,42 @@ Eligible users authorize wavepod's own client registration and ChatGPT plan usag
   provider. Show the first-use plan notice, active account, model, provider and Manage usage link.
 
 This connects the user's account through official OAuth, rather than automating ChatGPT Desktop, scraping
-its UI, or reusing the desktop app's/Codex's credentials. A desktop app is not required. Claude is not added in
-this change: the owner selected their existing ChatGPT plan and local inference as the standard mode.
+its UI, or reusing the desktop app's/Codex's credentials. A desktop app is not required.
 
 References: [registration](https://developers.openai.com/siwc/token-sharing-open-source/sign-in),
 [sessions](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions),
 [models and inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference),
 [preview limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+
+## Optional Claude plan
+
+Settings → Ask also offers **My Claude plan**, using Anthropic's official Claude Code programmatic interface
+(`claude -p`). As of 2026-10-19, Anthropic explicitly supports subscription limits for this interface and
+third-party apps: [plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan),
+[programmatic use](https://code.claude.com/docs/en/headless), [CLI reference](https://code.claude.com/docs/en/cli-reference).
+This requires a current, user-installed Claude Code executable. Settings detects common install locations,
+offers executable selection and the installation guide, browser sign-in, connection checks, model aliases
+(Sonnet/Opus/Haiku), disconnect and usage management. Model access still depends on the account.
+
+Claude Code owns OAuth, refresh and credential storage in a **wavepod-specific `CLAUDE_CONFIG_DIR`**; its
+sign-in/logout does not modify the user's ordinary Claude Code profile. Wavepod never opens desktop credential
+files or copies tokens. The subprocess environment excludes inherited API keys, bearer tokens, federation,
+alternate endpoints and provider flags; `forceLoginMethod: claudeai` and an `auth status` check reject API-key,
+Console and third-party accounts before passing transcript text. Selecting this option does not silently
+switch to paid API-key billing.
+
+The same full-coverage, citation-validated pipeline supplies questions/history/transcript text to Claude.
+Audio and existing Claude Desktop conversations are not supplied. Prompts travel over stdin, not process
+arguments. Safe/restricted mode, empty tool and MCP sets, disabled hooks/skills/browser integration, and no
+session persistence keep the call focused on the supplied text. Managed administrator policies still apply.
+`--bare` is deliberately not used because it skips subscription authentication. A dedicated empty working
+directory avoids loading a project. Stop cancels the process; time and output are bounded. Nonzero exits,
+partial/error results, expiry and quota problems fail explicitly rather than becoming “not found”.
+
+Unlike the direct ChatGPT adapter, Claude Code owns its network stack. This is an explicit exception to the
+app HTTP transport policy, alongside the existing media extractor. Settings discloses it; the network log
+records an **external invocation**, without pretending to have observed destinations or HTTP codes. The
+app's HTTP allow-list cannot govern Claude Code. Local remains the default and does not start this process.
 
 ## Validation
 
@@ -89,3 +118,8 @@ Mac; this is a correctness smoke test, not a four-hour performance benchmark. Th
 Live ChatGPT sign-in, account eligibility and inference cannot be established from offline fixtures. They
 must be verified with the owner's browser consent after installation; account usage is not exercised by
 ordinary tests. The provider is optional and is not enabled on fresh installations.
+
+Claude validation uses a fake CLI executor for subscription enforcement, isolated configuration, provider
+environment exclusion, safe arguments/stdin, structured failures and redacted external logging, plus real
+local process fixtures for large input, cancellation and timeout. A live Claude sign-in/inference check still
+requires an installed Claude Code executable and the owner's browser consent; ordinary tests do neither.

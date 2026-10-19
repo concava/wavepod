@@ -263,7 +263,7 @@ public actor JobQueue {
                 if !previous.chapters.isEmpty { record.chapters = previous.chapters }
                 if !previous.speakers.isEmpty { record.speakers = previous.speakers; record.speakerEvidence = previous.speakerEvidence }
             }
-            record.notesPending = job.automation?.summarize == true
+            record.notesPending = job.automation?.summarize == true || previous?.notesPending == true
             if job.automation != nil, downloaded == nil { record.audioURL = nil }
             try store.save(record)
             if job.automation != nil {
@@ -272,7 +272,7 @@ public actor JobQueue {
                     try FileManager.default.removeItem(at: folder.appendingPathComponent(name))
                 }
             }
-            if record.notesPending == true {
+            if job.automation?.summarize == true, record.notesPending == true {
                 try stage(id, "Summarizing", 0.97)
                 do { try await notes.completePending(record.id) }
                 catch is CancellationError { throw CancellationError() }

@@ -81,8 +81,14 @@ public actor HTTPClient {
     }
 
     private func record(_ request: URLRequest, purpose: String, status: Int?) throws {
-        entries.append(NetworkEntry(method: request.httpMethod ?? "GET", host: request.url?.host ?? "",
-                                    purpose: purpose, status: status))
+        try append(NetworkEntry(method: request.httpMethod ?? "GET", host: request.url?.host ?? "", purpose: purpose, status: status))
+    }
+    /// External providers own their transport; this entry records invocation, not observed HTTP traffic.
+    public func recordExternal(provider: String, purpose: String) throws {
+        try append(NetworkEntry(method: "EXTERNAL", host: provider, purpose: purpose, status: nil))
+    }
+    private func append(_ entry: NetworkEntry) throws {
+        entries.append(entry)
         entries = Array(entries.suffix(2000))
         if let logURL {
             try FileManager.default.createDirectory(at: logURL.deletingLastPathComponent(), withIntermediateDirectories: true)
