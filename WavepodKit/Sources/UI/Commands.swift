@@ -23,12 +23,10 @@ public struct WavepodCommands: Commands {
         CommandGroup(after: .sidebar) {
             Button("Transcript") { model.section = .library; model.toggleSidePane(.transcript) }
                 .keyboardShortcut("1")
-            Button("Ask") { model.section = .library; model.toggleSidePane(.ask) }
-                .keyboardShortcut("2")
             Button("Chapters") { model.section = .library; model.toggleSidePane(.chapters) }
-                .keyboardShortcut("3")
+                .keyboardShortcut("2")
             Button("About This Episode") { model.section = .library; model.toggleSidePane(.about) }
-                .keyboardShortcut("4")
+                .keyboardShortcut("3")
             Divider()
             Button("Bigger Text") { model.adjustTextSize(by: 1) }
                 .keyboardShortcut("+")

@@ -72,15 +72,9 @@ struct SettingsView: View {
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
-            SettingRow(title: "Text size", detail: "Scales every text in the window. Also ⌘+ and ⌘−.") {
+            SettingRow(title: "Text size", detail: "Scales every text in the window. Also ⌘+ and ⌘−.", last: true) {
                 Picker("Text size", selection: $model.textScale) {
                     ForEach(Typography.scales, id: \.self) { Text("\(Int($0 * 100)) %").tag($0) }
-                }
-                .labelsHidden().fixedSize()
-            }
-            SettingRow(title: "Answer language", detail: "The language Ask answers in. Auto follows your question.", last: true) {
-                Picker("Answer language", selection: $model.askLanguage) {
-                    ForEach(AppModel.AskLanguage.allCases) { Text($0.title).tag($0) }
                 }
                 .labelsHidden().fixedSize()
             }

@@ -148,7 +148,7 @@ struct SummaryCard: View {
     }
 }
 
-/// A search-style field that asks the episode a question; answers open in the right card.
+/// A search-style field that asks the episode a question; answers appear under it, above the summary.
 struct AskField: View {
     @Bindable var model: AppModel
     var focus: FocusState<AppModel.FocusTarget?>.Binding
@@ -172,21 +172,6 @@ struct AskField: View {
                     if new.count > Self.maxLength { draft = String(new.prefix(Self.maxLength)) }
                 }
                 .accessibilityLabel("Ask this episode")
-            Menu {
-                Picker("Answer language", selection: $model.askLanguage) {
-                    ForEach(AppModel.AskLanguage.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.inline)
-            } label: {
-                Label(model.askLanguage == .auto ? "Any" : model.askLanguage.title, systemImage: "globe")
-            }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .buttonStyle(ChipStyle())
-            .fixedSize()
-            .help("Answer language")
-            .accessibilityLabel("Answer language")
-            .accessibilityValue(model.askLanguage.title)
             if model.isAnswering {
                 ProgressView().controlSize(.small).accessibilityLabel("Answering")
             } else {
@@ -217,8 +202,6 @@ struct AskField: View {
         guard canSend else { return }
         model.ask(draft)
         draft = ""
-        model.sidePane = .ask
-        model.showSidePane = true
     }
 }
 
@@ -269,7 +252,6 @@ struct DetailCard: View {
                                 .padding(.bottom, 10)
                             }
                         }
-                case .ask: AskThread(model: model)
                 case .chapters:
                     if model.chapters.isEmpty {
                         ContentUnavailableView {
@@ -311,10 +293,7 @@ struct TranscriptActions: View {
                 Divider()
                 Menu("Translate") {
                     ForEach(AppModel.AskLanguage.allCases.dropFirst()) { language in
-                        Button(language.title) {
-                            model.askLanguage = language
-                            model.translate()
-                        }
+                        Button(language.title) { model.translate(to: language) }
                     }
                 }
                 Divider()
@@ -328,44 +307,6 @@ struct TranscriptActions: View {
                 .fixedSize()
                 .help("Export, translate and view options")
                 .accessibilityLabel("Transcript options")
-        }
-    }
-}
-
-struct AskThread: View {
-    let model: AppModel
-    @Environment(\.typography) private var type
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    if model.chat.isEmpty {
-                        Text("Ask anything about this episode in the box under the transcript. Answers quote the transcript and link to the moment it was said.")
-                            .font(type.callout)
-                            .foregroundStyle(Palette.inkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    ForEach(model.chat) { message in
-                        MessageView(message: message) { model.play(from: $0) }
-                            .id(message.id)
-                    }
-                    if model.isAnswering {
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
-                            Text("Working on this Mac…").font(type.caption).foregroundStyle(Palette.inkMuted)
-                        }
-                        .id("answering")
-                    }
-                }
-                .padding(14)
-            }
-            .onChange(of: model.chat.count) {
-                if let last = model.chat.last {
-                    withAnimation(motion(.default, reduced: reduceMotion)) { proxy.scrollTo(last.id, anchor: .bottom) }
-                }
-            }
         }
     }
 }

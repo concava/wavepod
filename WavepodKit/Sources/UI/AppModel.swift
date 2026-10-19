@@ -64,13 +64,12 @@ public final class AppModel {
 
     /// What the episode view's right-hand pane shows next to the transcript.
     public enum SidePane: String, CaseIterable, Identifiable, Sendable {
-        case transcript, ask, chapters, about
+        case transcript, chapters, about
         public var id: String { rawValue }
         public var title: String { rawValue.capitalized }
         public var symbol: String {
             switch self {
             case .transcript: "text.quote"
-            case .ask: "bubble.left.and.text.bubble.right"
             case .chapters: "list.number"
             case .about: "info.circle"
             }
@@ -146,7 +145,8 @@ public final class AppModel {
 
     // Command field and Ask
     public var commandText = ""
-    public var askLanguage: AskLanguage = .auto
+    /// The language of the last translation; answers always follow the question's language.
+    public var translationLanguage: AskLanguage = .en
     /// One-line status shown under the top bar ("Copied transcript", "Link resolution arrives in Phase 2", …).
     public internal(set) var notice: String?
 
@@ -412,7 +412,7 @@ public final class AppModel {
         }
         persistWorkspace()
         isAnswering = true
-        let id = episode.id, source = transcript, language = askLanguage.title
+        let id = episode.id, source = transcript
         Task {
             defer { isAnswering = false }
             do {
@@ -429,7 +429,7 @@ public final class AppModel {
                 let passages = context
                 let claims = try await services.generator.withSession { generator in
                     try await GroundedAnswers(generator: generator).answer(
-                        instruction: "Answer this question in \(language): \(q)", context: passages, transcript: source)
+                        instruction: "Answer this question in the language it is asked in: \(q)", context: passages, transcript: source)
                 }
                 let answer = ChatMessage(role: .assistant, text: claims.isEmpty ? "Not found in this episode." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now)
                 guard var record = try services.store.episode(id) else { return }

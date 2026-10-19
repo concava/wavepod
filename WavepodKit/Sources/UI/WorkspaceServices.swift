@@ -258,10 +258,11 @@ extension AppModel {
             } catch { show(error.localizedDescription) }
         }
     }
-    public func translate() {
-        guard let services, !isGenerating, askLanguage != .auto else { show("Choose a translation language first."); return }
+    public func translate(to target: AskLanguage) {
+        guard let services, !isGenerating, target != .auto else { return }
+        translationLanguage = target
         isGenerating = true
-        let source = transcript, language = askLanguage.title
+        let source = transcript, language = target.title
         Task {
             defer { isGenerating = false }
             do {

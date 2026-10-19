@@ -85,10 +85,10 @@ final class SnapshotTests: XCTestCase {
         check("chapters", size: CGSize(width: 420, height: 500)) { DetailSnapshot(model: model) }
     }
 
-    func testAskPane() {
+    func testTranscriptCard() {
         let model = makeModel()
-        model.sidePane = .ask
-        check("ask", size: CGSize(width: 420, height: 700)) { DetailSnapshot(model: model) }
+        model.sidePane = .transcript
+        check("transcript-card", size: CGSize(width: 420, height: 700)) { DetailSnapshot(model: model) }
     }
 
     func testPodcastCard() {

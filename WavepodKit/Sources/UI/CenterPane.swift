@@ -180,6 +180,7 @@ struct SummaryView: View {
 
     var body: some View {
         ScrollView {
+            AnswersSection(model: model)
             if let summary = model.summary {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(summary.overview)
@@ -243,6 +244,52 @@ struct SummaryView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Questions asked in the middle card's Ask field, newest first, above the summary.
+struct AnswersSection: View {
+    let model: AppModel
+    @Environment(\.typography) private var type
+
+    /// Each question with the answer that followed it.
+    private var exchanges: [(question: ChatMessage, answer: ChatMessage?)] {
+        var result: [(ChatMessage, ChatMessage?)] = []
+        for message in model.chat {
+            if message.role == .user { result.append((message, nil)) }
+            else if let last = result.indices.last, result[last].1 == nil { result[last].1 = message }
+        }
+        return result.reversed()
+    }
+
+    var body: some View {
+        if !model.chat.isEmpty || model.isAnswering {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionHeading("Answers")
+                if model.isAnswering {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Answering on this Mac…").font(type.callout).foregroundStyle(Palette.inkMuted)
+                    }
+                }
+                ForEach(exchanges, id: \.question.id) { exchange in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(exchange.question.text)
+                            .font(type.body.weight(.semibold))
+                            .foregroundStyle(Palette.ink)
+                            .textSelection(.enabled)
+                            .accessibilityLabel("You asked: \(exchange.question.text)")
+                        if let answer = exchange.answer {
+                            MessageView(message: answer) { model.play(from: $0) }
+                        }
+                    }
+                }
+                Divider().overlay(Palette.rule).padding(.top, 4)
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

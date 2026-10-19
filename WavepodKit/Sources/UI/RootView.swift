@@ -69,7 +69,7 @@ public struct RootView: View {
         }
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
-                HStack { Text("Translation · \(model.askLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }
+                HStack { Text("Translation · \(model.translationLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }
                 ScrollView { Text(model.translationText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
             }.padding().frame(width: 640, height: 560)
         }
