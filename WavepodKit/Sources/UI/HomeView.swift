@@ -56,7 +56,7 @@ struct HomeView: View {
                     ForEach(active) { job in
                         FeedRow(leading: job.state == .running ? "\(Int(job.fraction * 100)) %" : job.state.rawValue.capitalized,
                                 title: job.episode.title,
-                                detail: job.batteryPaused ? "Paused on battery" : job.stage,
+                                detail: job.batteryPaused ? "Paused to save battery" : job.stage,
                                 progress: job.state == .running ? job.fraction : nil,
                                 isLast: job.id == active.last?.id) {
                             model.openSettings(.queue)
