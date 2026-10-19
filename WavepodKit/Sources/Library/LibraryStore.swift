@@ -143,7 +143,7 @@ public final class LibraryStore: Sendable {
                 let audio: String? = row["audio"]
                 let summary: String? = row["summary"]
                 return EpisodeListing(episode: try JSONDecoder().decode(Episode.self, from: Data(json.utf8)),
-                                      downloaded: audio.flatMap(URL.init(string:)).map { FileManager.default.fileExists(atPath: $0.path) } ?? false,
+                                      downloaded: audio.flatMap(URL.init(string:))?.isFileURL ?? false,
                                       summarized: summary != nil && summary != "null", notesPending: (row["pending"] as Bool?) ?? false)
             }
         }
