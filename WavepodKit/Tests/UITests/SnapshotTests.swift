@@ -9,6 +9,10 @@ import XCTest
 /// Record new references with `SNAPSHOT_RECORD=1 swift test`.
 @MainActor
 final class SnapshotTests: XCTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try XCTSkipIf(NSScreen.screens.isEmpty, "Snapshot rendering requires a WindowServer display.")
+    }
     override func invokeTest() {
         withSnapshotTesting(record: ProcessInfo.processInfo.environment["SNAPSHOT_RECORD"] == "1" ? .all : .missing) {
             super.invokeTest()
@@ -56,38 +60,49 @@ final class SnapshotTests: XCTestCase {
         check("sidebar", size: CGSize(width: 220, height: 420)) { SidebarView(model: model) }
     }
 
-    func testEpisodePane() {
+    func testAboutPane() {
         let model = makeModel()
-        check("episode", size: CGSize(width: 300, height: 720)) { EpisodePane(model: model).padding(6) }
+        model.sidePane = .about
+        check("about", size: CGSize(width: 420, height: 600)) { DetailSnapshot(model: model) }
     }
 
     func testTranscript() {
         let model = makeModel()
-        check("transcript", size: CGSize(width: 600, height: 700)) { CenterPaneSnapshot(model: model).padding(6) }
+        check("transcript", size: CGSize(width: 760, height: 700)) { TranscriptSnapshot(model: model) }
     }
 
     func testTranscriptLargeText() {
         let model = makeModel()
         check("transcript-large", size: CGSize(width: 600, height: 700), scale: 1.5) {
-            CenterPaneSnapshot(model: model).padding(6)
+            TranscriptSnapshot(model: model)
         }
     }
 
     func testSummary() {
         let model = makeModel()
-        model.centerTab = .summary
-        check("summary", size: CGSize(width: 600, height: 700)) { CenterPaneSnapshot(model: model).padding(6) }
+        check("summary", size: CGSize(width: 620, height: 700)) { SummaryCardSnapshot(model: model) }
     }
 
     func testChapters() {
         let model = makeModel()
-        model.centerTab = .chapters
-        check("chapters", size: CGSize(width: 600, height: 500)) { CenterPaneSnapshot(model: model).padding(6) }
+        model.sidePane = .chapters
+        check("chapters", size: CGSize(width: 420, height: 500)) { DetailSnapshot(model: model) }
     }
 
-    func testAskPane() {
+    func testTranscriptCard() {
         let model = makeModel()
-        check("ask", size: CGSize(width: 330, height: 700)) { AskPaneSnapshot(model: model).padding(6) }
+        model.sidePane = .transcript
+        check("transcript-card", size: CGSize(width: 420, height: 700)) { DetailSnapshot(model: model) }
+    }
+
+    func testPodcastCard() {
+        let model = makeModel()
+        check("podcast", size: CGSize(width: 250, height: 500)) { PodcastCard(model: model).background(Palette.surface) }
+    }
+
+    func testOnboarding() {
+        let model = makeModel()
+        check("onboarding", size: CGSize(width: 680, height: 540)) { OnboardingView(model: model) }
     }
 
     func testPlayerBarWhileBrowsing() {
@@ -107,16 +122,22 @@ final class SnapshotTests: XCTestCase {
 }
 
 // FocusState can only live in a View, so these wrappers own one for the panes that take a focus binding.
-private struct CenterPaneSnapshot: View {
+private struct TranscriptSnapshot: View {
     let model: AppModel
     @FocusState var focus: AppModel.FocusTarget?
-    var body: some View { CenterPane(model: model, focus: $focus) }
+    var body: some View { TranscriptView(model: model, focus: $focus).background(Palette.surface) }
 }
 
-private struct AskPaneSnapshot: View {
+private struct SummaryCardSnapshot: View {
     let model: AppModel
     @FocusState var focus: AppModel.FocusTarget?
-    var body: some View { AskPane(model: model, focus: $focus) }
+    var body: some View { SummaryCard(model: model, focus: $focus).background(Palette.surface) }
+}
+
+private struct DetailSnapshot: View {
+    let model: AppModel
+    @FocusState var focus: AppModel.FocusTarget?
+    var body: some View { DetailCard(model: model, focus: $focus).background(Palette.surface) }
 }
 
 private struct WorkspaceSnapshot: View {

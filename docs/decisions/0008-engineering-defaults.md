@@ -7,7 +7,8 @@ Choices the brief left open. Each has a one-line reason.
 
 ## Platform and build
 
-- **Deployment target macOS 14**, Apple Silicon only. Built with the current Xcode (27) and Swift 6 language mode,
+- **Deployment target macOS 15**, Apple Silicon only (raised from 14 on 2026-10-19: speaker detection crashes on
+  macOS 14, see [0003](0003-diarization.md#risk-macos-14-crash-in-apples-bnns)). Built with the current Xcode (27) and Swift 6 language mode,
   strict concurrency complete.
 - **One Swift package `WavepodKit`** with the modules `Resolver`, `Engine`, `Pipeline`, `Speakers`, `Library`,
   `LLM`, `Player`, `UI`, plus a thin app target. The Xcode project is generated with **XcodeGen** from `project.yml`

@@ -56,7 +56,7 @@ struct HomeView: View {
                     ForEach(active) { job in
                         FeedRow(leading: job.state == .running ? "\(Int(job.fraction * 100)) %" : job.state.rawValue.capitalized,
                                 title: job.episode.title,
-                                detail: job.batteryPaused ? "Paused on battery" : job.stage,
+                                detail: job.batteryPaused ? "Paused to save battery" : job.stage,
                                 progress: job.state == .running ? job.fraction : nil,
                                 isLast: job.id == active.last?.id) {
                             model.openSettings(.queue)
@@ -89,7 +89,7 @@ struct HomeView: View {
                     VStack(spacing: 0) {
                         ForEach(group.items) { item in
                             FeedRow(leading: Timecode.format(item.episode.duration), title: item.episode.title,
-                                    detail: item.episode.showName, isLast: item.id == group.items.last?.id) {
+                                    detail: [item.episode.showName, model.episodeStatus(item.id)].filter { !$0.isEmpty }.joined(separator: " · "), isLast: item.id == group.items.last?.id) {
                                 model.open(item)
                             }
                         }

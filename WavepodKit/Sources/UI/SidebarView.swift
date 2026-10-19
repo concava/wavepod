@@ -187,8 +187,11 @@ struct SetupCard: View {
             Step(id: "episode", title: "Transcribe a first episode", done: !model.savedEpisodes.isEmpty) {
                 model.focusRequest = .command
             },
-            Step(id: "speaker", title: "Name a speaker", done: model.namedVoices > 0) {
+            Step(id: "speaker", title: "Name a speaker", done: model.hasNamedSpeaker || model.namedVoices > 0) {
+                // Speaker names are edited from their labels in the transcript.
                 if let first = model.savedEpisodes.first { model.open(first) }
+                model.sidePane = .transcript
+                model.showSidePane = true
             },
             Step(id: "show", title: "Follow a podcast", done: !model.subscriptions.isEmpty) {
                 model.section = .shows
