@@ -71,6 +71,50 @@ final class NetworkTests: XCTestCase {
         XCTAssertEqual(FixtureProtocol.fixtures.count(), 1)
         await queue.shutdown()
     }
+    func testSubscriptionsUseConditionalRequestsAndOnlyEnqueueNewEpisodes() async throws {
+        let feed = Data(#"<rss version="2.0"><channel><title>Example</title><item><title>Old</title><guid>old</guid></item><item><title>New</title><guid>new</guid></item></channel></rss>"#.utf8)
+        FixtureProtocol.fixtures.configure { request in
+            guard request.value(forHTTPHeaderField: "If-None-Match") == "old-tag" else { return (400, [:], Data()) }
+            return (200, ["Content-Type": "application/rss+xml", "ETag": "new-tag"], feed)
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try LibraryStore(url: folder.appendingPathComponent("library.sqlite"))
+        let url = URL(string: "https://feed.example/rss")!
+        var show = Subscription(feedURL: url, title: "Example", autoTranscribe: true, seen: [url.absoluteString + "|old"])
+        show.etag = "old-tag"
+        try store.put(show, kind: "subscription", id: show.id)
+        let client = client()
+        let queue = try JobQueue(store: store, directory: folder.appendingPathComponent("jobs"), client: client)
+        let monitor = SubscriptionMonitor(store: store, client: client, queue: queue)
+        let now = Date()
+        try await monitor.refresh(now: now)
+        let jobs = await queue.snapshot()
+        XCTAssertEqual(jobs.count, 1)
+        XCTAssertEqual(jobs.first?.episode.title, "New")
+        try await monitor.refresh(now: now.addingTimeInterval(30))
+        XCTAssertEqual(FixtureProtocol.fixtures.count(), 1)
+        XCTAssertEqual(try store.values(Subscription.self, kind: "subscription").first?.etag, "new-tag")
+        await queue.shutdown()
+    }
+    func testModelInstallerIncludesExternalChatTemplate() async throws {
+        FixtureProtocol.fixtures.configure { request in
+            let data: Data
+            if request.url!.path.hasPrefix("/api/models/") {
+                data = Data(#"{"sha":"immutable-fixture","siblings":[{"rfilename":"config.json"},{"rfilename":"chat_template.jinja"}]}"#.utf8)
+            } else if request.url!.lastPathComponent == "chat_template.jinja" {
+                data = Data("{{ messages }}".utf8)
+            } else { data = Data("{}".utf8) }
+            return (200, ["Content-Length": String(data.count)], data)
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let installer = ModelInstaller(client: client(), root: folder)
+        try await installer.install(ModelSpec(repository: "fixture/model", folder: "language"), progress: { _ in })
+        XCTAssertEqual(try String(contentsOf: folder.appendingPathComponent("language/chat_template.jinja"), encoding: .utf8), "{{ messages }}")
+    }
     func testUnapprovedHostIsRejectedBeforeSending() async throws {
         FixtureProtocol.fixtures.configure { _ in (200, [:], Data()) }
         do {

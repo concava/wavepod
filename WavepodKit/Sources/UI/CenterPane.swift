@@ -91,7 +91,8 @@ struct TranscriptToolbar: View {
             Menu {
                 ForEach(AppModel.AskLanguage.allCases.dropFirst()) { language in
                     Button(language.title) {
-                        model.show("Translation to \(language.title) arrives with the local model (Phase 5)")
+                        model.askLanguage = language
+                        model.translate()
                     }
                 }
             } label: {
@@ -106,6 +107,7 @@ struct TranscriptToolbar: View {
             Spacer()
             Button {
                 model.centerTab = .summary
+                if model.summary == nil { model.generateNotes() }
             } label: {
                 Label("Summarize", systemImage: "text.append")
             }

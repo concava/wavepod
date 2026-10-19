@@ -2,6 +2,7 @@ import AVFoundation
 import Engine
 import Foundation
 import Library
+import LLM
 import Networking
 import Pipeline
 import Resolver
@@ -45,6 +46,32 @@ final class PipelineTests: XCTestCase {
         WindowStitcher.append(second, start: 1790, keepFrom: 1795, keepUntil: 1810, to: &combined)
         XCTAssertEqual(combined.words.map(\.word.text), ["keep", "overlap"])
         XCTAssertEqual(Set(combined.turns.map(\.speaker)).count, 1)
+    }
+    func testCitationRejectsWrongTimeNoncontiguousAndInventedWords() {
+        let source = transcript()
+        XCTAssertTrue(CitationValidator.validates(CitedClaim(claim: "Greeting", quote: "Welcome to our podcast!", start: 10), transcript: source))
+        XCTAssertFalse(CitationValidator.validates(CitedClaim(claim: "Greeting", quote: "Welcome to our podcast", start: 30), transcript: source))
+        XCTAssertFalse(CitationValidator.validates(CitedClaim(claim: "Greeting", quote: "Welcome podcast", start: 10), transcript: source))
+        let cue = Transcript(language: "en", segments: [Segment(id: 0, speaker: SpeakerID("S1"), words: [Word(text: "Welcome to our podcast", start: 10, end: 12)])])
+        XCTAssertTrue(CitationValidator.validates(CitedClaim(claim: "Greeting", quote: "our podcast", start: 11), transcript: cue))
+        XCTAssertFalse(CitationValidator.validates(CitedClaim(claim: "Invented", quote: "They announced a merger", start: 10), transcript: source))
+        // A quote from the middle of a segment may cite the segment's start; the located time is the quote's own.
+        XCTAssertEqual(CitationValidator.locate(CitedClaim(claim: "Name", quote: "our podcast", start: 9), transcript: source), 11)
+        XCTAssertNil(CitationValidator.locate(CitedClaim(claim: "Name", quote: "our podcast", start: 14), transcript: source))
+    }
+    func testCitationRetriesOnceThenDropsInvalidClaims() async throws {
+        let generator = ScriptedGenerator(responses: ["garbage", "[{\"claim\":\"Made up\",\"quote\":\"aliens arrived\",\"start\":10}]"])
+        let claims = try await GroundedAnswers(generator: generator).answer(instruction: "Summarize", context: transcript().segments, transcript: transcript())
+        XCTAssertTrue(claims.isEmpty)
+        let calls = await generator.calls
+        XCTAssertEqual(calls, 2)
+    }
+    func testExplicitEmptyAnswerIsAcceptedWithoutRetry() async throws {
+        let generator = ScriptedGenerator(responses: ["[]"])
+        let claims = try await GroundedAnswers(generator: generator).answer(instruction: "Who won the match?", context: transcript().segments, transcript: transcript())
+        XCTAssertTrue(claims.isEmpty)
+        let calls = await generator.calls
+        XCTAssertEqual(calls, 1)
     }
     func testVoiceProfilesAreRestrictedToShowAndRejectAmbiguousMatches() {
         let a = VoiceProfile(showID: "show-a", name: "Alex", embedding: [1, 0])
@@ -171,6 +198,13 @@ final class PipelineTests: XCTestCase {
 }
 
 
+private actor ScriptedGenerator: TextGenerating {
+    var responses: [String]
+    var calls = 0
+    init(responses: [String]) { self.responses = responses }
+    func generate(_ prompt: String) async throws -> String { calls += 1; return responses.removeFirst() }
+}
+
 private actor CountingEngine: Engine {
     nonisolated let id = "test"
     var calls = 0
@@ -197,3 +231,27 @@ private actor FailingDiarizer: Diarizing {
     }
 }
 
+final class LocalAISmokeTests: XCTestCase {
+    func testRealLocalGenerationAndMultilingualEmbeddings() async throws {
+        guard let directory = ProcessInfo.processInfo.environment["WAVEPOD_AI_MODELS"] else {
+            throw XCTSkip("Set WAVEPOD_AI_MODELS for the opt-in local AI integration run.")
+        }
+        let root = URL(fileURLWithPath: directory)
+        if ProcessInfo.processInfo.environment["WAVEPOD_INSTALL_AI"] == "1" {
+            let installer = ModelInstaller(client: HTTPClient(), root: root)
+            try await installer.install(.language, progress: { _ in })
+            try await installer.install(.embeddings, progress: { _ in })
+        }
+        let source = Transcript(language: "en", segments: [Segment(id: 0, speaker: SpeakerID("S1"), words: [Word(text: "The train leaves at noon.", start: 10, end: 12)])])
+        let generator = LocalGenerator(directory: root.appendingPathComponent("language"))
+        let claims = try await generator.withSession { session in
+            try await GroundedAnswers(generator: session).answer(instruction: "When does the train leave?", context: source.segments, transcript: source)
+        }
+        XCTAssertFalse(claims.isEmpty, "The real model must produce at least one valid citation")
+        let embeddings = LocalEmbeddings(directory: root.appendingPathComponent("embeddings"))
+        let vectors = try await embeddings.encode(["The train leaves at noon.", "El tren sale al mediodía.", "Chocolate cake recipe."])
+        XCTAssertEqual(vectors.count, 3)
+        XCTAssertEqual(vectors[0].count, 384)
+        XCTAssertGreaterThan(VectorMath.cosine(vectors[0], vectors[1]) ?? 0, VectorMath.cosine(vectors[0], vectors[2]) ?? 1)
+    }
+}

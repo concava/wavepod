@@ -59,6 +59,43 @@ calibrated accuracy claims**. First evidence (2026-10-19): across the two full I
 confirmed once would therefore be suggested for that voice in the other episode, and for nobody else. Calibrating
 false matches and measuring the share of turns with the correct name need verified, named references.
 
+## Phase 5: library, AI and shows
+
+- GRDB/SQLite stores episode records, speaker maps, chapters, summaries, chat and raw voice embeddings. The
+  sidebar fetches metadata only. FTS5 supports keyword search; multilingual E5-small supplies normalized vectors
+  for cosine search. Vectors are revision-tagged and indexed incrementally. Search opens the exact episode/time.
+- MLX Swift runs Qwen3-4B-Instruct-2507 at 4-bit locally. This Apache-2.0 model is a provisional implementation
+  candidate, pending the golden-set citation/language evaluation. Contexts are bounded; summary/chapter
+  generation covers successive sections of the whole transcript. Ask retrieves within the selected episode.
+- Generated claims use `{claim, quote, start}`. A contiguous word-span validator checks normalized similarity
+  >= 0.85 and a start within ±2 seconds. Invalid output is retried once; invalid claims are then dropped.
+  Translations are displayed separately with source timestamps and never overwrite the original transcript.
+- Shows support manual selection, subscriptions and per-show auto-transcription. Existing feed items are seeded
+  as seen so enabling auto-transcription does not download a back catalogue. Requests are conditional and at
+  most hourly. The embedded LaunchAgent is registered through Settings with `SMAppService`, checks hourly,
+  and runs opted-in jobs while the app is closed. macOS may require approving background items in System Settings.
+
+The network log records hosts, purposes and response codes without API keys or signed URL query strings.
+Native/MLX runtimes read installed files; feed/audio/model requests use `Networking`. yt-dlp remains an external
+metadata extractor with its own network stack; its binary is pinned and verified, user configuration/plugins are
+ignored, and the selected M4A audio is downloaded through the app client.
+
+### Measured: Ask on a real transcript (2026-10-19)
+
+`wavepod-ask` asked Qwen3-4B (4-bit, MLX) 12 Spanish questions about one 20-minute golden window
+(itnig-cuantico, transcribed by the Phase 3 pipeline): 10 answerable from the window, 2 not.
+
+| Citation rule | Answered (of 10) | Fully right | Partial | Not found (of 2 unanswerable) | Citations pointing at the wrong text |
+|---|---|---|---|---|---|
+| Quote must start within ±2 s of the cited time | 4 | 2 | 2 | 2 | 0 |
+| Quote must lie in the cited segment; time replaced by the quote's own start | **9** | **6** | 2 | **2** | **0** |
+
+The model only sees one timestamp per segment (segments last up to 30 s), so the first rule rejected most correct
+quotes. The second keeps the guarantee — the timestamp shown is where the quoted words start — and accepts them.
+An explicit empty answer is now accepted at once instead of being retried. Peak memory was 3.6 GB for generation
+plus embeddings; the run took 7 minutes for 12 questions (about 35 s per question). One window and 12 questions is
+a first check, not the 20-questions-per-episode evaluation the definition of done asks for.
+
 ## Verification
 
 ```sh
@@ -74,18 +111,25 @@ WAVEPOD_NATIVE_MODELS=/absolute/model/root \
 WAVEPOD_SMOKE_AUDIO=/absolute/audio.wav \
 WAVEPOD_SMOKE_LANGUAGE=en \
 swift test --package-path WavepodKit --filter NativeSmokeTests
+
+WAVEPOD_AI_MODELS=/absolute/model/root WAVEPOD_INSTALL_AI=1 \
+swift test --package-path WavepodKit --filter LocalAISmokeTests
 ```
+
+The AI root contains `language/` and `embeddings/`. Omit `WAVEPOD_INSTALL_AI` to use already-installed weights
+without downloading. Xcode's Metal Toolchain is needed for MLX; install it with
+`xcodebuild -downloadComponent MetalToolchain` if `xcrun metal --version` reports it missing.
 
 The golden-set run scores the same pipeline end to end: `wavepod-transcribe` runs decode, windowed ASR,
 diarization and word alignment in-process (no XPC helper, no library), and `./eval/podeval run wavepod` drives it.
 
 The native model root contains `parakeet/`, `whisper/` (including tokenizer files), `vad/`, and `diarizer/`.
-Synthetic fixtures test queue crash recovery, published transcript bypass, range restart, network restrictions
-and persistence.
+Synthetic fixtures test queue crash recovery, published transcript bypass, range restart, network restrictions,
+persistence, search/vector retention, speaker matching and citation rejection/retry.
 
 ## Remaining release evidence
 
 Still needed before release: verified golden-set references (the drafts are machine-made), a Catalan episode,
-and the macOS 14 diarization stress run. A live Scriberr installation and
+the local model's citation and language evaluation on the golden set, and the macOS 14 diarization stress run. A live Scriberr installation and
 SMAppService registration need their own deployment checks. Developer ID signing/notarization remains a separate
 release step.

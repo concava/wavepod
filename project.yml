@@ -21,10 +21,21 @@ targets:
     platform: macOS
     sources: [App/Sources]
     dependencies:
+      - target: wavepod-feeds
       - target: WavepodEngine
         embed: true
       - package: WavepodKit
         product: UI
+    postBuildScripts:
+      - name: Embed feed checker
+        script: |
+          mkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchAgents"
+          cp "$SRCROOT/App/LaunchAgents/app.wavepod.feeds.plist" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchAgents/"
+          cp "$BUILT_PRODUCTS_DIR/wavepod-feeds" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/"
+          if [ "$CODE_SIGNING_ALLOWED" != "NO" ] && [ -n "$EXPANDED_CODE_SIGN_IDENTITY" ]; then
+            codesign --force --options runtime --sign "$EXPANDED_CODE_SIGN_IDENTITY" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/wavepod-feeds"
+          fi
+        basedOnDependencyAnalysis: false
     info:
       path: App/Info.plist
       properties:
@@ -65,3 +76,16 @@ targets:
         INFOPLIST_KEY_CFBundlePackageType: XPC!
         SKIP_INSTALL: YES
 
+  wavepod-feeds:
+    type: tool
+    platform: macOS
+    sources: [App/FeedService]
+    dependencies:
+      - package: WavepodKit
+        product: Pipeline
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wavepod.feeds
+        SWIFT_PARSE_AS_LIBRARY: YES
+        CODE_SIGN_IDENTITY: "-"
+        SKIP_INSTALL: YES

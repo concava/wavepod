@@ -1,9 +1,11 @@
 import AppKit
 import Engine
+import LLM
 import Networking
 import Pipeline
 import Resolver
 import Speakers
+import ServiceManagement
 import Library
 import Observation
 import Player
@@ -104,16 +106,25 @@ public final class AppModel {
     public var speakerEvidence: [SpeakerID: [SpeakerEvidence]] = [:]
     public var savedEpisodes: [EpisodeListing] = []
     public var jobs: [TranscriptionJob] = []
+    public var subscriptions: [Subscription] = []
     public var resolvedShow: ResolvedShow?
     public var resolutionCandidates: [ScoredCandidate] = []
+    public var searchHits: [SearchHit] = []
+    public var meaningSearch = false
     public var isPowerPaused = false
+    public var isRefreshing = false
     public var isResolving = false
+    public var isIndexing = false
+    public var isGenerating = false
     public var isInstalling = false
     public var modelStatus = "Models are downloaded once and run on this Mac."
     public var networkEntries: [NetworkEntry] = []
     public var engineChoice = UserDefaults.standard.string(forKey: "engine") ?? "native"
     public var scriberrURL = UserDefaults.standard.string(forKey: "scriberrURL") ?? "http://localhost:8080"
     public var scriberrKey = ""
+    public var backgroundChecks = SMAppService.agent(plistName: "app.wavepod.feeds.plist").status == .enabled
+    public var translationText = ""
+    public var showTranslation = false
 
     public init(player: PlayerModel = PlayerModel(), persistent: Bool = false) {
         self.player = player
@@ -137,6 +148,7 @@ public final class AppModel {
                 savedEpisodes = try services!.store.items()
                 if let item = savedEpisodes.first, let record = try services!.store.episode(item.id) { install(record) }
                 workspaceTask = Task { [weak self] in
+                    var checks = 0
                     while !Task.isCancelled {
                         guard let self else { return }
                         if let services = self.services {
@@ -146,10 +158,13 @@ public final class AppModel {
                                 await services.queue.start()
                             } catch { self.show(error.localizedDescription) }
                         }
+                        checks += 1
+                        if checks % 3600 == 0 { self.refreshShows() }
                         await self.refreshWorkspace()
                         try? await Task.sleep(for: .seconds(1))
                     }
                 }
+                refreshShows()
             } catch { show("Could not open the library: \(error.localizedDescription)") }
         }
     }
@@ -170,10 +185,12 @@ public final class AppModel {
                 .subtracting(jobs.filter { $0.state == .completed }.map(\.id))
             jobs = latestJobs
             savedEpisodes = try services.store.items()
+            subscriptions = try services.store.values(Subscription.self, kind: "subscription")
             networkEntries = await services.client.log()
             if let job = jobs.first(where: { newCompletion.contains($0.id) }),
                let record = savedEpisodes.first(where: { $0.id == JobQueue.episodeID(job.episode) }) {
                 open(record)
+                if FileManager.default.fileExists(atPath: services.root.appendingPathComponent("models/embeddings/config.json").path) { indexLibrary() }
             }
         } catch { show(error.localizedDescription) }
     }
@@ -307,31 +324,51 @@ public final class AppModel {
                     }
                 } catch { show(error.localizedDescription) }
             }
-        } else { section = .search }
+        } else { section = .search; performSearch() }
     }
 
     // MARK: Ask this episode
 
     public var isAnswering = false
 
-    /// Until the local model ships (Phase 5) this returns the passages that best match the question, each with its
-    /// timestamp, and says so. It never writes an answer the transcript does not contain.
     public func ask(_ question: String) {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return }
+        guard !q.isEmpty, !isAnswering else { return }
         chat.append(ChatMessage(role: .user, text: q, date: .now))
-        let matches = PassageSearch.best(for: q, in: transcript, limit: 2)
-        if matches.isEmpty {
-            chat.append(ChatMessage(role: .assistant,
-                                    text: "I couldn't find anything about that in this episode.", date: .now))
-        } else {
-            chat.append(ChatMessage(
-                role: .assistant,
-                text: "The local model isn't installed yet, so here are the passages that best match your question.",
-                citations: matches.map { Citation(start: $0.start, quote: $0.words.map(\.text).joined(separator: " ")) },
-                date: .now))
+        guard let services else {
+            let matches = PassageSearch.best(for: q, in: transcript, limit: 2)
+            chat.append(ChatMessage(role: .assistant, text: matches.isEmpty ? "I couldn't find anything about that in this episode." : "Matching transcript passages:",
+                                    citations: matches.map { Citation(start: $0.start, quote: $0.words.map(\.text).joined(separator: " ")) }, date: .now))
+            return
         }
         persistWorkspace()
+        isAnswering = true
+        let id = episode.id, source = transcript, language = askLanguage.title
+        Task {
+            defer { isAnswering = false }
+            do {
+                var context = PassageSearch.best(for: q, in: source, limit: 12)
+                // Semantic retrieval supplies cross-language and paraphrase matches when installed/indexed.
+                if FileManager.default.fileExists(atPath: services.root.appendingPathComponent("models/embeddings/config.json").path) {
+                    let vector = try await services.embeddings.encode([q], query: true).first ?? []
+                    let hits = try services.store.semanticSearch(vector, model: services.embeddings.modelID, episodeID: id, limit: 12)
+                    let ids = Set(hits.map(\.segmentID))
+                    let semantic = source.segments.filter { ids.contains($0.id) }
+                    let semanticIDs = Set(semantic.map(\.id))
+                    context = Array((semantic + context.filter { !semanticIDs.contains($0.id) }).prefix(12))
+                }
+                let passages = context
+                let claims = try await services.generator.withSession { generator in
+                    try await GroundedAnswers(generator: generator).answer(
+                        instruction: "Answer this question in \(language): \(q)", context: passages, transcript: source)
+                }
+                let answer = ChatMessage(role: .assistant, text: claims.isEmpty ? "Not found in this episode." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now)
+                guard var record = try services.store.episode(id) else { return }
+                record.chat.append(answer)
+                try services.store.save(record)
+                if episode.id == id { chat = record.chat }
+            } catch { show(error.localizedDescription) }
+        }
     }
 
     // MARK: Appearance and notices

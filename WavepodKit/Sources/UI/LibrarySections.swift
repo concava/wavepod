@@ -9,9 +9,7 @@ struct LibrarySection: View {
         switch model.section {
         case .queue: QueueSection(model: model)
         case .shows: ShowsSection(model: model)
-        case .search:
-            ContentUnavailableView("Search arrives in Phase 5", systemImage: "magnifyingglass",
-                                   description: Text("Keyword and meaning search across every episode."))
+        case .search: SearchSection(model: model)
         case .settings: SettingsSection(model: model)
         case .library: EmptyView()
         }
@@ -68,6 +66,7 @@ struct ShowsSection: View {
             HStack {
                 Text("Shows").font(.title2)
                 Spacer()
+                Button("Check for Episodes", action: model.refreshShows).disabled(model.isRefreshing)
             }.padding()
             List {
                 if !model.resolutionCandidates.isEmpty {
@@ -84,6 +83,7 @@ struct ShowsSection: View {
                 }
                 if let show = model.resolvedShow {
                     Section {
+                        Button("Subscribe to \(show.title)", action: model.subscribe)
                         ForEach(Array(show.episodes.enumerated()), id: \.offset) { _, episode in
                             HStack {
                                 VStack(alignment: .leading) {
@@ -96,11 +96,50 @@ struct ShowsSection: View {
                         }
                     } header: { Text(show.title) }
                 }
+                Section("Subscriptions") {
+                    ForEach(model.subscriptions) { show in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Button(show.title) { model.commandText = show.feedURL.absoluteString; model.submitCommand() }.buttonStyle(.plain)
+                                if let checked = show.checked { Text("Checked \(checked.formatted())").font(.caption).foregroundStyle(.secondary) }
+                            }
+                            Spacer()
+                            Toggle("Transcribe new episodes", isOn: Binding(get: { show.autoTranscribe }, set: { _ in model.toggleAuto(show) }))
+                                .fixedSize()
+                            Button("Unsubscribe", role: .destructive) { model.unsubscribe(show) }
+                        }
+                    }
+                    if model.subscriptions.isEmpty { Text("Paste a show's feed or website link to subscribe.").foregroundStyle(.secondary) }
+                }
             }
         }
     }
 }
 
+struct SearchSection: View {
+    @Bindable var model: AppModel
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack {
+                TextField("Search every episode", text: $model.commandText).onSubmit(model.performSearch)
+                Toggle("Meaning", isOn: $model.meaningSearch).fixedSize()
+                Button("Search", action: model.performSearch)
+            }.padding()
+            if model.searchHits.isEmpty {
+                ContentUnavailableView("No matches", systemImage: "magnifyingglass", description: Text("Search saved transcripts by keyword or meaning."))
+            } else {
+                List(model.searchHits) { hit in
+                    Button { model.openHit(hit) } label: {
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack { Text(hit.title).font(.headline); Text(Timecode.format(hit.start)).monospacedDigit().foregroundStyle(Palette.accent) }
+                            Text(hit.text).lineLimit(4).foregroundStyle(.secondary)
+                        }.padding(.vertical, 6)
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
 
 struct SettingsSection: View {
     @Bindable var model: AppModel
@@ -120,8 +159,15 @@ struct SettingsSection: View {
             }
             Section("Models on this Mac") {
                 Button("Install Transcription Models") { model.installModels("native") }
+                Button("Install Local Language Model") { model.installModels("language") }
+                Button("Install Meaning Search Model") { model.installModels("embeddings") }
                 Text(model.modelStatus).font(.caption).textSelection(.enabled)
+                Button(model.isIndexing ? "Indexing…" : "Rebuild Meaning Search Index", action: model.indexLibrary).disabled(model.isIndexing)
             }.disabled(model.isInstalling)
+            Section("Shows") {
+                Toggle("Check shows in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
+                Text("Checks hourly with conditional requests. New episodes are transcribed only for shows where you enable it.").font(.caption).foregroundStyle(.secondary)
+            }
             Section("Network log") {
                 Text("Audio stays on this Mac unless you select your own Scriberr server. Model downloads and feed requests are listed below.").font(.caption)
                 ForEach(model.networkEntries.suffix(80).reversed()) { entry in

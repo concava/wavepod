@@ -16,6 +16,8 @@ public struct ModelSpec: Sendable {
         Self(repository: "FluidInference/silero-vad-coreml", folder: "vad"),
         Self(repository: "FluidInference/speaker-diarization-coreml", folder: "diarizer"),
     ]
+    public static let language = Self(repository: "mlx-community/Qwen3-4B-Instruct-2507-4bit", folder: "language")
+    public static let embeddings = Self(repository: "intfloat/multilingual-e5-small", folder: "embeddings")
 }
 
 /// Downloads snapshots through the app transport, records immutable revisions, and verifies LFS hashes.

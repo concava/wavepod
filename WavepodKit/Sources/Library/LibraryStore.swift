@@ -49,6 +49,21 @@ public struct SearchHit: Identifiable, Sendable {
     public var score: Double
 }
 
+public struct Subscription: Codable, Sendable, Identifiable {
+    public var id: String { feedURL.absoluteString }
+    public var feedURL: URL
+    public var title: String
+    public var autoTranscribe: Bool
+    public var checked: Date?
+    public var nextCheck: Date?
+    public var etag: String?
+    public var modified: String?
+    /// Seeded at subscription time so enabling automation never imports an entire back catalogue.
+    public var seen: Set<String>
+    public init(feedURL: URL, title: String, autoTranscribe: Bool = false, seen: Set<String> = []) {
+        self.feedURL = feedURL; self.title = title; self.autoTranscribe = autoTranscribe; self.seen = seen
+    }
+}
 
 /// GRDB serializes access. Records, FTS rows and vectors commit in the same transaction.
 public final class LibraryStore: Sendable {

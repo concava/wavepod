@@ -40,6 +40,14 @@ public struct RootView: View {
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
+                    if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
+                        Menu("Generate", systemImage: "sparkles") {
+                            Button("Summary") { model.generateNotes() }
+                            Button("Chapters") { model.generateNotes(chaptersOnly: true) }
+                        }.disabled(model.isGenerating)
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
                     AppearanceButton(model: model)
                 }
             }
@@ -48,6 +56,12 @@ public struct RootView: View {
             let files = urls.filter(\.isFileURL)
             for file in files { model.importFile(file) }
             return !files.isEmpty
+        }
+        .sheet(isPresented: $model.showTranslation) {
+            VStack(alignment: .leading) {
+                HStack { Text("Translation · \(model.askLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }
+                ScrollView { Text(model.translationText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+            }.padding().frame(width: 640, height: 560)
         }
         .environment(\.typography, Typography(scale: model.textScale))
         .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
