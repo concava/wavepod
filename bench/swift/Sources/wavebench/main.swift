@@ -13,9 +13,9 @@
 // audio paths in a manifest may be absolute or relative to bench/.
 
 @preconcurrency import CoreML
-import FluidAudio
+@preconcurrency import FluidAudio
 import Foundation
-import WhisperKit
+@preconcurrency import WhisperKit
 
 struct Sentence: Decodable {
     let start: Double
