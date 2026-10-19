@@ -417,7 +417,7 @@ public final class AppModel {
         let provider = askProvider, account = chatGPTProfileID
         let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
         askProgress = "Preparing transcript…"
-        answerTask = Task {
+        answerTask = Task { [self] in
             defer { isAnswering = false; askProgress = ""; answerTask = nil }
             do {
                 let progress: @Sendable (String) async -> Void = { [weak self] status in

@@ -49,27 +49,13 @@ public enum CitationValidator {
             let candidates = (Int(max(0, claim.start - 2) / 60)...Int((claim.start + segmentSpan) / 60))
                 .flatMap { minutes[$0] ?? [] }.sorted()
             for index in candidates where tokens[index].start >= claim.start - 2 && tokens[index].start <= claim.start + segmentSpan {
-                var candidate: [String] = []
-                for token in tokens[index...] {
-                    candidate.append(token.text)
-                    if candidate.count > quote.count + max(2, quote.count / 5) { break }
-                    if similarity(candidate, quote) >= 0.85 { return tokens[index].start }
+                guard index + quote.count <= tokens.count else { continue }
+                if tokens[index..<index + quote.count].lazy.map(\.text).elementsEqual(quote) {
+                    return tokens[index].start
                 }
             }
             return nil
         }
-    }
-    private static func similarity(_ a: [String], _ b: [String]) -> Double {
-        guard !a.isEmpty, !b.isEmpty else { return 0 }
-        var previous = Array(0...b.count)
-        for (i, token) in a.enumerated() {
-            var next = [i + 1]
-            for (j, other) in b.enumerated() {
-                next.append(min(next[j] + 1, previous[j + 1] + 1, previous[j] + (token == other ? 0 : 1)))
-            }
-            previous = next
-        }
-        return 1 - Double(previous[b.count]) / Double(max(a.count, b.count))
     }
     public static func parse(_ text: String) throws -> [CitedClaim] {
         var json = text.trimmingCharacters(in: .whitespacesAndNewlines)

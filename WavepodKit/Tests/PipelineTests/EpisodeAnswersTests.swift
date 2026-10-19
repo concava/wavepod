@@ -4,6 +4,12 @@ import LLM
 import XCTest
 
 final class EpisodeAnswersTests: XCTestCase {
+    func testCitationCannotChangeOneCriticalWordInsideAnOtherwiseMatchingQuote() {
+        let source = Transcript(language: "en", segments: [Segment(id: 0, speaker: SpeakerID("S1"), words: [
+            Word(text: "The final decision is to open in October with a budget of sixty thousand euros.", start: 10, end: 20)])])
+        XCTAssertFalse(CitationValidator.validates(.init(claim: "Budget", quote: "The final decision is to open in October with a budget of forty thousand euros", start: 10), transcript: source))
+        XCTAssertTrue(CitationValidator.validates(.init(claim: "Budget", quote: "OCTOBER, with a budget of sixty thousand euros!", start: 10), transcript: source))
+    }
     func testFourHourTranscriptIncludesBeginningMiddleAndEndWithoutSearchMatches() async throws {
         let segments = (0..<480).map { index in
             Segment(id: index, speaker: SpeakerID("S1"), words: [Word(

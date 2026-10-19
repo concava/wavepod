@@ -145,11 +145,16 @@ public actor HTTPClient {
         guard let response = response as? HTTPURLResponse else { throw NetworkError.invalidResponse }
         try record(request, purpose: purpose, status: response.statusCode)
         guard (200..<300).contains(response.statusCode) else { throw NetworkError.status(response.statusCode) }
-        var lines: [String] = [], size = 0
-        for try await line in bytes.lines {
+        var lines: [String] = [], size = 0, lineBytes = Data()
+        // AsyncBytes.lines coalesces empty lines on some Foundation versions; SSE requires them.
+        for try await byte in bytes {
             try Task.checkCancellation()
-            size += line.utf8.count
+            size += 1
             guard size <= 16 * 1024 * 1024 else { throw NetworkError.tooLarge }
+            if byte != 10 { lineBytes.append(byte); continue }
+            if lineBytes.last == 13 { lineBytes.removeLast() }
+            guard let line = String(data: lineBytes, encoding: .utf8) else { throw NetworkError.invalidResponse }
+            lineBytes.removeAll(keepingCapacity: true)
             if line.isEmpty {
                 if !lines.isEmpty { try await receive(Data(lines.joined(separator: "\n").utf8)); lines = [] }
             } else if line.hasPrefix("data:") {
@@ -157,7 +162,7 @@ public actor HTTPClient {
                 lines.append(value.hasPrefix(" ") ? String(value.dropFirst()) : value)
             }
         }
-        if !lines.isEmpty { try await receive(Data(lines.joined(separator: "\n").utf8)) }
+        // An event without its blank-line terminator is incomplete and must not be accepted.
     }
 
     /// Streaming Range download. The partial file and ETag remain usable after a cancelled job or app exit.

@@ -18,7 +18,10 @@ public struct EpisodeAnswers: Sendable {
         guard !chunks.isEmpty else { return [] }
         let index = CitationValidator.Index(transcript)
         let grounded = GroundedAnswers(generator: generator)
-        let conversation = history.suffix(6).map { "\($0.role.rawValue): \(String($0.text.prefix(1200)))" }.joined(separator: "\n")
+        let conversation = history.suffix(6).map { message in
+            let sources = message.citations.prefix(2).map { "[\($0.start)] \(String($0.quote.prefix(180)))" }.joined(separator: "\n")
+            return "\(message.role.rawValue): \(String(message.text.prefix(800)))\n\(sources)"
+        }.joined(separator: "\n")
         let task = """
         Answer the current question in \(language == "Auto" ? "the language of the question" : language).
         Use the conversation only to interpret follow-up questions; it is not transcript evidence.

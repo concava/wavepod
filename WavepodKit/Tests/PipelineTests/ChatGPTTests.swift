@@ -66,6 +66,40 @@ final class ChatGPTTests: XCTestCase {
         XCTAssertEqual(answer, "[]")
     }
 
+    func testBrowserCallbackExchangeAndVerifiedProfilePersistence() async throws {
+        let fixture = try SignedIdentity()
+        let store = MemoryCredentials(Data("[]".utf8))
+        let client = transport { _ in (500, Data(), [:]) }
+        let plan = ChatGPTPlan(client: client, store: store)
+        let profile = try await plan.signIn(reusing: nil) { authorization in
+            let items = URLComponents(url: authorization, resolvingAgainstBaseURL: false)!.queryItems!
+            let values = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value!) })
+            let jwt = try fixture.token(overrides: ["nonce": values["nonce"]!])
+            let tokenResponse = try JSONSerialization.data(withJSONObject: ["access_token": "fresh-test-token", "refresh_token": "fresh-refresh",
+                "id_token": jwt, "expires_in": 3600, "scope": ChatGPTOAuth.scopes])
+            ChatGPTURLProtocol.lock.withLock {
+                ChatGPTURLProtocol.handler = { request in
+                    if request.url!.path.hasSuffix("jwks.json") { return (200, fixture.jwks, [:]) }
+                    let form = String(decoding: Self.body(request), as: UTF8.self)
+                    XCTAssertTrue(form.contains("client_id=oaiapp_test"))
+                    XCTAssertFalse(form.contains("dynamic_agent_client"))
+                    return (200, tokenResponse, [:])
+                }
+            }
+            var callback = URLComponents(string: values["redirect_uri"]!)!
+            callback.queryItems = [URLQueryItem(name: "code", value: "test-code"), URLQueryItem(name: "state", value: values["state"]), URLQueryItem(name: "client_id", value: "oaiapp_test")]
+            _ = try await URLSession.shared.data(from: callback.url!)
+        }
+        XCTAssertEqual(profile.id, "oaiapp_test")
+        XCTAssertTrue(profile.connected)
+        let saved = try JSONDecoder().decode([ChatGPTCredentials].self, from: store.read()!)
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved[0].subject, "test-subject")
+        XCTAssertEqual(saved[0].access, "fresh-test-token")
+        let profiles = try await plan.profiles()
+        XCTAssertEqual(profiles, [profile])
+    }
+
     func testPlanSendsOnlySupportedFieldsAndLogsNoTranscriptOrTokens() async throws {
         let store = MemoryCredentials(try JSONEncoder().encode([credential()]))
         let client = transport { request in
@@ -176,7 +210,7 @@ private final class ChatGPTURLProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-private struct SignedIdentity {
+private struct SignedIdentity: @unchecked Sendable {
     let key: SecKey
     let jwks: Data
     init() throws {

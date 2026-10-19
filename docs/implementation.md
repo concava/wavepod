@@ -66,9 +66,12 @@ false matches and measuring the share of turns with the correct name need verifi
   for cosine search. Vectors are revision-tagged and indexed incrementally. Search opens the exact episode/time.
 - MLX Swift runs Qwen3-4B-Instruct-2507 at 4-bit locally. This Apache-2.0 model is a provisional implementation
   candidate, pending the golden-set citation/language evaluation. Contexts are bounded; summary/chapter
-  generation covers successive sections of the whole transcript. Ask retrieves within the selected episode.
-- Generated claims use `{claim, quote, start}`. A contiguous word-span validator checks normalized similarity
-  >= 0.85 and a start within ±2 seconds. Invalid output is retried once; invalid claims are then dropped.
+  generation covers successive sections of the whole transcript. Ask now reads the complete selected episode
+  in bounded contexts, synthesizes cited evidence and includes recent conversation for follow-ups. Settings →
+  Ask optionally connects an eligible ChatGPT plan; local inference remains the default. See [0010](decisions/0010-ask-long-transcripts.md).
+- Generated claims use `{claim, quote, start}`. A contiguous word-span validator checks exact normalized words
+  in the cited segment's time window. Invalid output is retried once; wholly invalid output is an error,
+  distinct from a valid empty answer. Supplied context and original transcript must both contain the quote.
   Translations are displayed separately with source timestamps and never overwrite the original transcript.
 - Shows support manual selection, subscriptions and per-show auto-transcription. Existing feed items are seeded
   as seen so enabling auto-transcription does not download a back catalogue. Requests are conditional and at
@@ -81,6 +84,9 @@ metadata extractor with its own network stack; its binary is pinned and verified
 ignored, and the selected M4A audio is downloaded through the app client.
 
 ### Measured: Ask on a real transcript (2026-10-19)
+
+These measurements describe the earlier twelve-passage retrieval pipeline, not the full-transcript pipeline
+in [0010](decisions/0010-ask-long-transcripts.md); they are retained as a baseline.
 
 `wavepod-ask` asked Qwen3-4B (4-bit, MLX) 12 Spanish questions about one 20-minute golden window
 (itnig-cuantico, transcribed by the Phase 3 pipeline): 10 answerable from the window, 2 not.
