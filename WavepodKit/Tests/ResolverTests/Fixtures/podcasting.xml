@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:p="https://podcastindex.org/namespace/1.0" xmlns:i="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:c="http://purl.org/rss/1.0/modules/content/">
+<channel><title>Invented Workshop</title><language>ca-ES</language><i:image href="https://example.org/show.jpg"/>
+<p:guid>invented-show</p:guid><p:person role="host" group="cast" img="https://example.org/host.jpg" href="https://example.org/host">Ari</p:person>
+<item><title>Building a Paper Boat</title><i:title>Paper Boats &amp; Rain</i:title><guid>boat-1</guid><link>https://example.org/boat</link>
+<pubDate>Thu, 17 Sep 2026 00:42:00 GMT</pubDate><i:duration>03:43:30</i:duration><enclosure url="https://example.org/boat.mp3" type="audio/mpeg"/>
+<description>Short description.</description><c:encoded><![CDATA[<p>An invented conversation.</p>]]></c:encoded>
+<p:person role="guest" group="cast" img="https://example.org/guest.jpg" href="https://example.org/guest">Bo</p:person>
+<p:transcript url="https://example.org/transcript.json" type="application/json" language="ca"/>
+<p:transcript url="https://example.org/transcript.vtt" type="text/vtt" rel="captions" language="ca"/>
+<p:chapters url="https://example.org/chapters.json" type="application/json+chapters"/></item>
+<item><title>Folded Maps</title><p:guid>map-2</p:guid><pubDate>16 Sep 2026 12:30 +0000</pubDate><enclosure url="https://example.org/map.m4a"/></item>
+</channel></rss>

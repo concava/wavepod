@@ -1,0 +1,7 @@
+<rss xmlns:t="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Odd Clock</title>
+<item><title>A</title><pubDate>17 Sep 2026 12:34:56 PDT</pubDate><t:duration>1:02:03</t:duration></item>
+<item><title>B</title><pubDate>Thu, 17 Sep 2026 12:34 EST</pubDate><t:duration>02:03</t:duration></item>
+<item><title>C</title><pubDate>17 Sep 2026 12:34 UT</pubDate><t:duration>123</t:duration></item>
+<item><title>D</title><pubDate>not a date</pubDate><t:duration>123.5</t:duration></item>
+<item><title>E</title><pubDate>Thu, 17 Sep 2026 12:34:56 +0230</pubDate><t:duration>1:02.5</t:duration></item>
+</channel></rss>

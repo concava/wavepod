@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:old="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md">
+  <channel>
+    <title>Invented Legacy Workshop</title>
+    <old:guid>legacy-show</old:guid>
+    <old:person role="host">Ari</old:person>
+    <item>
+      <title>Paper Kites</title>
+      <old:guid>kite-1</old:guid>
+      <old:person role="guest" group="cast" href="https://example.org/bo">Bo</old:person>
+      <old:transcript url="https://example.org/kite.json" type="application/json" language="en"/>
+      <old:chapters url="https://example.org/kite-chapters.json" type="application/json+chapters"/>
+      <enclosure url="https://example.org/kite.mp3" type="audio/mpeg"/>
+    </item>
+  </channel>
+</rss>

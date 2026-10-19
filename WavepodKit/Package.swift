@@ -6,6 +6,8 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
+        .library(name: "Resolver", targets: ["Resolver"]),
+        .executable(name: "wavepod-resolve", targets: ["wavepod-resolve"]),
         .library(name: "Library", targets: ["Library"]),
         .library(name: "Player", targets: ["Player"]),
         .library(name: "UI", targets: ["UI"]),
@@ -14,6 +16,9 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.18.0"),
     ],
     targets: [
+        .target(name: "Resolver"),
+        .executableTarget(name: "wavepod-resolve", dependencies: ["Resolver"]),
+        .testTarget(name: "ResolverTests", dependencies: ["Resolver"], resources: [.copy("Fixtures")]),
         // Domain model: episodes, transcripts, speakers, chapters, chat. Persistence (GRDB) lands here in Phase 5.
         .target(name: "Library"),
         // Playback clock and transport. AVPlayer-backed in the app, simulated in previews and tests.
