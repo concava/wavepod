@@ -12,7 +12,7 @@
     ],
     "sha256": "4be6a386679886646777dab258e6646fc825be8531be06559b582df25d626391",
     "duration_s": 6211.16,
-    "reference": "missing"
+    "reference": "draft"
   },
   {
     "id": "itnig-cuantico",
@@ -27,7 +27,7 @@
     ],
     "sha256": "a2425f064704ecef70c5c6daa1b0b56b542053c41a2b836c12429625633a7a66",
     "duration_s": 7517.54,
-    "reference": "missing"
+    "reference": "draft"
   },
   {
     "id": "blv-144",
@@ -42,7 +42,7 @@
     ],
     "sha256": "b07a67d0147fd05e4a007069f2deab69e51366575df629008643798fe9750572",
     "duration_s": 7422.57,
-    "reference": "missing"
+    "reference": "draft"
   },
   {
     "id": "roca-104",
@@ -57,7 +57,7 @@
     ],
     "sha256": "dc6f4d88005289248ff6eb489824aa6810a501c84c139ce7d1756db3a929716a",
     "duration_s": 4949.68,
-    "reference": "missing"
+    "reference": "draft"
   },
   {
     "id": "acquired-ferrari",
@@ -72,7 +72,22 @@
     ],
     "sha256": "63819bc502e849776d04d51e549a861429f5e7eb982af5777cfeb5211d0ac152",
     "duration_s": 14304.6,
-    "reference": "missing",
+    "reference": "draft",
     "published_transcript": "https://share.transistor.fm/s/9ca1df08/transcript.txt"
+  },
+  {
+    "id": "som-46",
+    "link": "https://open.spotify.com/episode/5R6wVdPllojQqWbxGZXwqb",
+    "show": "SOM pòdcast",
+    "title": "Els orígens del català i els seus primers escrits",
+    "lang": "ca",
+    "guid": "https://api.spreaker.com/episode/72279306",
+    "window": [
+      600,
+      1800
+    ],
+    "sha256": "930ad1948f852d1bb84381e9b05d1da0eef84e7c0ffe0964e957d2912d919cf3",
+    "duration_s": 1838.5,
+    "reference": "draft"
   }
 ]
