@@ -21,16 +21,47 @@ targets:
     platform: macOS
     sources: [App/Sources]
     dependencies:
+      - target: WavepodEngine
+        embed: true
       - package: WavepodKit
         product: UI
     info:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: wavepod
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Audio and Video
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.audio, public.movie]
         LSApplicationCategoryType: public.app-category.productivity
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: "Connect to your own Scriberr transcription server."
         NSHumanReadableCopyright: "Apache-2.0"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.wavepod.mac
         CODE_SIGN_IDENTITY: "-"
         GENERATE_INFOPLIST_FILE: YES
+
+  WavepodEngine:
+    type: xpc-service
+    platform: macOS
+    sources: [App/EngineService]
+    info:
+      path: App/EngineService/Info.plist
+      properties:
+        XPCService:
+          ServiceType: Application
+    dependencies:
+      - package: WavepodKit
+        product: NativeEngine
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wavepod.engine
+        CODE_SIGN_IDENTITY: "-"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundlePackageType: XPC!
+        SKIP_INSTALL: YES
+

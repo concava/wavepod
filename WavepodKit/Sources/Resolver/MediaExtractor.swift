@@ -58,18 +58,19 @@ public struct YtDlpExtractor: MediaExtractor {
 
     public func extract(_ url: URL) async throws -> ResolvedEpisode {
         let output: ProcessOutput
-        do { output = try await process.run(executable: executable, arguments: ["-J", "--no-playlist", url.absoluteString]) }
+        do { output = try await process.run(executable: executable, arguments: ["--ignore-config", "--no-plugin-dirs", "-J", "--no-playlist", "-f", "bestaudio[ext=m4a]", url.absoluteString]) }
         catch is CancellationError { throw CancellationError() }
         catch { throw ResolverError.processFailed }
         guard output.status == 0 else { throw ResolverError.processFailed }
         let video = try decodeResponse(Video.self, from: output.data)
-        return ResolvedEpisode(title: video.title, showTitle: video.uploader ?? video.channel,
+        return ResolvedEpisode(title: video.title, enclosureURL: video.url, showTitle: video.uploader ?? video.channel,
                                pubDate: video.upload_date.flatMap(Self.uploadDateFormatter.date(from:)), duration: video.duration,
                                guid: video.id, artwork: video.thumbnail, descriptionHTML: video.description, source: .youtube)
     }
 
     private struct Video: Decodable {
         var id: String
+        var url: URL?
         var title: String
         var uploader: String?
         var channel: String?

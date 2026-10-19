@@ -33,6 +33,8 @@ CACHE = Path(os.environ.get("WAVEPOD_GOLDEN", Path.home() / "Library/Caches/wave
 RAW = CACHE / "results" / "raw"
 WAVEBENCH = BENCH / "swift/.build/release/wavebench"
 # Whichever build exists; podeval builds it only when neither does.
+TRANSCRIBE = REPO / "WavepodKit/.build/release/wavepod-transcribe"
+MODELS = Path(os.environ.get("WAVEPOD_MODELS", CACHE / "models"))  # layout: parakeet/, whisper/, vad/, diarizer/
 RESOLVE = next((p for p in (REPO / "WavepodKit/.build" / c / "wavepod-resolve" for c in ("release", "debug")) if p.exists()),
                REPO / "WavepodKit/.build/release/wavepod-resolve")
 YT_DLP = "yt-dlp@2026.8.19"  # same pin as the app (docs/decisions/0005)
@@ -43,9 +45,12 @@ ENGINES = {
     "fa-parakeet": (["parakeet"], "fa-parakeet-ultra", "asr"),
     "wk-vad": (["whisperkit-vad", WK_MODEL], f"wk-vad-{WK_MODEL}", "asr"),
     "fa-offline": (["diarize"], "fa-offline", "diarization"),
+    # The app's own pipeline (Phase 3): windowed ASR + diarization + word alignment, via wavepod-transcribe.
+    "wavepod": (None, "wavepod", "pipeline"),
 }
 # The pairs scored together for cpWER and speaker names: the shipping pipeline for Spanish, and the Whisper path.
-PIPELINES = {"parakeet+fa-offline": ("fa-parakeet-ultra", "fa-offline"), "wk-vad+fa-offline": (f"wk-vad-{WK_MODEL}", "fa-offline")}
+PIPELINES = {"parakeet+fa-offline": ("fa-parakeet-ultra", "fa-offline"), "wk-vad+fa-offline": (f"wk-vad-{WK_MODEL}", "fa-offline"),
+             "wavepod": ("wavepod", None)}  # None: the words already carry the pipeline's own speakers
 # Raw output of the draft step, scored as the openai/whisper large-v3 reference once references are verified.
 REF_ENGINE = "ref-openai-turns"
 REF_DIARIZATION = "fa-offline"
@@ -158,6 +163,8 @@ def write_bench_manifest(episodes: list[dict]) -> Path:
 
 def run_engine(name: str, ids: list[str] | None = None) -> None:
     wb_args, outdir, _ = ENGINES[name]
+    if wb_args is None:
+        return run_pipeline(outdir, ids)
     if not WAVEBENCH.exists():
         run(["swift", "build", "-c", "release", "--package-path", BENCH / "swift"])
     env = dict(os.environ, WB_MANIFEST=str(write_bench_manifest(load_manifest())), WB_RESULTS=str(RAW))
@@ -165,6 +172,21 @@ def run_engine(name: str, ids: list[str] | None = None) -> None:
     # Peak memory of the whole process, as in bench/run_all.sh. The full episodes dominate it.
     with (RAW / outdir / "time.txt").open("w") as err:
         run(["/usr/bin/time", "-l", WAVEBENCH, *wb_args, *(ids or [])], cwd=BENCH, env=env, stderr=err)
+
+
+def run_pipeline(outdir: str, ids: list[str] | None) -> None:
+    """One wavepod-transcribe process per item; time.txt collects every run and the peak is their maximum."""
+    if not TRANSCRIBE.exists():
+        run(["swift", "build", "-c", "release", "--product", "wavepod-transcribe", "--package-path", REPO / "WavepodKit"])
+    items = [m for m in json.loads(write_bench_manifest(load_manifest()).read_text())
+             if m["kind"] == "asr" and (not ids or m["id"] in ids)]
+    (RAW / outdir).mkdir(parents=True, exist_ok=True)
+    with (RAW / outdir / "time.txt").open("w") as err:
+        for m in items:
+            work = CACHE / "work" / m["id"]
+            shutil.rmtree(work, ignore_errors=True)  # a fresh run, not a resumed checkpoint
+            run(["/usr/bin/time", "-l", TRANSCRIBE, m["audio"], RAW / outdir / f"{m['id']}.json", "--models", MODELS,
+                 "--language", m["lang"], "--work", work], stderr=err)
 
 
 def cmd_run(args) -> None:
@@ -383,8 +405,8 @@ def assign_speakers(words: list, turns: list[tuple[float, float, str]]) -> list[
 
 def peak_gb(engine_dir: Path, field: str = "peak memory footprint") -> float | None:
     f = engine_dir / "time.txt"
-    m = re.search(r"(\d+)\s+" + field, f.read_text()) if f.exists() else None
-    return int(m.group(1)) / 1e9 if m else None
+    values = [int(v) for v in re.findall(r"(\d+)\s+" + field, f.read_text())] if f.exists() else []
+    return max(values) / 1e9 if values else None
 
 
 def cmd_score(args) -> None:
@@ -404,7 +426,7 @@ def cmd_score(args) -> None:
 
     def windowed(words: list, start: float, end: float) -> list:
         """Window-run words, shifted to episode time and kept inside the scored window."""
-        shifted = [(w[0] + start, w[1] + start, w[2]) for w in words]
+        shifted = [(w[0] + start, w[1] + start, *w[2:]) for w in words]
         return [w for w in shifted if start <= (w[0] + w[1]) / 2 <= end]
 
     summary = {"generated": time.strftime("%Y-%m-%d %H:%M"), "episodes": {}, "engines": {}}
@@ -430,34 +452,37 @@ def cmd_score(args) -> None:
 
         # WER of every ASR engine on the window.
         for _, outdir, kind in ENGINES.values():
-            if kind != "asr" or not (r := result(outdir, f"{ep['id']}-win")):
+            if kind == "diarization" or not (r := result(outdir, f"{ep['id']}-win")):
                 continue
             hyp = " ".join(w[2] for w in windowed(r.get("words", []), start, end)) if "words" in r else r["text"]
             row.setdefault("wer", {})[outdir] = 100 * jiwer.wer(ref_text, norm(hyp))
         if r := result(REF_ENGINE, f"{ep['id']}-win"):
             row.setdefault("wer", {})[REF_ENGINE] = 100 * jiwer.wer(ref_text, norm(" ".join(s[2] for s in r["segments"])))
 
-        # DER on the window.
-        if r := result(REF_DIARIZATION, f"{ep['id']}-win"):
+        # DER on the window, for the diarizer alone and inside the pipeline.
+        for dia_dir in (REF_DIARIZATION, "wavepod"):
+            if not (r := result(dia_dir, f"{ep['id']}-win")) or not r.get("rttm"):
+                continue
             hyp_ann = Annotation()
             for s, e, spk in load_rttm(r["rttm"], offset=start):
                 hyp_ann[Segment(s, e)] = spk
             metric = DiarizationErrorRate(collar=0.25, skip_overlap=False)
             d = metric(ref_ann, hyp_ann, uem=uem, detailed=True)
             total = d["total"]
-            row["der"] = {REF_DIARIZATION: {
+            row.setdefault("der", {})[dia_dir] = {
                 "der": 100 * d["diarization error rate"], "miss": 100 * d["missed detection"] / total,
                 "fa": 100 * d["false alarm"] / total, "confusion": 100 * d["confusion"] / total,
                 "speakers": len(hyp_ann.labels()),
-            }}
+            }
 
         # cpWER and speaker names for each ASR + diarization pipeline.
         for name, (asr_dir, dia_dir) in PIPELINES.items():
-            a, dz = result(asr_dir, f"{ep['id']}-win"), result(dia_dir, f"{ep['id']}-win")
-            if not a or not dz or "words" not in a:
+            a = result(asr_dir, f"{ep['id']}-win")
+            dz = result(dia_dir, f"{ep['id']}-win") if dia_dir else None
+            if not a or "words" not in a or (dia_dir and not dz):
                 continue
             words = windowed(a["words"], start, end)
-            spk = assign_speakers(words, load_rttm(dz["rttm"], offset=start))
+            spk = [w[3] for w in words] if dz is None else assign_speakers(words, load_rttm(dz["rttm"], offset=start))
             by_speaker: dict[str, list[str]] = {}
             for w, s in zip(words, spk):
                 by_speaker.setdefault(s, []).append(w[2])
@@ -483,7 +508,7 @@ def cmd_score(args) -> None:
                 continue
             proc += r["proc_s"]
             dur += ep["duration_s"]
-            if kind == "asr" and "words" in r:
+            if kind != "diarization" and "words" in r:
                 times = sorted((w[0], w[1]) for w in r["words"])
                 edges = [0.0] + [t for w in times for t in w] + [ep["duration_s"]]
                 gaps[ep["id"]] = max((b - a for a, b in zip(edges[::2], edges[1::2])), default=ep["duration_s"])
@@ -505,13 +530,14 @@ def render(summary: dict) -> str:
     eps = summary["episodes"]
     asr = sorted({k for r in eps.values() for k in r.get("wer", {})})
     pipes = sorted({k for r in eps.values() for k in r.get("cpwer", {})})
-    out = ["| Episode | Ref | " + " | ".join(f"WER `{a}`" for a in asr) + " | DER | Miss | FA | Conf | Spk ref/hyp | "
-           + " | ".join(f"cpWER `{p}`" for p in pipes) + " |", "|" + "---|" * (len(asr) + len(pipes) + 7)]
+    out = ["| Episode | Ref | " + " | ".join(f"WER `{a}`" for a in asr) + " | DER | Miss | FA | Conf | Spk ref/hyp | DER pipeline | "
+           + " | ".join(f"cpWER `{p}`" for p in pipes) + " |", "|" + "---|" * (len(asr) + len(pipes) + 8)]
     for eid, r in eps.items():
         d = r.get("der", {}).get(REF_DIARIZATION, {})
+        dp = r.get("der", {}).get("wavepod", {})
         out.append(f"| {eid} | {r['reference']} | " + " | ".join(f(r.get('wer', {}).get(a)) for a in asr)
                    + f" | {f(d.get('der'))} | {f(d.get('miss'))} | {f(d.get('fa'))} | {f(d.get('confusion'))} | "
-                   + f"{r.get('ref_speakers', '—')}/{d.get('speakers', '—')} | "
+                   + f"{r.get('ref_speakers', '—')}/{d.get('speakers', '—')} | {f(dp.get('der'))} | "
                    + " | ".join(f(r.get('cpwer', {}).get(p)) for p in pipes) + " |")
     out += ["", "| Engine (full episodes) | Audio h | RTF | ×real time | Footprint GB | RSS GB | Longest gap without words s |",
             "|---|---|---|---|---|---|---|"]
@@ -546,7 +572,7 @@ def cmd_check(args) -> None:
         wer = r.get("wer", {})
         if r["reference"] == "verified" and REF_ENGINE in wer:
             for k, v in wer.items():
-                if k != REF_ENGINE and k.startswith("fa-parakeet") and v > wer[REF_ENGINE] + 1.5:
+                if k != REF_ENGINE and (k == "wavepod" or k.startswith("fa-parakeet")) and v > wer[REF_ENGINE] + 1.5:
                     failures.append(f"{eid} {k}: WER {v:.2f} is more than 1.5 points above {REF_ENGINE} ({wer[REF_ENGINE]:.2f})")
         elif r["reference"] != "verified":
             notes.append(f"{eid}: reference is {r['reference']}; the absolute WER gate is skipped")

@@ -38,7 +38,7 @@ struct EpisodePane: View {
                     Label(Timecode.format(episode.duration), systemImage: "clock")
                         .accessibilityLabel("Duration \(Timecode.spoken(episode.duration))")
                     Button {
-                        model.show("Audio download arrives with the pipeline (Phase 3)")
+                        model.downloadAudio()
                     } label: {
                         Label("Download", systemImage: "arrow.down")
                     }
