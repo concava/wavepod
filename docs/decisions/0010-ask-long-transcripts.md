@@ -81,6 +81,11 @@ Transport tests cover rotating refresh tokens, concurrent callers, streamed comp
 catalog filtering, credential redirects and log redaction. A separate opt-in local-model test checks changes
 in dates/budgets between the beginning and last minute of a multi-context transcript.
 
+On 2026-10-19, the selected suite passed 42 tests (38 pipeline/connection tests and 4 app-model tests),
+including both opt-in local-model tests. The early/late evidence test took 83 seconds on the development
+Mac; this is a correctness smoke test, not a four-hour performance benchmark. Three snapshot tests
+(eight light/dark images) passed after visual review.
+
 Live ChatGPT sign-in, account eligibility and inference cannot be established from offline fixtures. They
 must be verified with the owner's browser consent after installation; account usage is not exercised by
 ordinary tests. The provider is optional and is not enabled on fresh installations.
