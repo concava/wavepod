@@ -39,16 +39,27 @@ Core ML predictions that fall back from the Neural Engine to the BNNS CPU path c
 `libBNNS`). Apple fixed it in macOS 15. On Apple Silicon it is intermittent. Routing models to `.all` (GPU allowed)
 reportedly stops it but is unverified, and the FBank model stays on CPU regardless.
 
-Options:
+Options were: (1) keep macOS 14, route diarization to `.all` there, and require a clean stress test; (2) raise the
+floor to macOS 15; (3) keep macOS 14 without speaker detection.
 
-1. Keep macOS 14 as the floor, route diarization to `.all` on macOS 14, and stress-test it on a macOS 14 machine
-   (100 diarization runs, zero crashes) before release. Run diarization in a separate XPC helper process so a crash
-   loses one stage, not the app, and the job resumes.
-2. Raise the floor to **macOS 15**.
+**Measured** with `.github/workflows/diarization-stress.yml`
+([run 39270446236](https://github.com/concava/wavepod/actions/runs/39270446236), 2026-10-19): 100 diarizations of a
+4-minute VoxConverse clip per row, each in its own process, on GitHub's Apple Silicon runners (VMs without a Neural
+Engine, so every prediction takes the BNNS path: the worst case).
 
-Default: **option 1** (the brief asks for macOS 14+), with the XPC isolation regardless — it also protects the app
-from crashes in any model runtime. If the macOS 14 stress test fails, this becomes an owner decision between
-dropping macOS 14 and shipping diarization as "unavailable on macOS 14".
+| Runner | `ane` (.cpuAndNeuralEngine) | `default` (FluidAudio) | `app` (all four models `.all`) |
+|---|---|---|---|
+| macOS 14.8.9 | 0 ok, **100 crashed** | 0 ok, **100 crashed** | 0 ok, **100 crashed** |
+| macOS 15.7.9 | 100 ok | 100 ok | 100 ok |
+
+Every crash was a bus error (`EXC_BAD_ACCESS` in `libBNNS`). `.all` does not avoid it.
+
+**Decision (owner, 2026-10-19): option 2, macOS 15 is the minimum.** Option 3 was built (concava/wavepod#6) and
+closed: a podcast app without speakers on one OS version is a worse product than not installing there. A real
+Mac with a Neural Engine may crash less often than these VMs, but it takes the same code path whenever Core ML falls
+back to the CPU, so macOS 14 is not supported at all. The XPC engine service stays, since it also contains crashes
+in any other model runtime. The stress workflow stays as a regression check: it fails if the shipping routing
+crashes on macOS 15.
 
 ## Word-level speaker alignment (pipeline, Phase 3)
 

@@ -64,10 +64,18 @@ public final class AppModel {
         }
     }
 
-    public enum CenterTab: String, CaseIterable, Identifiable, Sendable {
-        case transcript, summary, chapters
+    /// What the episode view's right-hand pane shows next to the transcript.
+    public enum SidePane: String, CaseIterable, Identifiable, Sendable {
+        case transcript, chapters, about
         public var id: String { rawValue }
         public var title: String { rawValue.capitalized }
+        public var symbol: String {
+            switch self {
+            case .transcript: "text.quote"
+            case .chapters: "list.number"
+            case .about: "info.circle"
+            }
+        }
     }
 
     public enum Appearance: String, CaseIterable, Sendable {
@@ -102,7 +110,15 @@ public final class AppModel {
     public var hideSetup = UserDefaults.standard.bool(forKey: "hideSetup") {
         didSet { UserDefaults.standard.set(hideSetup, forKey: "hideSetup") }
     }
-    public var centerTab: CenterTab = .transcript
+    public var sidePane: SidePane = .transcript
+    public var showSidePane = UserDefaults.standard.object(forKey: "showSidePane") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showSidePane, forKey: "showSidePane") }
+    }
+
+    /// Opens the side pane on `pane`, or closes it when that pane is already showing.
+    public func toggleSidePane(_ pane: SidePane) {
+        if showSidePane && sidePane == pane { showSidePane = false } else { sidePane = pane; showSidePane = true }
+    }
     public var appearance: Appearance = .system
     public var textScale: Double = 1
 
@@ -114,6 +130,8 @@ public final class AppModel {
     public internal(set) var chapters: [Chapter]
     public internal(set) var summary: EpisodeSummary?
     public internal(set) var chat: [ChatMessage]
+    /// The podcast's feed, when the episode came from one; imported files have none.
+    public internal(set) var feedURL: URL?
 
     // Transcript view options
     public var showSpeakerLabels = true
@@ -129,7 +147,6 @@ public final class AppModel {
 
     // Command field and Ask
     public var commandText = ""
-    public var askLanguage: AskLanguage = .auto
     public var askProvider = UserDefaults.standard.string(forKey: "askProvider") ?? "local" {
         didSet { UserDefaults.standard.set(askProvider, forKey: "askProvider") }
     }
@@ -145,6 +162,8 @@ public final class AppModel {
     public var isConnectingChatGPT = false
     public var showChatGPTPlanNotice = false
     @ObservationIgnored var chatGPTConnectionTask: Task<Void, Never>?
+    /// The language of the last translation; answers always follow the question's language.
+    public var translationLanguage: AskLanguage = .en
     /// One-line status shown under the top bar ("Copied transcript", "Link resolution arrives in Phase 2", …).
     public internal(set) var notice: String?
 
@@ -154,6 +173,7 @@ public final class AppModel {
     @ObservationIgnored var services: WorkspaceServices?
     @ObservationIgnored private var workspaceTask: Task<Void, Never>?
     @ObservationIgnored private var loadedJobs = false
+    @ObservationIgnored var autoNoted: Set<String> = []
     public var isPersistent = false
     public var speakerEvidence: [SpeakerID: [SpeakerEvidence]] = [:]
     public var savedEpisodes: [EpisodeListing] = []
@@ -176,6 +196,17 @@ public final class AppModel {
     public var scriberrKey = ""
     public var backgroundChecks = SMAppService.agent(plistName: "app.wavepod.feeds.plist").status == .enabled
     public var namedVoices = 0
+    /// Set once any speaker is named, in any episode (imported files keep no voice profile, so voices alone miss them).
+    public var hasNamedSpeaker = UserDefaults.standard.bool(forKey: "hasNamedSpeaker") {
+        didSet { if hasNamedSpeaker != oldValue { UserDefaults.standard.set(hasNamedSpeaker, forKey: "hasNamedSpeaker") } }
+    }
+    /// The first-run welcome. Shown until finished or skipped once.
+    public var showOnboarding = false
+
+    public func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: "onboarded")
+        showOnboarding = false
+    }
     public var installedModels: Set<String> = []
     public var translationText = ""
     public var showTranslation = false
@@ -192,6 +223,7 @@ public final class AppModel {
         player.load(episode)
         isPersistent = persistent
         if persistent {
+            showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
             episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
                               descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
@@ -207,7 +239,7 @@ public final class AppModel {
                         guard let self else { return }
                         if let services = self.services {
                             do {
-                                self.isPowerPaused = WorkspaceServices.onBattery()
+                                self.isPowerPaused = PowerPolicy.shouldPause(currentlyPaused: self.isPowerPaused)
                                 try await services.queue.setOnBattery(self.isPowerPaused)
                                 await services.queue.start()
                             } catch { self.show(error.localizedDescription) }
@@ -228,7 +260,8 @@ public final class AppModel {
         episode = record.episode; transcript = record.transcript; speakers = record.speakers
         speakerEvidence = record.speakerEvidence
         paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
-        summary = record.summary; chat = record.chat
+        summary = record.summary; chat = record.chat; feedURL = record.feedURL
+        if speakers.values.contains(where: \.isConfirmed) { hasNamedSpeaker = true }
         if reloadPlayer { player.load(episode, audioURL: record.audioURL) }
     }
 
@@ -241,7 +274,13 @@ public final class AppModel {
                 .subtracting(jobs.filter { $0.state == .completed }.map(\.id)) : []
             jobs = latestJobs
             loadedJobs = true
+            let previous = savedEpisodes.first(where: { $0.id == episode.id })
             savedEpisodes = try services.store.items()
+            if let latest = savedEpisodes.first(where: { $0.id == episode.id }),
+               previous?.summarized != latest.summarized || previous?.notesPending != latest.notesPending,
+               let record = try services.store.episode(latest.id) {
+                install(record, reloadPlayer: false)
+            }
             subscriptions = try services.store.values(Subscription.self, kind: "subscription")
             networkEntries = await services.client.log()
             namedVoices = (try? services.store.values(VoiceProfile.self, kind: "voice").count) ?? 0
@@ -261,7 +300,7 @@ public final class AppModel {
         guard let services, !episode.id.isEmpty else { return }
         do {
             guard var record = try services.store.episode(episode.id) else { return }
-            record.speakers = speakers; record.chat = chat; record.summary = summary; record.chapters = chapters
+            record.speakers = speakers; record.chat = chat
             try services.store.save(record)
             savedEpisodes = try services.store.items()
         } catch { show(error.localizedDescription) }
@@ -283,6 +322,7 @@ public final class AppModel {
         speaker.isConfirmed = true
         speaker.suggestionConfidence = nil
         speakers[id] = speaker
+        hasNamedSpeaker = true
         persistWorkspace()
         if let services {
             do {
@@ -413,7 +453,7 @@ public final class AppModel {
         }
         persistWorkspace()
         isAnswering = true
-        let id = episode.id, source = transcript, language = askLanguage.title, history = Array(chat.dropLast())
+        let id = episode.id, source = transcript, language = "Auto", history = Array(chat.dropLast())
         let provider = askProvider, account = chatGPTProfileID
         let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
         askProgress = "Preparing transcript…"

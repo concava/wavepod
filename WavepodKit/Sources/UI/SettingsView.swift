@@ -6,7 +6,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var model: AppModel
     @Environment(\.typography) private var type
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         HStack(spacing: 0) {
@@ -37,7 +36,7 @@ struct SettingsView: View {
                     HStack(alignment: .firstTextBaseline) {
                         Text(model.settingsPane.title).font(type.display).foregroundStyle(Palette.ink)
                         Spacer()
-                        Button("Done") { dismiss() }
+                        Button("Done") { model.showSettings = false }
                             .buttonStyle(SecondaryButtonStyle())
                             .keyboardShortcut(.cancelAction)
                     }
@@ -73,15 +72,9 @@ struct SettingsView: View {
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
-            SettingRow(title: "Text size", detail: "Scales every text in the window. Also ⌘+ and ⌘−.") {
+            SettingRow(title: "Text size", detail: "Scales every text in the window. Also ⌘+ and ⌘−.", last: true) {
                 Picker("Text size", selection: $model.textScale) {
                     ForEach(Typography.scales, id: \.self) { Text("\(Int($0 * 100)) %").tag($0) }
-                }
-                .labelsHidden().fixedSize()
-            }
-            SettingRow(title: "Answer language", detail: "The language Ask answers in. Auto follows your question.", last: true) {
-                Picker("Answer language", selection: $model.askLanguage) {
-                    ForEach(AppModel.AskLanguage.allCases) { Text($0.title).tag($0) }
                 }
                 .labelsHidden().fixedSize()
             }
@@ -110,7 +103,7 @@ struct SettingsView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 14) {
             HStack {
-                Label("Transcription pauses on battery and in Low Power Mode, and resumes from saved checkpoints.", systemImage: "battery.75percent")
+                Label("On battery, transcription pauses below 20 % and in Low Power Mode, and resumes from saved checkpoints.", systemImage: "battery.75percent")
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
                 Spacer()
                 Button("Save Engine", action: model.saveEngine).buttonStyle(PrimaryButtonStyle())
@@ -121,7 +114,7 @@ struct SettingsView: View {
     private var queue: some View {
         VStack(alignment: .leading, spacing: 14) {
             if model.isPowerPaused && !model.jobs.contains(where: { $0.state == .running }) {
-                Label("Paused on battery. Jobs resume on external power.", systemImage: "battery.50percent")
+                Label("Paused: battery below 20 % or Low Power Mode. Jobs resume when the Mac is plugged in.", systemImage: "battery.50percent")
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
             }
             SettingsGroup(title: "Transcriptions") {
@@ -274,7 +267,7 @@ struct QueueRow: View {
             if job.state == .running || job.state == .queued || job.state == .paused {
                 ProgressView(value: job.fraction).tint(Palette.accent)
             }
-            Text(job.batteryPaused ? "Paused on battery. Resumes on external power." : job.stage)
+            Text(job.batteryPaused ? "Paused to save battery. Resumes when the Mac is plugged in." : job.stage)
                 .font(type.callout).foregroundStyle(Palette.inkMuted)
             if let error = job.error {
                 Text(error).font(type.callout).foregroundStyle(.red).textSelection(.enabled)

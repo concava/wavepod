@@ -3,6 +3,8 @@
 A private, podcast-native transcription app for macOS. Paste a podcast link or drop an audio/video file and get a
 speaker-named, searchable transcript you can read, listen to and ask questions about — all on your Mac.
 
+Requires **macOS 15 or later** on Apple Silicon.
+
 Status: **Phase 5 — library, local AI and shows**: a checkpointed on-device pipeline (or your own Scriberr
 server) fills a persistent library; speakers are suggested from per-show voice profiles; keyword and meaning
 search open the exact moment; summaries, chapters, translation and Ask run on a local model with every cited

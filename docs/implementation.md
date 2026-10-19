@@ -73,10 +73,15 @@ false matches and measuring the share of turns with the correct name need verifi
   in the cited segment's time window. Invalid output is retried once; wholly invalid output is an error,
   distinct from a valid empty answer. Supplied context and original transcript must both contain the quote.
   Translations are displayed separately with source timestamps and never overwrite the original transcript.
-- Shows support manual selection, subscriptions and per-show auto-transcription. Existing feed items are seeded
-  as seen so enabling auto-transcription does not download a back catalogue. Requests are conditional and at
-  most hourly. The embedded LaunchAgent is registered through Settings with `SMAppService`, checks hourly,
-  and runs opted-in jobs while the app is closed. macOS may require approving background items in System Settings.
+- Shows support manual selection and per-subscription automatic downloads, transcription, summaries and chapters.
+  New subscriptions enable all three; existing subscriptions preserve their previous transcription setting with
+  downloads and summaries off. Summarizing implies transcription. Existing feed items are seeded as seen so
+  automation does not import a back catalogue. Downloads keep audio for offline playback; optional per-show
+  retention keeps the latest N downloads (unlimited by default) and deletes only audio, preserving transcripts
+  and notes. Missing local language models leave summaries pending, retried on later checks or model installation.
+  Requests are conditional and at most hourly. The embedded LaunchAgent is registered through Settings with
+  `SMAppService`, checks hourly, and runs opted-in downloads, transcription and notes while the app is closed.
+  macOS may require approving background items in System Settings.
 
 The network log records hosts, purposes and response codes without API keys or signed URL query strings.
 Native/MLX runtimes read installed files; feed/audio/model requests use `Networking`. yt-dlp remains an external
@@ -110,6 +115,7 @@ xcodegen generate
 xcodebuild -project wavepod.xcodeproj -scheme wavepod -configuration Debug build
 ```
 
+Snapshot tests require a WindowServer display and are skipped on headless runners.
 Model integration tests are opt-in so ordinary tests remain offline:
 
 ```sh
@@ -136,6 +142,6 @@ persistence, search/vector retention, speaker matching and citation rejection/re
 ## Remaining release evidence
 
 Still needed before release: verified golden-set references (the drafts are machine-made), a Catalan episode,
-the local model's citation and language evaluation on the golden set, and the macOS 14 diarization stress run. A live Scriberr installation and
+the local model's citation and language evaluation on the golden set. A live Scriberr installation and
 SMAppService registration need their own deployment checks. Developer ID signing/notarization remains a separate
 release step.
