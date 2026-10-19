@@ -15,7 +15,7 @@
 - Before an episode enters the set, we check that its published transcript matches the audio (some shows edit
   audio after the transcript is written). Mismatched parts are excluded from the scored window.
 
-## Golden set v1 (owner's choice, 2026-10-19; #5 added the same day)
+## Golden set v1 (owner's choice, 2026-10-19; #5 and #6 added the same day)
 
 Resolved with `wavepod-resolve` (Spotify links matched to the RSS feed by GUID at confidence 1.0; the YouTube
 link read with the pinned yt-dlp `-J`, metadata only).
@@ -27,22 +27,24 @@ link read with the pinned yt-dlp `-J`, metadata only).
 | 3 | YouTube `fNOhEq65FtA` | Búscate la vida (BLV) | "Romuald Fons VUELVE a BLV (con nuevos líos) \| Ep 144" (2026-09-16) | ES | **2 h 04 min** | yt-dlp audio (no RSS match attempted yet) | Hand-corrected 20 min |
 | 4 | Apple `id1738229736?i=1000784391917` | ROCA PROJECT | "#104 - LA SOLEDAD DESTRUYE TU CEREBRO \| Ana Asensio en Roca Project" (2026-08-19) | ES | 1 h 22 min | RSS enclosure (anchor.fm feed) | Hand-corrected 20 min |
 | 5 | Spotify `38WF1IXMypIn56llEtBajd` | Acquired | "Ferrari" (2026-04-13) | EN | **3 h 58 min** | RSS enclosure (transistor.fm feed) | Published transcript (speaker-labelled, untimed), aligned to the window and checked |
+| 6 | Spotify `5R6wVdPllojQqWbxGZXwqb` | SOM pòdcast | "Els orígens del català i els seus primers escrits" (2026-06-01, ep. 46) | **CA** | 31 min | RSS enclosure (Spreaker feed) | Hand-corrected 20 min |
 
-Episodes 1–4 publish no transcript (no `podcast:transcript` in their feeds, no YouTube subtitles), so their scored
-windows are hand-corrected: about 8–12 hours in total. Acquired publishes a speaker-labelled transcript
+Episodes 1–4 and 6 publish no transcript (no `podcast:transcript` in their feeds, no YouTube subtitles), so their scored
+windows are hand-corrected: about 10–15 hours in total. Acquired publishes a speaker-labelled transcript
 (`podcast:transcript`, `text/plain`) without timings; `podeval draft` aligns it to the window, and it still gets a
 listen, because published transcripts drop filler words and false starts. Speaker names come from the show notes
 and the owner confirms them once.
 
-What this set covers: peninsular Spanish and English, 2–4 speakers in conversation, crosstalk and laughter, three
+What this set covers: peninsular Spanish, Catalan and English, 2–4 speakers in conversation, crosstalk and laughter, three
 episodes over 2 h (one near 4 h, beyond the 3 h memory target of Phase 3), three link types (Spotify, YouTube,
-Apple). All five run on the Parakeet path of [0002](0002-asr-engine.md); the durations of the downloaded files are
+Apple). Episodes 1–5 run on the Parakeet path of [0002](0002-asr-engine.md) and episode 6 on the WhisperKit +
+VAD-window path, since Parakeet has no Catalan; the durations of the downloaded files are
 longer than the feeds say because of inserted ads.
 
 Coverage gaps, measured elsewhere until episodes are added:
 
-- **Catalan** (the WhisperKit + VAD-window path): covered only by FLEURS in `bench/` (read speech, not podcasts).
-  A Catalan episode is the most useful addition.
+- **Catalan** has one episode (#6): one conversation with a host and two guests, short of the 2 h length the
+  Spanish episodes test. A long Catalan episode would be the next addition.
 - **Code-switching** and a **solo speaker**: not covered.
 
 The original proposal (10 episodes across EN/ES/CA) is kept below for reference.
