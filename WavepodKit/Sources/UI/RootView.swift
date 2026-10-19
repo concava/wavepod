@@ -115,9 +115,12 @@ struct CommandField: View {
     var focus: FocusState<AppModel.FocusTarget?>.Binding
     @Environment(\.typography) private var type
 
+    private var isFocused: Bool { focus.wrappedValue == .command }
+
     var body: some View {
-        HStack(spacing: 8) {
+        let field = HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Palette.inkMuted)
                 .accessibilityHidden(true)
             TextField("Search or paste a podcast, Spotify or YouTube link", text: $model.commandText)
@@ -126,18 +129,38 @@ struct CommandField: View {
                 .focused(focus, equals: .command)
                 .onSubmit { model.submitCommand() }
                 .accessibilityLabel("Search or open a link")
-            Text("⌘K")
-                .font(type.caption)
+            if model.commandText.isEmpty {
+                Text("⌘K")
+                    .font(type.caption.weight(.medium))
+                    .foregroundStyle(Palette.inkMuted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .accessibilityHidden(true)
+            } else {
+                Button {
+                    model.commandText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
                 .foregroundStyle(Palette.inkMuted)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 4))
-                .accessibilityHidden(true)
+                .help("Clear")
+                .accessibilityLabel("Clear search")
+            }
         }
-        .padding(.horizontal, 10)
-        .frame(width: 440, height: 28)
-        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.rule))
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .frame(width: 460, height: 30)
+
+        if #available(macOS 26, *) {
+            // The toolbar already draws a capsule around principal items; a second shape inside it would double the edge.
+            field
+        } else {
+            field
+                .background(Palette.surface, in: Capsule())
+                .overlay(Capsule().strokeBorder(isFocused ? Palette.accent : Palette.rule))
+        }
     }
 }
 
