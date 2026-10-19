@@ -1,17 +1,11 @@
 import Foundation
 import Engine
-import IOKit.ps
 import Library
 import Networking
 import Pipeline
 import Resolver
 
 @main struct FeedService {
-    static func onBattery() -> Bool {
-        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-              let source = IOPSGetProvidingPowerSourceType(info)?.takeUnretainedValue() else { return false }
-        return (source as String) == kIOPSBatteryPowerValue || ProcessInfo.processInfo.isLowPowerModeEnabled
-    }
     static func main() async {
         do {
             var root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("wavepod")
@@ -32,7 +26,8 @@ import Resolver
             #else
             let testing = false
             #endif
-            try await queue.setOnBattery(!testing && onBattery())
+            var paused = !testing && PowerPolicy.shouldPause(currentlyPaused: false)
+            try await queue.setOnBattery(paused)
             await queue.start()
             // The foreground app owns the queue while it runs; it also checks the feeds.
             guard await queue.hasLease() else { return }
@@ -45,7 +40,8 @@ import Resolver
             do { try await monitor.refresh() }
             catch { NSLog("wavepod feed check: %@", error.localizedDescription) }
             while true {
-                try await queue.setOnBattery(!testing && onBattery())
+                paused = !testing && PowerPolicy.shouldPause(currentlyPaused: paused)
+                try await queue.setOnBattery(paused)
                 let jobs = await queue.snapshot()
                 let busy = await queue.isBusy()
                 if !busy, !jobs.contains(where: { $0.state == .running || $0.state == .queued }) { break }

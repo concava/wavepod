@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "WavepodKit",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     products: [
         .library(name: "Resolver", targets: ["Resolver"]),
         .library(name: "Engine", targets: ["Engine"]),

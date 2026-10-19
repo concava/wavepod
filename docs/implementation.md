@@ -136,6 +136,6 @@ persistence, search/vector retention, speaker matching and citation rejection/re
 ## Remaining release evidence
 
 Still needed before release: verified golden-set references (the drafts are machine-made), a Catalan episode,
-the local model's citation and language evaluation on the golden set, and the macOS 14 diarization stress run. A live Scriberr installation and
+the local model's citation and language evaluation on the golden set. A live Scriberr installation and
 SMAppService registration need their own deployment checks. Developer ID signing/notarization remains a separate
 release step.

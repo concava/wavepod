@@ -8,6 +8,9 @@ public struct WavepodCommands: Commands {
     public init(model: AppModel) { self.model = model }
 
     public var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Welcome to wavepod") { model.showSettings = false; model.showOnboarding = true }
+        }
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") { model.openSettings() }.keyboardShortcut(",")
         }
@@ -21,11 +24,11 @@ public struct WavepodCommands: Commands {
                 .keyboardShortcut("j")
         }
         CommandGroup(after: .sidebar) {
-            Button("Transcript") { model.section = .library; model.centerTab = .transcript }
+            Button("Transcript") { model.section = .library; model.toggleSidePane(.transcript) }
                 .keyboardShortcut("1")
-            Button("Summary") { model.section = .library; model.centerTab = .summary }
+            Button("Chapters") { model.section = .library; model.toggleSidePane(.chapters) }
                 .keyboardShortcut("2")
-            Button("Chapters") { model.section = .library; model.centerTab = .chapters }
+            Button("About This Episode") { model.section = .library; model.toggleSidePane(.about) }
                 .keyboardShortcut("3")
             Divider()
             Button("Bigger Text") { model.adjustTextSize(by: 1) }
