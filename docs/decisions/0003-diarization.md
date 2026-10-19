@@ -51,6 +51,8 @@ calls the `.all` workaround unverified. Wavepod's own measurements refute `.all`
 `result-*` artifacts. Each attempt launches `wavebench stress-diarize` in a fresh process on the same audio;
 100 attempts per OS and mode. A green control job does **not** mean its attempts succeeded: only `app` mode
 gates the workflow. Crashed means a signal exit; ordinary failures are counted separately.
+The `stress-inputs` artifact's `clip.wav` is 306.432 s, mono, 16 kHz PCM16, SHA-256
+`908dcc73b486bb86be7210f7ae84993bfed7f097f3d24122eb2e850ce3853f17`.
 
 | Runner / measured OS | Mode | Runs | OK | Crashed | Failed |
 |---|---|---:|---:|---:|---:|
