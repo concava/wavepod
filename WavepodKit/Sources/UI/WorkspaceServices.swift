@@ -17,6 +17,7 @@ struct WorkspaceServices: Sendable {
     let client: HTTPClient
     let queue: JobQueue
     let subscriptions: SubscriptionMonitor
+    let chatGPT: ChatGPTPlan
     var resolver: Resolver {
         let executable = root.appendingPathComponent("tools/yt-dlp")
         return Resolver(fetcher: URLSessionFetcher(client: client), extractor: FileManager.default.isExecutableFile(atPath: executable.path) ? YtDlpExtractor(executable: executable) : nil)
@@ -27,6 +28,7 @@ struct WorkspaceServices: Sendable {
         self.root = root
         store = try LibraryStore(url: root.appendingPathComponent("library.sqlite"))
         client = HTTPClient(logURL: root.appendingPathComponent("network.json"))
+        chatGPT = ChatGPTPlan(client: client)
         let engine: any Engine
         if UserDefaults.standard.string(forKey: "engine") == "scriberr",
            let value = UserDefaults.standard.string(forKey: "scriberrURL"), let url = URL(string: value) {

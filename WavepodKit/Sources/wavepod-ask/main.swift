@@ -4,7 +4,7 @@
 //   wavepod-ask <transcript.json> <questions.txt> --models <ai root> [--language Spanish]
 //
 // transcript.json is wavepod-transcribe output; questions.txt has one question per line. The AI root holds
-// language/ and embeddings/. Retrieval is the app's meaning search: the 12 segments closest to the question.
+// language/. Every transcript section is read by the same bounded pipeline as the app.
 // Prints one JSON line per question: {question, claims: [{claim, quote, start}], attempts: [[returned, valid]]}.
 
 import Foundation
@@ -52,8 +52,6 @@ let transcript = Transcript(language: "und", segments: segments)
 let questions = try String(contentsOfFile: arguments[1], encoding: .utf8).split(separator: "\n").map(String.init).filter { !$0.isEmpty }
 
 let root = URL(fileURLWithPath: models)
-let embeddings = LocalEmbeddings(directory: root.appendingPathComponent("embeddings"))
-let vectors = try await embeddings.encode(segments.map { $0.words.map(\.text).joined(separator: " ") })
 let generator = LocalGenerator(directory: root.appendingPathComponent("language"))
 
 final class Attempts: @unchecked Sendable {
@@ -64,13 +62,9 @@ final class Attempts: @unchecked Sendable {
 }
 let attempts = Attempts()
 for question in questions {
-    let query = try await embeddings.encode([question], query: true)[0]
-    let ranked = zip(segments, vectors).compactMap { segment, vector in VectorMath.cosine(query, vector).map { (segment, $0) } }
-        .sorted { $0.1 > $1.1 }.prefix(12).map(\.0).sorted { $0.start < $1.start }
-    let context = Array(ranked)
     let claims = try await generator.withSession { session in
-        try await GroundedAnswers(generator: session).answer(
-            instruction: "Answer this question in \(language): \(question)", context: context, transcript: transcript,
+        try await EpisodeAnswers(generator: session).answer(
+            question: question, language: language, transcript: transcript,
             report: { attempts.add($0, $1) })
     }
     let line: [String: Any] = [

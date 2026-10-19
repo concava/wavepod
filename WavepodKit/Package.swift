@@ -47,7 +47,7 @@ let package = Package(
         // Playback clock and transport. AVPlayer-backed in the app, simulated in previews and tests.
         .target(name: "Player", dependencies: ["Library"]),
         // SwiftUI views and design tokens.
-        .target(name: "UI", dependencies: ["Library", "Player", "Resolver", "Pipeline", "Speakers", "LLM"]),
+        .target(name: "UI", dependencies: ["Library", "Player", "Resolver", "Engine", "Pipeline", "Speakers", "LLM"]),
         .testTarget(name: "LibraryTests", dependencies: ["Library"]),
         .testTarget(
             name: "UITests",
