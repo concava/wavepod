@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Phase 1 evaluation harness. See podeval.py and docs/decisions/0009-evaluation-harness.md.
+exec uv run --quiet --project "${0:A:h}" python "${0:A:h}/podeval.py" "$@"

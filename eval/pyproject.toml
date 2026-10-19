@@ -1,0 +1,16 @@
+[project]
+name = "wavepod-eval"
+version = "0.1.0"
+description = "Phase 1 evaluation harness (podeval): scores the engines on the golden set. Never shipped in the app."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "openai-whisper==20250625",
+    "jiwer>=4.0",
+    "meeteval>=0.4",
+    "pyannote.metrics>=4.0",
+    "soundfile>=0.13",
+    "numpy>=2.0",
+]
+
+[tool.uv]
+package = false
