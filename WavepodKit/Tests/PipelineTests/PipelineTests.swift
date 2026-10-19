@@ -279,3 +279,22 @@ final class LocalAISmokeTests: XCTestCase {
         XCTAssertGreaterThan(VectorMath.cosine(vectors[0], vectors[1]) ?? 0, VectorMath.cosine(vectors[0], vectors[2]) ?? 1)
     }
 }
+
+final class PowerPolicyTests: XCTestCase {
+    func testRunsOnBatteryUntilTwentyPercent() {
+        XCTAssertFalse(PowerPolicy.decide(onBattery: true, charge: 20, lowPowerMode: false, currentlyPaused: false))
+        XCTAssertTrue(PowerPolicy.decide(onBattery: true, charge: 19, lowPowerMode: false, currentlyPaused: false))
+    }
+
+    func testResumesOnPowerOrAtTwentyFivePercent() {
+        XCTAssertTrue(PowerPolicy.decide(onBattery: true, charge: 22, lowPowerMode: false, currentlyPaused: true),
+                      "a paused job waits for 25 % so it does not flap around 20 %")
+        XCTAssertFalse(PowerPolicy.decide(onBattery: true, charge: 25, lowPowerMode: false, currentlyPaused: true))
+        XCTAssertFalse(PowerPolicy.decide(onBattery: false, charge: 5, lowPowerMode: false, currentlyPaused: true))
+    }
+
+    func testLowPowerModeAlwaysWaitsAndDesktopsNeverDo() {
+        XCTAssertTrue(PowerPolicy.decide(onBattery: false, charge: nil, lowPowerMode: true, currentlyPaused: false))
+        XCTAssertFalse(PowerPolicy.decide(onBattery: false, charge: nil, lowPowerMode: false, currentlyPaused: false))
+    }
+}

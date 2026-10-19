@@ -38,11 +38,6 @@ struct WorkspaceServices: Sendable {
     static var defaultRoot: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("wavepod")
     }
-    static func onBattery() -> Bool {
-        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-              let source = IOPSGetProvidingPowerSourceType(info)?.takeUnretainedValue() else { return false }
-        return (source as String) == kIOPSBatteryPowerValue || ProcessInfo.processInfo.isLowPowerModeEnabled
-    }
 }
 
 extension AppModel {
@@ -67,6 +62,15 @@ extension AppModel {
         install(record)
         section = .library
         if let start { play(from: start) }
+        writeMissingNotes()
+    }
+
+    /// Opens the podcast's page, with its full episode list and Follow.
+    public func openPodcast() {
+        guard let feedURL else { return }
+        commandText = feedURL.absoluteString
+        submitCommand()
+        commandText = ""
     }
     public func enqueue(_ episode: ResolvedEpisode) {
         guard let services else { show("Open the app to import an episode."); return }
@@ -216,15 +220,33 @@ extension AppModel {
         }
     }
     public func generateNotes(chaptersOnly: Bool = false) {
+        Task { await writeNotes(chaptersOnly ? [.chapters] : [.summary]) }
+    }
+
+    enum NoteKind { case summary, chapters }
+
+    /// Writes the summary and chapters an episode lacks, once per episode per launch, when the language model is
+    /// installed. Called when a transcription finishes and when an episode opens.
+    func writeMissingNotes() {
+        guard installedModels.contains("language"), !episode.id.isEmpty, !autoNoted.contains(episode.id) else { return }
+        var kinds: [NoteKind] = []
+        if summary == nil { kinds.append(.summary) }
+        if chapters.isEmpty { kinds.append(.chapters) }
+        guard !kinds.isEmpty else { return }
+        autoNoted.insert(episode.id)
+        Task { await writeNotes(kinds) }
+    }
+
+    func writeNotes(_ kinds: [NoteKind]) async {
         guard let services, !isGenerating, !transcript.segments.isEmpty else { return }
         isGenerating = true
+        defer { isGenerating = false }
         let id = episode.id, source = transcript
-        Task {
-            defer { isGenerating = false }
+        for kind in kinds {
             do {
-                let claims = try await services.generator.notes(source, chapters: chaptersOnly)
+                let claims = try await services.generator.notes(source, chapters: kind == .chapters)
                 guard var record = try services.store.episode(id) else { return }
-                if chaptersOnly {
+                if kind == .chapters {
                     record.chapters = claims.sorted { $0.start < $1.start }.map { Chapter(title: $0.claim, start: $0.start, summary: $0.quote) }
                 } else {
                     record.summary = EpisodeSummaryStyle.summary(from: claims)
@@ -235,10 +257,11 @@ extension AppModel {
             } catch { show(error.localizedDescription) }
         }
     }
-    public func translate() {
-        guard let services, !isGenerating, askLanguage != .auto else { show("Choose a translation language first."); return }
+    public func translate(to target: AskLanguage) {
+        guard let services, !isGenerating, target != .auto else { return }
+        translationLanguage = target
         isGenerating = true
-        let source = transcript, language = askLanguage.title
+        let source = transcript, language = target.title
         Task {
             defer { isGenerating = false }
             do {
