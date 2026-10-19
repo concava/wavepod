@@ -87,4 +87,4 @@ fetched with `bench/prepare_voxconverse.py`.
 - Sortformer and LS-EEND were not run: neither exposes speaker embeddings, which Phase 4 needs.
 
 To run the reference: accept the terms of `pyannote/speaker-diarization-community-1` on Hugging Face, then
-`HF_TOKEN=… ./bench/run_all.sh ref-pyannote`.
+`hf auth login` once, then `./bench/run_all.sh ref-pyannote`.

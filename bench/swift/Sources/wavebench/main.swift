@@ -7,7 +7,9 @@
 //
 // Output matches the Python runners: results/raw/<engine>/<id>.json with {text, proc_s, load_s}, or
 // {rttm, proc_s, load_s} for diarization. Peak memory is measured outside, with /usr/bin/time -l.
-// Run from the bench/ directory.
+// parakeet and whisperkit-vad also write "words": [[start, end, word], …] (seconds from the file start).
+// Run from the bench/ directory. podeval points it elsewhere with WB_MANIFEST and WB_RESULTS (absolute paths);
+// audio paths in a manifest may be absolute or relative to bench/.
 
 import FluidAudio
 import Foundation
@@ -31,14 +33,24 @@ let bench = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let modelCache = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent("Library/Caches/wavepod-bench/models")
 
+let environment = ProcessInfo.processInfo.environment
+let manifestURL = environment["WB_MANIFEST"].map { URL(fileURLWithPath: $0) }
+    ?? bench.appendingPathComponent("data/manifest.json")
+let resultsURL = environment["WB_RESULTS"].map { URL(fileURLWithPath: $0) }
+    ?? bench.appendingPathComponent("results/raw")
+
+func audioURL(_ item: Item) -> URL {
+    item.audio.hasPrefix("/") ? URL(fileURLWithPath: item.audio) : audioURL(item)
+}
+
 func items(kind: String, ids: [String]) throws -> [Item] {
-    let data = try Data(contentsOf: bench.appendingPathComponent("data/manifest.json"))
+    let data = try Data(contentsOf: manifestURL)
     return try JSONDecoder().decode([Item].self, from: data)
         .filter { $0.kind == kind && (ids.isEmpty || ids.contains($0.id)) }
 }
 
 func write(_ engine: String, _ item: Item, _ payload: [String: Any]) throws {
-    let dir = bench.appendingPathComponent("results/raw/\(engine)")
+    let dir = resultsURL.appendingPathComponent(engine)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     try data.write(to: dir.appendingPathComponent("\(item.id).json"))
@@ -72,7 +84,7 @@ func runWhisperKit(model: String, ids: [String]) async throws {
         }
         let t = ContinuousClock.now
         let results = try await pipe.transcribe(
-            audioPath: bench.appendingPathComponent(item.audio).path, decodeOptions: options)
+            audioPath: audioURL(item).path, decodeOptions: options)
         let text = results.map(\.text).joined(separator: " ")
         print("  \(results.count) results, \(results.reduce(0) { $0 + $1.segments.count }) segments")
         try write(engine, item, ["text": text, "proc_s": seconds(since: t), "load_s": load])
@@ -95,7 +107,7 @@ func runWhisperKitVAD(model: String, ids: [String]) async throws {
     segmentation.speechPadding = 0.2
     for item in try items(kind: "asr", ids: ids) {
         let t = ContinuousClock.now
-        let samples = try AudioConverter().resampleAudioFile(bench.appendingPathComponent(item.audio))
+        let samples = try AudioConverter().resampleAudioFile(audioURL(item))
         // WB_AGC=1 levels the signal the VAD sees (not what Whisper sees), so quiet speakers are still detected.
         let vadInput = ProcessInfo.processInfo.environment["WB_AGC"] == "1" ? levelled(samples) : samples
         let regions = try await vad.segmentSpeech(vadInput, config: segmentation)
@@ -127,20 +139,26 @@ func runWhisperKitVAD(model: String, ids: [String]) async throws {
         }
         // WB_NO_TS=1 decodes each window without timestamp tokens, so the decoder cannot seek past a sentence.
         let options = DecodingOptions(language: item.lang, usePrefillPrompt: true, detectLanguage: false,
-                                      withoutTimestamps: ProcessInfo.processInfo.environment["WB_NO_TS"] == "1")
+                                      withoutTimestamps: ProcessInfo.processInfo.environment["WB_NO_TS"] == "1",
+                                      wordTimestamps: true)
         var texts: [String] = []
+        var words: [[Any]] = []
         for (start, end) in windows {
             let a = max(0, Int(start * 16_000)), b = min(samples.count, Int(end * 16_000))
             guard b > a else { continue }
             let results = try await pipe.transcribe(audioArray: Array(samples[a..<b]), decodeOptions: options)
             let windowText = results.map(\.text).joined(separator: " ")
+            for w in results.flatMap(\.allWords) {
+                words.append([start + Double(w.start), start + Double(w.end), w.word.trimmingCharacters(in: .whitespaces)])
+            }
             if ProcessInfo.processInfo.environment["WB_DEBUG"] == "1" {
                 print(String(format: "  [%7.2f–%7.2f] ", start, end) + windowText)
             }
             texts.append(windowText)
         }
         print("  \(regions.count) speech regions, \(windows.count) windows")
-        try write(engine, item, ["text": texts.joined(separator: " "), "proc_s": seconds(since: t), "load_s": load])
+        try write(engine, item, ["text": texts.joined(separator: " "), "words": words,
+                                 "proc_s": seconds(since: t), "load_s": load])
     }
 }
 
@@ -173,7 +191,7 @@ func levelled(_ x: [Float]) -> [Float] {
 func runShort(engine: String, ids: [String], languages: Set<String>? = nil,
               decode: ([Float], Item) async throws -> String) async throws {
     for item in try items(kind: "asr", ids: ids) where languages?.contains(item.lang) ?? true {
-        let samples = try AudioConverter().resampleAudioFile(bench.appendingPathComponent(item.audio))
+        let samples = try AudioConverter().resampleAudioFile(audioURL(item))
         let t = ContinuousClock.now
         var texts: [String] = []
         for s in item.segments ?? [] {
@@ -193,8 +211,10 @@ func runParakeet(ids: [String]) async throws {
     for item in try items(kind: "asr", ids: ids) where ["en", "es"].contains(item.lang) {
         var state = try TdtDecoderState()
         let t = ContinuousClock.now
-        let result = try await asr.transcribe(bench.appendingPathComponent(item.audio), decoderState: &state)
-        try write("fa-parakeet-ultra", item, ["text": result.text, "proc_s": seconds(since: t), "load_s": load])
+        let result = try await asr.transcribe(audioURL(item), decoderState: &state)
+        let words = buildWordTimings(from: result.tokenTimings ?? []).map { [$0.startTime, $0.endTime, $0.word] as [Any] }
+        try write("fa-parakeet-ultra", item, ["text": result.text, "words": words,
+                                              "proc_s": seconds(since: t), "load_s": load])
     }
 }
 
@@ -205,7 +225,7 @@ func runDiarize(ids: [String]) async throws {
     let load = seconds(since: t0)
     for item in try items(kind: "diarization", ids: ids) {
         let t = ContinuousClock.now
-        let result = try await manager.process(bench.appendingPathComponent(item.audio))
+        let result = try await manager.process(audioURL(item))
         let proc = seconds(since: t)
         let rttm = result.segments.map { s in
             String(format: "SPEAKER %@ 1 %.3f %.3f <NA> <NA> %@ <NA> <NA>",

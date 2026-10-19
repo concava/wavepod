@@ -37,5 +37,5 @@ Models are cached in `~/Library/Caches/wavepod-bench/models` (WhisperKit, Parake
 ## Not yet included
 
 - The pyannote reference needs a Hugging Face token with the `pyannote/speaker-diarization-community-1` terms
-  accepted: `HF_TOKEN=… ./run_all.sh ref-pyannote`.
+  accepted, then `hf auth login` once: `./run_all.sh ref-pyannote`.
 - Earnings-21 (1 h single file); the golden set replaces it as the long-form test in Phase 1.

@@ -1,7 +1,9 @@
 """Reference diarization: pyannote/speaker-diarization-community-1 over the diarization entries of the manifest.
 
-The model is gated on Hugging Face: accept its terms with your account, then
-    HF_TOKEN=hf_... uv run --extra diarization run_pyannote.py
+The model is gated on Hugging Face: accept its terms with your account, log in once with
+    uv run --with huggingface_hub hf auth login
+(or set HF_TOKEN), then
+    ./run_all.sh ref-pyannote
 Run it under `/usr/bin/time -l` for peak memory (run_all.sh does). Output matches wavebench:
 results/raw/ref-pyannote/<id>.json = {rttm, proc_s, load_s}.
 """
@@ -19,9 +21,8 @@ HERE = Path(__file__).parent
 
 
 def main() -> None:
+    # None makes huggingface_hub use the token saved by `hf auth login`.
     token = os.environ.get("HF_TOKEN")
-    if not token:
-        raise SystemExit("Set HF_TOKEN (a Hugging Face token that has accepted the community-1 terms).")
     manifest = json.loads((HERE / "data" / "manifest.json").read_text())
     items = [m for m in manifest if m["kind"] == "diarization"]
     out = HERE / "results" / "raw" / "ref-pyannote"

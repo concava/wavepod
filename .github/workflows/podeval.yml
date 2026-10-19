@@ -1,0 +1,30 @@
+# Golden-set evaluation (docs/decisions/0009). Needs a self-hosted Apple Silicon runner labelled "golden"
+# whose ~/Library/Caches/wavepod-golden already holds the pinned audio and verified references.
+name: podeval
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  golden:
+    runs-on: [self-hosted, macOS, ARM64, golden]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runners
+        run: |
+          swift build -c release --package-path bench/swift
+          swift build -c release --product wavepod-resolve --package-path WavepodKit
+      - name: Check pinned audio
+        run: ./eval/podeval fetch
+      - name: Run engines
+        run: ./eval/podeval run
+      - name: Score
+        run: ./eval/podeval score
+      - name: Gate
+        run: ./eval/podeval check
+      - name: Summary
+        if: always()
+        run: cat ~/Library/Caches/wavepod-golden/results/summary.md >> "$GITHUB_STEP_SUMMARY"
