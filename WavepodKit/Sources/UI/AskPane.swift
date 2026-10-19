@@ -47,7 +47,12 @@ struct AskPane: View {
             }
 
             if model.isAnswering {
-                HStack { ProgressView().controlSize(.small); Text("Working on this Mac…").font(type.caption); Spacer() }.padding(12)
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text(model.askProgress).font(type.caption)
+                    Spacer()
+                    Button("Stop", action: model.cancelAnswer)
+                }.padding(12)
             }
             Divider().overlay(Palette.rule)
             VStack(alignment: .leading, spacing: 8) {
@@ -78,6 +83,9 @@ struct AskPane: View {
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Palette.rule))
 
                 HStack {
+                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : "Local model") { model.openSettings(.ask) }
+                        .font(type.caption).buttonStyle(.plain).foregroundStyle(Palette.inkMuted)
+                        .help("Choose where answers run")
                     Picker(selection: $model.askLanguage) {
                         ForEach(AppModel.AskLanguage.allCases) { Text($0.title).tag($0) }
                     } label: {
@@ -103,7 +111,7 @@ struct AskPane: View {
         .pane()
     }
 
-    private var canSend: Bool { !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var canSend: Bool { !model.isAnswering && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     private func send() {
         guard canSend else { return }

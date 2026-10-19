@@ -59,10 +59,12 @@ final class PipelineTests: XCTestCase {
         XCTAssertEqual(CitationValidator.locate(CitedClaim(claim: "Name", quote: "our podcast", start: 9), transcript: source), 11)
         XCTAssertNil(CitationValidator.locate(CitedClaim(claim: "Name", quote: "our podcast", start: 14), transcript: source))
     }
-    func testCitationRetriesOnceThenDropsInvalidClaims() async throws {
+    func testInvalidCitationsAreAnErrorInsteadOfFalseNotFound() async throws {
         let generator = ScriptedGenerator(responses: ["garbage", "[{\"claim\":\"Made up\",\"quote\":\"aliens arrived\",\"start\":10}]"])
-        let claims = try await GroundedAnswers(generator: generator).answer(instruction: "Summarize", context: transcript().segments, transcript: transcript())
-        XCTAssertTrue(claims.isEmpty)
+        do {
+            _ = try await GroundedAnswers(generator: generator).answer(instruction: "Summarize", context: transcript().segments, transcript: transcript())
+            XCTFail("Invalid model output must not be reported as absent evidence")
+        } catch GroundedAnswerError.invalidCitations {}
         let calls = await generator.calls
         XCTAssertEqual(calls, 2)
     }

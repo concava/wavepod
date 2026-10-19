@@ -91,7 +91,7 @@ public actor HTTPClient {
     }
 
     public func data(_ request: URLRequest, purpose: String, localOnly: Bool = false,
-                     maximumBytes: Int = 32 * 1024 * 1024) async throws -> (Data, HTTPURLResponse) {
+                     maximumBytes: Int = 32 * 1024 * 1024, followRedirects: Bool = true) async throws -> (Data, HTTPURLResponse) {
         var request = request
         for _ in 0..<8 {
             guard let url = request.url else { throw NetworkError.invalidResponse }
@@ -108,6 +108,10 @@ public actor HTTPClient {
             guard data.count <= maximumBytes else { throw NetworkError.tooLarge }
             if (300..<400).contains(response.statusCode), response.statusCode != 304,
                let location = response.value(forHTTPHeaderField: "Location"), let next = URL(string: location, relativeTo: url)?.absoluteURL {
+                // Credentials and POST bodies must never be replayed to a redirect, including a same-host
+                // HTTP downgrade or a different port. OAuth endpoints are required to answer directly.
+                guard followRedirects, request.httpBody == nil, request.value(forHTTPHeaderField: "Authorization") == nil,
+                      request.value(forHTTPHeaderField: "X-API-Key") == nil else { throw NetworkError.denied(next.host ?? "redirect") }
                 // Model CDNs are part of Hugging Face's signed download chain. Feed redirects are explicitly
                 // authorized by the user opening that feed. Auth and request bodies never cross origins.
                 if !localOnly, request.httpMethod == nil || ["GET", "HEAD"].contains(request.httpMethod ?? "GET") {
@@ -128,6 +132,32 @@ public actor HTTPClient {
             return (data, response)
         }
         throw NetworkError.invalidResponse
+    }
+
+    /// SSE uses the same allow-list, redirect policy and credential-free log as every other request.
+    public func events(_ request: URLRequest, purpose: String,
+                       receive: @Sendable (Data) async throws -> Void) async throws {
+        try Task.checkCancellation()
+        guard let url = request.url else { throw NetworkError.invalidResponse }
+        try check(url, localOnly: false)
+        try record(request, purpose: purpose, status: nil)
+        let (bytes, response) = try await session.bytes(for: request)
+        guard let response = response as? HTTPURLResponse else { throw NetworkError.invalidResponse }
+        try record(request, purpose: purpose, status: response.statusCode)
+        guard (200..<300).contains(response.statusCode) else { throw NetworkError.status(response.statusCode) }
+        var lines: [String] = [], size = 0
+        for try await line in bytes.lines {
+            try Task.checkCancellation()
+            size += line.utf8.count
+            guard size <= 16 * 1024 * 1024 else { throw NetworkError.tooLarge }
+            if line.isEmpty {
+                if !lines.isEmpty { try await receive(Data(lines.joined(separator: "\n").utf8)); lines = [] }
+            } else if line.hasPrefix("data:") {
+                let value = String(line.dropFirst(5))
+                lines.append(value.hasPrefix(" ") ? String(value.dropFirst()) : value)
+            }
+        }
+        if !lines.isEmpty { try await receive(Data(lines.joined(separator: "\n").utf8)) }
     }
 
     /// Streaming Range download. The partial file and ETag remain usable after a cancelled job or app exit.
