@@ -67,8 +67,9 @@ Keep the app in one place once you follow podcasts: the background feed checker 
 4. **Name the speakers.** Click a speaker's name in the transcript to rename them everywhere. Suggested names show
    a confidence until you confirm them.
 5. **Ask.** Type a question in the middle card's field (**⌘J**). The answer quotes the transcript, in the language
-   you asked in. Answers run on this Mac by default. Settings › Ask can use your ChatGPT plan instead, which sends
-   the question and transcript text (never audio) to OpenAI.
+   you asked in. Answers run on this Mac by default. Settings › Ask can use your ChatGPT or Claude plan instead,
+   which sends the question and transcript text (never audio) to that provider. Claude needs a current Claude Code
+   installation and a separate wavepod sign-in.
 6. **Follow podcasts.** On **Podcasts**, each show you follow lists its five newest episodes. Turn on
    **Auto-transcribe** to have new episodes transcribed and summarized as they come out. The ⋯ menu sets offline
    downloads, how many downloads to keep, and Unfollow. **⌘R** checks for new episodes now.

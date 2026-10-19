@@ -68,7 +68,7 @@ false matches and measuring the share of turns with the correct name need verifi
   candidate, pending the golden-set citation/language evaluation. Contexts are bounded; summary/chapter
   generation covers successive sections of the whole transcript. Ask now reads the complete selected episode
   in bounded contexts, synthesizes cited evidence and includes recent conversation for follow-ups. Settings →
-  Ask optionally connects an eligible ChatGPT plan; local inference remains the default. See [0010](decisions/0010-ask-long-transcripts.md).
+  Ask optionally connects eligible ChatGPT and Claude plans; local inference remains the default. See [0010](decisions/0010-ask-long-transcripts.md).
 - Generated claims use `{claim, quote, start}`. A contiguous word-span validator checks exact normalized words
   in the cited segment's time window. Invalid output is retried once; wholly invalid output is an error,
   distinct from a valid empty answer. Supplied context and original transcript must both contain the quote.
@@ -82,6 +82,10 @@ false matches and measuring the share of turns with the correct name need verifi
   Requests are conditional and at most hourly. The embedded LaunchAgent is registered through Settings with
   `SMAppService`, checks hourly, and runs opted-in downloads, transcription and notes while the app is closed.
   macOS may require approving background items in System Settings.
+
+Claude plan inference uses the official Claude Code programmatic interface with a separate account directory,
+subscription-only authentication, disabled tools/customizations and no session persistence. It owns its network
+stack; the app logs external invocations without claiming per-host allow-list enforcement.
 
 The network log records hosts, purposes and response codes without API keys or signed URL query strings.
 Native/MLX runtimes read installed files; feed/audio/model requests use `Networking`. yt-dlp remains an external
