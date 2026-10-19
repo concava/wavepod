@@ -1,3 +1,4 @@
+import Engine
 import Library
 import Pipeline
 import Resolver
@@ -28,6 +29,9 @@ struct QueueSection: View {
             if model.isPowerPaused && !model.jobs.contains(where: { $0.state == .running }) {
                 Label("Paused on battery. Jobs resume on external power.", systemImage: "battery.50percent")
                     .font(.callout).foregroundStyle(.secondary).padding(.horizontal)
+            }
+            if let explanation = OfflineDiarizationSupport.current.explanation {
+                Text(explanation).font(.callout).foregroundStyle(.secondary).padding(.horizontal)
             }
             if model.jobs.isEmpty {
                 ContentUnavailableView("The queue is empty", systemImage: "tray", description: Text("Paste a podcast link or open an audio file."))
@@ -155,6 +159,9 @@ struct SettingsSection: View {
                     SecureField("API key (saved in Keychain)", text: $model.scriberrKey)
                 }
                 Button("Save Engine", action: model.saveEngine)
+                if let explanation = OfflineDiarizationSupport.current.explanation {
+                    Text(explanation).font(.callout).foregroundStyle(.secondary)
+                }
                 Text("Transcription pauses on battery and in Low Power Mode. Jobs resume from saved checkpoints.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Models on this Mac") {

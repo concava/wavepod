@@ -122,9 +122,12 @@ public struct EngineRequest: Codable, Sendable {
 /// One XPC connection per stage: invalidating it terminates a crashed/cancelled worker's outstanding request.
 public struct IsolatedEngine: Engine, Diarizing {
     public let id = "native"
-    public init() {}
+    private let diarizationSupport: OfflineDiarizationSupport
+    public init(diarizationSupport: OfflineDiarizationSupport = .current) {
+        self.diarizationSupport = diarizationSupport
+    }
     public func capabilities() async throws -> EngineCapabilities {
-        EngineCapabilities(wordTimestamps: true, diarization: true, embeddings: true)
+        EngineCapabilities(wordTimestamps: true, diarization: diarizationSupport.isAvailable, embeddings: diarizationSupport.isAvailable)
     }
     public func transcribe(_ audio: AudioAsset, options: TranscribeOptions,
                            progress: @Sendable @escaping (Double) -> Void) async throws -> RawTranscript {
@@ -134,7 +137,10 @@ public struct IsolatedEngine: Engine, Diarizing {
         return result
     }
     public func diarize(_ audio: AudioAsset) async throws -> RawTranscript {
-        try await run(EngineRequest(audio: audio, options: .init(), diarize: true))
+        guard diarizationSupport.isAvailable else {
+            return OfflineDiarizationSupport.singleSpeaker(duration: audio.duration)
+        }
+        return try await run(EngineRequest(audio: audio, options: .init(), diarize: true))
     }
     private func run(_ request: EngineRequest) async throws -> RawTranscript {
         let call = XPCCall()

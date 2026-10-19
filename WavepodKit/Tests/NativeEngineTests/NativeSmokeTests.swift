@@ -22,7 +22,7 @@ final class NativeSmokeTests: XCTestCase {
         XCTAssertTrue(raw.words.allSatisfy { $0.word.start >= 0 && $0.word.end <= window.duration + 1 })
         let diar = try await engine.diarize(window)
         XCTAssertFalse(diar.turns.isEmpty)
-        XCTAssertFalse(diar.embeddings.isEmpty)
+        XCTAssertEqual(diar.embeddings.isEmpty, !OfflineDiarizationSupport.current.isAvailable)
         let cached = try await engine.transcribe(window, options: .init(language: env["WAVEPOD_SMOKE_LANGUAGE"] ?? "en"), progress: { _ in })
         XCTAssertEqual(cached.words, raw.words)
     }

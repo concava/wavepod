@@ -34,21 +34,64 @@ comparison in the Phase 1 rerun if it exposes per-speaker embeddings.
 
 ## Risk: macOS 14 crash in Apple's BNNS
 
-FluidAudio's diarization docs (v0.17.7) report an Apple bug on **macOS 14** (all patches through at least 14.8.7):
-Core ML predictions that fall back from the Neural Engine to the BNNS CPU path crash (`EXC_BAD_ACCESS` in
-`libBNNS`). Apple fixed it in macOS 15. On Apple Silicon it is intermittent. Routing models to `.all` (GPU allowed)
-reportedly stops it but is unverified, and the FBank model stays on CPU regardless.
+**Decision (2026-10-19, owner approved): keep the app's macOS 14 minimum, but require macOS 15 for
+FluidAudio offline speaker detection.** Audio transcribed on macOS 14 has one speaker (`S1`) and no voice
+embeddings. Queue and Settings explain the limitation and the reason to upgrade. Publisher transcripts keep
+their supplied labels because they bypass local inference.
 
-Options:
+FluidAudio [issue #878](https://github.com/FluidInference/FluidAudio/issues/878) reports an Apple BNNS defect:
+Core ML predictions falling back to CPU can crash with `EXC_BAD_ACCESS` / `SIGBUS` in `libBNNS`. Its
+[closing comment](https://github.com/FluidInference/FluidAudio/issues/878#issuecomment-5604575505) explicitly
+calls the `.all` workaround unverified. Wavepod's own measurements refute `.all` as a general macOS 14 remedy.
 
-1. Keep macOS 14 as the floor, route diarization to `.all` on macOS 14, and stress-test it on a macOS 14 machine
-   (100 diarization runs, zero crashes) before release. Run diarization in a separate XPC helper process so a crash
-   loses one stage, not the app, and the job resumes.
-2. Raise the floor to **macOS 15**.
+### Measured results
 
-Default: **option 1** (the brief asks for macOS 14+), with the XPC isolation regardless — it also protects the app
-from crashes in any model runtime. If the macOS 14 stress test fails, this becomes an owner decision between
-dropping macOS 14 and shipping diarization as "unavailable on macOS 14".
+[Actions run 39270446236](https://github.com/concava/wavepod/actions/runs/39270446236), workflow
+[diarization-stress.yml](../../.github/workflows/diarization-stress.yml), 2026-10-19. Counts come from its
+`result-*` artifacts. Each attempt launches `wavebench stress-diarize` in a fresh process on the same audio;
+100 attempts per OS and mode. A green control job does **not** mean its attempts succeeded: only `app` mode
+gates the workflow. Crashed means a signal exit; ordinary failures are counted separately.
+
+| Runner / measured OS | Mode | Runs | OK | Crashed | Failed |
+|---|---|---:|---:|---:|---:|
+| macos-14 / 14.8.9 | `ane` | 100 | 0 | 100 | 0 |
+| macos-14 / 14.8.9 | `default` | 100 | 0 | 100 | 0 |
+| macos-14 / 14.8.9 | `app` | 100 | 0 | 100 | 0 |
+| macos-15 / pending | `ane` | pending | pending | pending | pending |
+| macos-15 / pending | `default` | pending | pending | pending | pending |
+| macos-15 / pending | `app` | pending | pending | pending | pending |
+
+Modes: `ane` uses `.cpuAndNeuralEngine`; `default` uses FluidAudio's built-in routing (including CPU-only
+FBank); `app` uses Wavepod's shipped routing, loading **all four** offline models with `.all`. This test
+measures the runtime's behavior directly, bypassing the new app OS guard.
+
+The macOS 14 runners are Apple Silicon VMs without an ANE. The results establish failure on that environment;
+they do not establish a physical Mac crash rate or prove that `.all` fails on every GPU/ANE combination.
+However, #878 also reports intermittent field crashes on a physical M2 Pro running 14.6.1. A usable ANE can
+reduce CPU fallback, but is not evidence of safety. We therefore disable offline diarization on **all**
+macOS 14 Macs rather than gate by hardware or advertise `.all` as a fix. Upstream reports the defect fixed
+in macOS 15; the macOS 15 controls above test Wavepod's own configurations on runners, not every Mac or workload.
+
+### Alternatives and implementation
+
+- **Raise the whole app to macOS 15:** consistent features, but unnecessarily removes macOS 14 transcription,
+  playback, search and publisher transcripts. Rejected in favor of keeping those available.
+- **Keep macOS 14 with speaker detection disabled (chosen):** avoid the known crash before loading any
+  diarizer model; expose `diarization = false` and `embeddings = false` in native engine capabilities.
+  `NativeEngine` guards direct in-process/CLI and helper calls; `IsolatedEngine` returns the same fallback
+  before connecting to XPC; `WindowedTranscriber` bypasses both diarizer calls and diarization checkpoints.
+  After stitching it normalizes all generated words and turns to one speaker, clears overlap flags and
+  embeddings, and preserves ASR text, language and timings. Existing ASR checkpoints remain reusable.
+  No synthetic diarization checkpoint is written: resuming on macOS 15 runs actual diarization.
+- **Attempt diarization in XPC, then retry without it after a crash:** the shipped app already isolates native
+  inference in its engine XPC service, but currently reports a failed job on worker loss. Automatic fallback
+  would add recovery complexity and a predictably crashing attempt on these runners; it would not protect
+  direct in-process callers. Retain XPC isolation for other runtime failures, without deliberately entering
+  this known crash path or adding automatic crash retries in this change.
+
+Tests inject macOS 14, 15 and later versions to verify capabilities, model/XPC bypass, a single speaker across
+windows, checkpoint handling and re-enabling diarization after an OS upgrade. The app's minimum remains 14
+in `project.yml` and `WavepodKit/Package.swift`.
 
 ## Word-level speaker alignment (pipeline, Phase 3)
 

@@ -9,6 +9,10 @@ search open the exact moment; summaries, chapters, translation and Ask run on a 
 timestamp checked; subscribed shows can be transcribed automatically. See
 [implementation notes](docs/implementation.md) and the golden-set harness in [`eval/`](eval/).
 
+Requires Apple Silicon and macOS 14 or later. **Speaker detection requires macOS 15 or later**: on macOS 14,
+audio transcription uses a single speaker without voice embeddings to avoid an Apple BNNS crash. Publisher
+transcripts retain their supplied speaker labels. See the [diarization decision](docs/decisions/0003-diarization.md).
+
 - Decisions: [`docs/decisions/`](docs/decisions/)
 - Engine benchmark: [`bench/`](bench/)
 - Swift modules and tests: [`WavepodKit/`](WavepodKit/) (`Networking`, `Resolver`, `Engine`, `NativeEngine`, `Pipeline`, `Speakers`, `Library`, `LLM`, `Player`, `UI`)

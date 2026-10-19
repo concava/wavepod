@@ -10,9 +10,13 @@ import WhisperKit
 public struct NativeEngine: Engine, Diarizing {
     public let id = "native"
     public let models: URL
-    public init(models: URL) { self.models = models }
+    private let diarizationSupport: OfflineDiarizationSupport
+    public init(models: URL, diarizationSupport: OfflineDiarizationSupport = .current) {
+        self.models = models
+        self.diarizationSupport = diarizationSupport
+    }
     public func capabilities() async throws -> EngineCapabilities {
-        EngineCapabilities(wordTimestamps: true, diarization: true, embeddings: true)
+        EngineCapabilities(wordTimestamps: true, diarization: diarizationSupport.isAvailable, embeddings: diarizationSupport.isAvailable)
     }
     private func required(_ path: String) throws -> URL {
         let url = models.appendingPathComponent(path)
@@ -123,6 +127,9 @@ public struct NativeEngine: Engine, Diarizing {
     }
 
     public func diarize(_ audio: AudioAsset) async throws -> RawTranscript {
+        guard diarizationSupport.isAvailable else {
+            return OfflineDiarizationSupport.singleSpeaker(duration: audio.duration)
+        }
         let configuration = MLModelConfiguration()
         configuration.computeUnits = .all
         func model(_ name: String) throws -> MLModel {

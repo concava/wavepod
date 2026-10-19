@@ -146,6 +146,9 @@ final class PipelineTests: XCTestCase {
         XCTAssertEqual(calls, 0, "The pipeline's own untimed marker must not cost a second transcription")
     }
     func testQueueResumesASRCheckpointAfterDiarizerFailure() async throws {
+        guard OfflineDiarizationSupport.current.isAvailable else {
+            throw XCTSkip("macOS 14 bypasses diarization; resume after an upgrade is covered by OfflineDiarizationTests.")
+        }
         let directory = try temporary()
         let source = directory.appendingPathComponent("input.wav")
         let format = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!

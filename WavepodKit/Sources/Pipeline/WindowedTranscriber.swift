@@ -11,11 +11,14 @@ public struct WindowedTranscriber: Sendable {
     public var aligner: (any Engine)?
     public var windowLength: Double = 1800
     public var overlap: Double = 10
+    public var diarizationSupport: OfflineDiarizationSupport
 
-    public init(engine: any Engine, diarizer: any Diarizing, aligner: (any Engine)? = nil) {
+    public init(engine: any Engine, diarizer: any Diarizing, aligner: (any Engine)? = nil,
+                diarizationSupport: OfflineDiarizationSupport = .current) {
         self.engine = engine
         self.diarizer = diarizer
         self.aligner = aligner
+        self.diarizationSupport = diarizationSupport
     }
 
     public func run(_ asset: AudioAsset, language: String?, folder: URL,
@@ -47,16 +50,18 @@ public struct WindowedTranscriber: Sendable {
                 }
                 try JSONEncoder().encode(raw).write(to: rawURL, options: .atomic)
             }
-            let diarURL = folder.appendingPathComponent("diar-\(index).json")
-            let diar: RawTranscript
-            if let cached = try? Data(contentsOf: diarURL) {
-                diar = try JSONDecoder().decode(RawTranscript.self, from: cached)
-            } else {
-                try await stage("Identifying speakers, window \(index + 1)", 0.15 + 0.75 * end / asset.duration)
-                diar = try await diarizer.diarize(window)
-                try JSONEncoder().encode(diar).write(to: diarURL, options: .atomic)
+            if diarizationSupport.isAvailable {
+                let diarURL = folder.appendingPathComponent("diar-\(index).json")
+                let diar: RawTranscript
+                if let cached = try? Data(contentsOf: diarURL) {
+                    diar = try JSONDecoder().decode(RawTranscript.self, from: cached)
+                } else {
+                    try await stage("Identifying speakers, window \(index + 1)", 0.15 + 0.75 * end / asset.duration)
+                    diar = try await diarizer.diarize(window)
+                    try JSONEncoder().encode(diar).write(to: diarURL, options: .atomic)
+                }
+                DiarizationAttachment.attach(diar, to: &raw)
             }
-            DiarizationAttachment.attach(diar, to: &raw)
             combined.language = raw.language
             let half = overlap / 2
             WindowStitcher.append(raw, start: start, keepFrom: index == 0 ? 0 : start + half,
@@ -65,7 +70,10 @@ public struct WindowedTranscriber: Sendable {
             start = end - overlap
             index += 1
         }
-        return combined
+        // Normalize after stitching: without embeddings, window-local S1 labels otherwise become S1, S2, …
+        // Do not checkpoint the fallback as diarization; resuming on macOS 15 must still detect speakers.
+        return diarizationSupport.isAvailable ? combined :
+            OfflineDiarizationSupport.singleSpeaker(duration: asset.duration, transcript: combined)
     }
 
     static func lacksWordTiming(_ token: RawWord) -> Bool {
