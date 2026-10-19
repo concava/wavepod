@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "wavebench",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "1.1.1"),
         .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.17.7"),
