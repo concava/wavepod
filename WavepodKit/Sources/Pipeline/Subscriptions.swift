@@ -51,7 +51,10 @@ public actor SubscriptionMonitor {
                 let feed = try RSSParser.parse(data, feedURL: show.feedURL)
                 for episode in feed.episodes.sorted(by: { ($0.pubDate ?? .distantPast) < ($1.pubDate ?? .distantPast) }) {
                     let id = JobQueue.episodeID(episode)
-                    if !show.seen.contains(id), show.autoTranscribe { try await queue.enqueue(episode) }
+                    if !show.seen.contains(id), show.autoDownload || show.autoTranscribe || show.autoSummarize {
+                        try await queue.enqueue(episode, automation: SubscriptionAutomation(download: show.autoDownload,
+                            transcribe: show.autoTranscribe, summarize: show.autoSummarize))
+                    }
                     show.seen.insert(id)
                 }
                 show.etag = response.value(forHTTPHeaderField: "ETag")
@@ -64,6 +67,7 @@ public actor SubscriptionMonitor {
                 errors.append("\(show.title): \(error.localizedDescription)")
             }
         }
+        await queue.retryPendingSummaries()
         if !errors.isEmpty { throw SubscriptionRefreshError(messages: errors) }
     }
 }

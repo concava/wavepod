@@ -10,6 +10,10 @@ import XCTest
 /// Record new references with `SNAPSHOT_RECORD=1 swift test`.
 @MainActor
 final class SnapshotTests: XCTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try XCTSkipIf(NSScreen.screens.isEmpty, "Snapshot rendering requires a WindowServer display.")
+    }
     override func invokeTest() {
         withSnapshotTesting(record: ProcessInfo.processInfo.environment["SNAPSHOT_RECORD"] == "1" ? .all : .missing) {
             super.invokeTest()

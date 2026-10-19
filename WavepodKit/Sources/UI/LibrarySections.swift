@@ -156,12 +156,23 @@ struct PodcastFeedCard: View {
             }
             Spacer(minLength: 12)
             if let subscription {
-                Toggle("Auto-transcribe", isOn: Binding(get: { subscription.autoTranscribe }, set: { _ in model.toggleAuto(subscription) }))
+                Toggle("Auto-transcribe", isOn: Binding(get: { subscription.autoTranscribe || subscription.autoSummarize },
+                                                        set: { model.updateSubscription(subscription, transcribe: $0) }))
                     .toggleStyle(.switch).controlSize(.mini).tint(Palette.accent)
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
                     .fixedSize()
                     .help("Transcribe new episodes as soon as they come out")
                 Menu {
+                    Toggle("Download for Offline Playback", isOn: Binding(get: { subscription.autoDownload },
+                                                                          set: { model.updateSubscription(subscription, download: $0) }))
+                    Toggle("Summarize and Create Chapters", isOn: Binding(get: { subscription.autoSummarize },
+                                                                          set: { model.updateSubscription(subscription, summarize: $0) }))
+                    Picker("Keep Downloaded Episodes", selection: Binding(get: { subscription.keepLatest ?? 0 },
+                                                                         set: { model.updateSubscription(subscription, keepLatest: $0 == 0 ? nil : $0, setRetention: true) })) {
+                        Text("Unlimited").tag(0)
+                        ForEach([1, 3, 5, 10, 20, 50], id: \.self) { Text("Latest \($0)").tag($0) }
+                    }
+                    Divider()
                     Button("Unfollow", role: .destructive) { model.unsubscribe(subscription) }
                 } label: { Image(systemName: "ellipsis") }
                     .menuStyle(.button).menuIndicator(.hidden)
@@ -214,9 +225,11 @@ struct PodcastEpisodeRow: View {
                     .frame(width: 76, alignment: .leading)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(episode.title).font(type.body.weight(.medium)).foregroundStyle(Palette.ink).lineLimit(1)
-                    if let duration = episode.duration, duration > 0 {
-                        Text(Timecode.format(duration)).font(type.callout).monospacedDigit().foregroundStyle(Palette.inkMuted)
-                            .accessibilityLabel("Duration \(Timecode.spoken(duration))")
+                    let detail = [episode.duration.flatMap { $0 > 0 ? Timecode.format($0) : nil },
+                                  model.episodeStatus(JobQueue.episodeID(episode)).nilIfEmpty]
+                        .compactMap { $0 }.joined(separator: " · ")
+                    if !detail.isEmpty {
+                        Text(detail).font(type.callout).monospacedDigit().foregroundStyle(Palette.inkMuted).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 12)
@@ -301,4 +314,8 @@ struct SearchSection: View {
             }
         }
     }
+}
+
+extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
