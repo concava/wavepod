@@ -1,122 +1,7 @@
 import Library
 import SwiftUI
 
-struct CenterPane: View {
-    @Bindable var model: AppModel
-    var focus: FocusState<AppModel.FocusTarget?>.Binding
-    @Environment(\.typography) private var type
-
-    var body: some View {
-        VStack(spacing: 0) {
-            TabStrip(selection: $model.centerTab)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-            Divider().overlay(Palette.rule)
-            switch model.centerTab {
-            case .transcript:
-                TranscriptToolbar(model: model)
-                Divider().overlay(Palette.rule)
-                TranscriptView(model: model, focus: focus)
-                Divider().overlay(Palette.rule)
-                TranscriptFooter(model: model)
-            case .summary:
-                SummaryView(model: model)
-            case .chapters:
-                ChaptersView(model: model)
-            }
-        }
-        .pane()
-    }
-}
-
-struct TabStrip: View {
-    @Binding var selection: AppModel.CenterTab
-    @Environment(\.typography) private var type
-    @Namespace private var underline
-
-    var body: some View {
-        HStack(spacing: 22) {
-            ForEach(AppModel.CenterTab.allCases) { tab in
-                Button {
-                    selection = tab
-                } label: {
-                    VStack(spacing: 7) {
-                        Text(tab.title)
-                            .font(type.label)
-                            .foregroundStyle(selection == tab ? Palette.ink : Palette.inkMuted)
-                        Rectangle()
-                            .fill(selection == tab ? Palette.accent : .clear)
-                            .frame(height: 2)
-                    }
-                    .fixedSize()
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selection == tab ? [.isSelected] : [])
-            }
-            Spacer()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Views")
-    }
-}
-
 // MARK: - Transcript
-
-struct TranscriptToolbar: View {
-    let model: AppModel
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Button(action: model.copyTranscript) { Image(systemName: "doc.on.doc") }
-                .buttonStyle(IconButtonStyle())
-                .help("Copy transcript")
-                .accessibilityLabel("Copy transcript")
-            Menu {
-                ForEach(ExportFormat.allCases) { format in
-                    Button(format.isAvailable ? format.title : "\(format.title) — coming soon") {
-                        model.export(format)
-                    }
-                    .disabled(!format.isAvailable)
-                }
-            } label: {
-                Image(systemName: "square.and.arrow.down")
-            }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .buttonStyle(IconButtonStyle())
-            .fixedSize()
-            .help("Export")
-            .accessibilityLabel("Export transcript")
-            Menu {
-                ForEach(AppModel.AskLanguage.allCases.dropFirst()) { language in
-                    Button(language.title) {
-                        model.askLanguage = language
-                        model.translate()
-                    }
-                }
-            } label: {
-                Image(systemName: "character.bubble")
-            }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .buttonStyle(IconButtonStyle())
-            .fixedSize()
-            .help("Translate")
-            .accessibilityLabel("Translate transcript")
-            Spacer()
-            Button {
-                model.centerTab = .summary
-                if model.summary == nil { model.generateNotes() }
-            } label: {
-                Label("Summarize", systemImage: "text.append")
-            }
-            .buttonStyle(PrimaryButtonStyle())
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-}
 
 struct TranscriptView: View {
     let model: AppModel
@@ -141,8 +26,11 @@ struct TranscriptView: View {
                         .id(paragraph.id)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 18)
+                // A reading column, as wide as a book page, centred in whatever room the side pane leaves.
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
             }
             .focusable()
             .focused(focus, equals: .transcript)
@@ -284,28 +172,6 @@ struct SpeakerLabel: View {
     }
 }
 
-struct TranscriptFooter: View {
-    @Bindable var model: AppModel
-    @Environment(\.typography) private var type
-
-    var body: some View {
-        HStack(spacing: 18) {
-            Toggle("Speaker labels", isOn: $model.showSpeakerLabels).fixedSize()
-            Toggle("Merge lines", isOn: $model.mergeLines).fixedSize()
-            Spacer(minLength: 8)
-            Toggle("Follow", isOn: $model.followPlayback).fixedSize()
-                .help("Keep the spoken paragraph in view while playing")
-                .accessibilityLabel("Follow playback")
-        }
-        .toggleStyle(.switch)
-        .controlSize(.mini)
-        .font(type.callout)
-        .foregroundStyle(Palette.ink)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-    }
-}
-
 // MARK: - Summary
 
 struct SummaryView: View {
@@ -353,8 +219,17 @@ struct SummaryView: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ContentUnavailableView("No summary yet", systemImage: "text.append",
-                                       description: Text("Summaries are written on this Mac by the local model."))
+                ContentUnavailableView {
+                    Label("No summary yet", systemImage: "text.append")
+                } description: {
+                    Text("Summaries are written on this Mac by the local model.")
+                } actions: {
+                    if model.isPersistent && !model.transcript.segments.isEmpty {
+                        Button(model.isGenerating ? "Writing…" : "Write Summary") { model.generateNotes() }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .disabled(model.isGenerating)
+                    }
+                }
             }
         }
     }

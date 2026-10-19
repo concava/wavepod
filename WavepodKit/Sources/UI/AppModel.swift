@@ -62,10 +62,19 @@ public final class AppModel {
         }
     }
 
-    public enum CenterTab: String, CaseIterable, Identifiable, Sendable {
-        case transcript, summary, chapters
+    /// What the episode view's right-hand pane shows next to the transcript.
+    public enum SidePane: String, CaseIterable, Identifiable, Sendable {
+        case ask, summary, chapters, about
         public var id: String { rawValue }
         public var title: String { rawValue.capitalized }
+        public var symbol: String {
+            switch self {
+            case .ask: "bubble.left.and.text.bubble.right"
+            case .summary: "text.append"
+            case .chapters: "list.number"
+            case .about: "info.circle"
+            }
+        }
     }
 
     public enum Appearance: String, CaseIterable, Sendable {
@@ -100,7 +109,15 @@ public final class AppModel {
     public var hideSetup = UserDefaults.standard.bool(forKey: "hideSetup") {
         didSet { UserDefaults.standard.set(hideSetup, forKey: "hideSetup") }
     }
-    public var centerTab: CenterTab = .transcript
+    public var sidePane: SidePane = .ask
+    public var showSidePane = UserDefaults.standard.object(forKey: "showSidePane") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showSidePane, forKey: "showSidePane") }
+    }
+
+    /// Opens the side pane on `pane`, or closes it when that pane is already showing.
+    public func toggleSidePane(_ pane: SidePane) {
+        if showSidePane && sidePane == pane { showSidePane = false } else { sidePane = pane; showSidePane = true }
+    }
     public var appearance: Appearance = .system
     public var textScale: Double = 1
 

@@ -56,38 +56,44 @@ final class SnapshotTests: XCTestCase {
         check("sidebar", size: CGSize(width: 220, height: 420)) { SidebarView(model: model) }
     }
 
-    func testEpisodePane() {
+    func testAboutPane() {
         let model = makeModel()
-        check("episode", size: CGSize(width: 300, height: 720)) { EpisodePane(model: model).padding(6) }
+        model.sidePane = .about
+        check("about", size: CGSize(width: 360, height: 600)) { SidePaneView(model: model) }
     }
 
     func testTranscript() {
         let model = makeModel()
-        check("transcript", size: CGSize(width: 600, height: 700)) { CenterPaneSnapshot(model: model).padding(6) }
+        check("transcript", size: CGSize(width: 760, height: 700)) { TranscriptSnapshot(model: model) }
     }
 
     func testTranscriptLargeText() {
         let model = makeModel()
         check("transcript-large", size: CGSize(width: 600, height: 700), scale: 1.5) {
-            CenterPaneSnapshot(model: model).padding(6)
+            TranscriptSnapshot(model: model)
         }
     }
 
     func testSummary() {
         let model = makeModel()
-        model.centerTab = .summary
-        check("summary", size: CGSize(width: 600, height: 700)) { CenterPaneSnapshot(model: model).padding(6) }
+        model.sidePane = .summary
+        check("summary", size: CGSize(width: 360, height: 700)) { SidePaneView(model: model) }
     }
 
     func testChapters() {
         let model = makeModel()
-        model.centerTab = .chapters
-        check("chapters", size: CGSize(width: 600, height: 500)) { CenterPaneSnapshot(model: model).padding(6) }
+        model.sidePane = .chapters
+        check("chapters", size: CGSize(width: 360, height: 500)) { SidePaneView(model: model) }
     }
 
     func testAskPane() {
         let model = makeModel()
-        check("ask", size: CGSize(width: 330, height: 700)) { AskPaneSnapshot(model: model).padding(6) }
+        check("ask", size: CGSize(width: 360, height: 700)) { SidePaneView(model: model) }
+    }
+
+    func testComposer() {
+        let model = makeModel()
+        check("composer", size: CGSize(width: 760, height: 130)) { ComposerSnapshot(model: model) }
     }
 
     func testPlayerBar() {
@@ -97,16 +103,16 @@ final class SnapshotTests: XCTestCase {
 }
 
 // FocusState can only live in a View, so these wrappers own one for the panes that take a focus binding.
-private struct CenterPaneSnapshot: View {
+private struct TranscriptSnapshot: View {
     let model: AppModel
     @FocusState var focus: AppModel.FocusTarget?
-    var body: some View { CenterPane(model: model, focus: $focus) }
+    var body: some View { TranscriptView(model: model, focus: $focus).background(Palette.surface) }
 }
 
-private struct AskPaneSnapshot: View {
+private struct ComposerSnapshot: View {
     let model: AppModel
     @FocusState var focus: AppModel.FocusTarget?
-    var body: some View { AskPane(model: model, focus: $focus) }
+    var body: some View { AskComposer(model: model, focus: $focus).background(Palette.surface) }
 }
 
 private struct WorkspaceSnapshot: View {

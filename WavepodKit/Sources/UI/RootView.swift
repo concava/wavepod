@@ -48,14 +48,6 @@ public struct RootView: View {
                 CommandField(model: model, focus: $focus)
             }
             ToolbarItem(placement: .primaryAction) {
-                if model.isPersistent && model.section == .library && !model.transcript.segments.isEmpty {
-                    Menu("Generate", systemImage: "sparkles") {
-                        Button("Summary") { model.generateNotes() }
-                        Button("Chapters") { model.generateNotes(chaptersOnly: true) }
-                    }.disabled(model.isGenerating)
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
                 AppearanceButton(model: model)
             }
             ToolbarItem(placement: .primaryAction) {
@@ -86,27 +78,6 @@ public struct RootView: View {
             focus = request
             model.focusRequest = nil
         }
-    }
-}
-
-struct Workspace: View {
-    @Bindable var model: AppModel
-    var focus: FocusState<AppModel.FocusTarget?>.Binding
-
-    var body: some View {
-        HSplitView {
-            EpisodePane(model: model)
-                .padding(6)
-                .frame(minWidth: 230, idealWidth: 290, maxWidth: 380)
-            CenterPane(model: model, focus: focus)
-                .padding(6)
-                .frame(minWidth: 380, idealWidth: 560)
-            AskPane(model: model, focus: focus)
-                .padding(6)
-                .frame(minWidth: 250, idealWidth: 310, maxWidth: 440)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
     }
 }
 

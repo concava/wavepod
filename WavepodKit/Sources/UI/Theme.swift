@@ -67,6 +67,7 @@ public struct Typography: Sendable {
     public var stat: Font { .system(size: size(30), design: .serif) }
     /// Small tracked capitals for date and group labels.
     public var eyebrow: Font { .system(size: size(11), weight: .semibold) }
+    public var episodeTitle: Font { .system(size: size(17), weight: .semibold, design: .serif) }
     public var nav: Font { .system(size: size(14), weight: .medium) }
     public var timestamp: Font { .system(size: size(11), weight: .medium, design: .monospaced) }
     public var speaker: Font { .system(size: size(12), weight: .semibold) }
@@ -140,12 +141,15 @@ extension View {
 
 /// Square icon button used in pane toolbars.
 struct IconButtonStyle: ButtonStyle {
+    /// Marks a toggle that is on, such as the side pane being shown.
+    var isActive = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(Palette.ink)
+            .foregroundStyle(isActive ? Palette.accent : Palette.ink)
             .frame(width: 30, height: 28)
-            .background(configuration.isPressed ? Palette.rule : Palette.sunken,
+            .background(isActive ? Palette.accentSoft : (configuration.isPressed ? Palette.rule : Palette.sunken),
                         in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             .contentShape(Rectangle())
             .pressScale(configuration.isPressed)
