@@ -122,9 +122,23 @@ public struct NativeEngine: Engine, Diarizing {
         return partial.result
     }
 
+    /// Core ML sometimes fails a prediction on the Neural Engine ("Unable to compute the asynchronous prediction
+    /// using ML Program"), for example under memory pressure or after sleep. The same window then runs again on the
+    /// GPU and then on the CPU, which are slower but do not have this failure.
     public func diarize(_ audio: AudioAsset) async throws -> RawTranscript {
+        var lastError: Error?
+        for units in [MLComputeUnits.all, .cpuAndGPU, .cpuOnly] {
+            try Task.checkCancellation()
+            do { return try await diarize(audio, computeUnits: units) } catch is CancellationError {
+                throw CancellationError()
+            } catch { lastError = error }
+        }
+        throw lastError ?? EngineError.invalidResult
+    }
+
+    private func diarize(_ audio: AudioAsset, computeUnits: MLComputeUnits) async throws -> RawTranscript {
         let configuration = MLModelConfiguration()
-        configuration.computeUnits = .all
+        configuration.computeUnits = computeUnits
         func model(_ name: String) throws -> MLModel {
             try MLModel(contentsOf: required("diarizer/\(name).mlmodelc"), configuration: configuration)
         }
