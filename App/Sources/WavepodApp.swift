@@ -10,6 +10,7 @@ struct WavepodApp: App {
         if sample { model.section = .library }
         return model
     }()
+    @StateObject private var updater = Updater()
 
     var body: some Scene {
         Window("wavepod", id: "main") {
@@ -22,6 +23,9 @@ struct WavepodApp: App {
         }
         .defaultSize(width: 1440, height: 880)
         .windowToolbarStyle(.unified(showsTitle: false))
-        .commands { WavepodCommands(model: model) }
+        .commands {
+            WavepodCommands(model: model)
+            UpdateCommands(updater: updater)
+        }
     }
 }

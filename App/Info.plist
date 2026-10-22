@@ -47,5 +47,9 @@
 	<string>Apache-2.0</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to your own Scriberr transcription server.</string>
+	<key>SUFeedURL</key>
+	<string>https://concava.github.io/wavepod/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>$(SPARKLE_PUBLIC_KEY)</string>
 </dict>
 </plist>
