@@ -163,17 +163,22 @@ struct PodcastFeedCard: View {
                     .fixedSize()
                     .help("Transcribe each new episode when the podcast publishes it")
                 Menu {
-                    Toggle("Download for Offline Playback", isOn: Binding(get: { subscription.autoDownload },
-                                                                          set: { model.updateSubscription(subscription, download: $0) }))
-                    Toggle("Summarize New Episodes", isOn: Binding(get: { subscription.autoSummarize },
-                                                                          set: { model.updateSubscription(subscription, summarize: $0) }))
-                    Picker("Keep Downloaded Episodes", selection: Binding(get: { subscription.keepLatest ?? 0 },
-                                                                         set: { model.updateSubscription(subscription, keepLatest: $0 == 0 ? nil : $0, setRetention: true) })) {
-                        Text("Unlimited").tag(0)
-                        ForEach([1, 3, 5, 10, 20, 50], id: \.self) { Text("Latest \($0)").tag($0) }
+                    Section("New episodes") {
+                        Toggle("Summarize", isOn: Binding(get: { subscription.autoSummarize },
+                                                          set: { model.updateSubscription(subscription, summarize: $0) }))
+                        Toggle("Download for Offline Playback", isOn: Binding(get: { subscription.autoDownload },
+                                                                              set: { model.updateSubscription(subscription, download: $0) }))
                     }
-                    Divider()
-                    Button("Unfollow", role: .destructive) { model.unsubscribe(subscription) }
+                    Section("Downloads") {
+                        Picker("Keep", selection: Binding(get: { subscription.keepLatest ?? 0 },
+                                                          set: { model.updateSubscription(subscription, keepLatest: $0 == 0 ? nil : $0, setRetention: true) })) {
+                            Text("All").tag(0)
+                            ForEach([1, 3, 5, 10, 20, 50], id: \.self) { Text("Latest \($0)").tag($0) }
+                        }
+                    }
+                    Section {
+                        Button("Unfollow", role: .destructive) { model.unsubscribe(subscription) }
+                    }
                 } label: { Image(systemName: "ellipsis") }
                     .menuStyle(.button).menuIndicator(.hidden)
                     .buttonStyle(IconButtonStyle())
