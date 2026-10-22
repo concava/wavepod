@@ -122,13 +122,14 @@ struct PodcastMenu: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(model.episode.showName)
+                Text(model.episode.showName).lineLimit(1).truncationMode(.tail)
                 if isFollowing { Image(systemName: "checkmark.circle.fill").imageScale(.small).accessibilityLabel("Following") }
             }
             .font(type.label)
         }
         .menuStyle(.borderlessButton)
-        .fixedSize()
+        // Only the height is fixed. A long podcast name shortens instead of widening the summary card.
+        .fixedSize(horizontal: false, vertical: true)
         .foregroundStyle(Palette.accent)
         .disabled(episodes.count <= 1 && model.feedURL == nil)
         .help("Episodes of this podcast")
