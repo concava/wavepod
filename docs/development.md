@@ -125,7 +125,7 @@ service together.
 
 ## Release
 
-`tools/release.sh` builds the Release configuration, signs it, packages `dist/wavepod-$VERSION.dmg` and, when it
+`tools/release.sh` builds the Release configuration, signs it, packages `dist/Wavepod-$VERSION.dmg` and, when it
 has the keys, notarizes and staples it. Each stage runs only when its inputs are set, so locally it makes an
 ad-hoc test build:
 

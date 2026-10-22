@@ -12,7 +12,7 @@
 #   NOTARY_KEY_PATH, NOTARY_KEY_ID, NOTARY_ISSUER
 #                        App Store Connect API key for notarytool; needs DEVELOPER_ID
 #
-# Output: dist/wavepod-$VERSION.dmg
+# Output: dist/Wavepod-$VERSION.dmg
 set -euo pipefail
 
 : "${VERSION:?set VERSION, e.g. VERSION=0.2.0}"
@@ -20,13 +20,15 @@ BUILD="${BUILD:-1}"
 cd "${0:A:h}/.."
 
 DD=build/release
-APP="$DD/Build/Products/Release/wavepod.app"
-DMG="dist/wavepod-$VERSION.dmg"
+DMG="dist/Wavepod-$VERSION.dmg"
 
 xcodegen generate --quiet
 xcodebuild -project wavepod.xcodeproj -scheme wavepod -configuration Release -derivedDataPath "$DD" -quiet \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}" \
   build
+# The app is named by PRODUCT_NAME in project.yml.
+APP="$(find "$DD/Build/Products/Release" -maxdepth 1 -name "*.app" | head -1)"
+[[ -d "$APP" ]] || { echo "No .app in $DD/Build/Products/Release" >&2; exit 1; }
 
 # wavepod is not sandboxed, so Sparkle's XPC services are unused (Sparkle's docs allow removing them).
 rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices"
@@ -54,7 +56,7 @@ trap 'rm -rf "$staging"' EXIT
 cp -R "$APP" "$staging/"
 ln -s /Applications "$staging/Applications"
 rm -f "$DMG"
-hdiutil create -quiet -volname wavepod -srcfolder "$staging" -fs HFS+ -format UDZO "$DMG"
+hdiutil create -quiet -volname Wavepod -srcfolder "$staging" -fs HFS+ -format UDZO "$DMG"
 
 if [[ -n "${DEVELOPER_ID:-}" ]]; then
   codesign --force --timestamp --sign "$DEVELOPER_ID" "$DMG"

@@ -85,7 +85,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wavepod-${{ env.VERSION }}
+          name: Wavepod-${{ env.VERSION }}
           path: ${{ env.DMG }}
 
       - name: GitHub Release
@@ -94,9 +94,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${NOTARIZED:-}" = true ]; then
-            gh release create "$TAG" "$DMG" --title "wavepod $VERSION" --generate-notes
+            gh release create "$TAG" "$DMG" --title "Wavepod $VERSION" --generate-notes
           else
-            gh release create "$TAG" "$DMG" --title "wavepod $VERSION (test build)" --prerelease \
+            gh release create "$TAG" "$DMG" --title "Wavepod $VERSION (test build)" --prerelease \
               --notes "Ad-hoc signed and not notarized: for testing only. macOS will refuse to open it until you allow it in System Settings → Privacy & Security."
           fi
 
@@ -124,5 +124,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add appcast.xml
-          git commit -m "Appcast: wavepod $VERSION"
+          git commit -m "Appcast: Wavepod $VERSION"
           git push origin gh-pages
