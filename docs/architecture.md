@@ -115,15 +115,22 @@ Suggestions show a confidence. Confirming one, or renaming, updates every paragr
 ### 7. Store and index
 
 The record (transcript, speakers, evidence, summary, chat) goes into SQLite in one transaction.
+Every later change, such as an answer, a summary, a speaker name, artwork or a download, goes through
+`LibraryStore.update`. It reads, changes and saves the record in one write transaction, so two writers never
+overwrite each other, and a deleted episode stays deleted. `LibraryStore.changes()` says which parts changed, and
+the app updates only those parts. `Workspace` wires the store, network client, engine, answer model and job queue
+the same way in the app and the feed checker.
 Text is indexed for keyword search (FTS5) and, when the embeddings model is installed, as multilingual E5-small
 vectors for search by meaning. Search results open the exact moment.
 
 ### 8. Summary
 
-A finished episode gets a summary automatically (`EpisodeNotesService`, shared by the app and the feed checker),
-written by the answer model chosen in Settings → Ask: the local model, or a ChatGPT or Claude plan
-(`ProviderNotes`, which reads larger sections). The model reads the whole transcript in bounded sections and writes a summary in sections: who's there, main discussion, industry news, audience Q&A,
-closing. If the model is missing, the notes are marked pending and written once it is installed.
+A finished episode gets a summary automatically (`EpisodeNotesService`, shared by the app and the feed checker).
+`AnswerModel` decides which model writes it: the local model, or the ChatGPT or Claude plan chosen in
+Settings → Ask, which reads larger sections. The model reads the whole transcript in bounded sections and writes a
+summary in sections: who's there, main discussion, industry news, audience Q&A, closing. If the model is missing,
+the notes are marked pending and written once it is installed. The feed checker has no window, so it can't read
+the ChatGPT sign-in from the Keychain: a ChatGPT summary waits for the app, which writes it on the plan.
 
 ## Ask
 
@@ -131,6 +138,11 @@ Ask reads the **whole** transcript in bounded passes, keeps recent conversation 
 the language of the question. It runs on the local model by default. Settings › Ask can instead use an
 eligible **ChatGPT** plan or **Claude** plan (through an isolated Claude Code sign-in). Those send the question,
 recent conversation and transcript text to the provider, never audio.
+
+`AskSession` owns one question from start to finish: it saves the question, asks `AnswerModel` for the model and
+part size, and saves the answer, "Stopped…" or the error to the episode the question was asked on.
+`AnswerModel` is the one place that knows the choice, whether it is ready and what it needs. Ask, summaries, the
+job queue and the feed checker all use it.
 
 ### Every citation is checked
 
