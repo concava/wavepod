@@ -347,12 +347,14 @@ struct ProviderNotes: NotesGenerating {
         case .chatgpt:
             let account = defaults.string(forKey: "chatGPTProfile") ?? ""
             let model = defaults.string(forKey: "chatGPTModel.\(account)") ?? ""
-            return PlanNotes(generator: ChatGPTGenerator(plan: chatGPT, account: account, model: model),
+            return PlanNotes(generator: ChatGPTGenerator(plan: chatGPT, account: account, model: model,
+                                                               effort: defaults.string(forKey: "chatGPTEffort.\(model)") ?? ""),
                              isAvailable: !account.isEmpty && !model.isEmpty)
         case .claude:
             let executable = defaults.string(forKey: "claudeExecutable").flatMap { ClaudePlan.isExecutable($0) ? $0 : nil }
                 ?? ClaudePlan.detectedExecutable
-            return PlanNotes(generator: ClaudeGenerator(plan: claude, executable: executable, model: defaults.string(forKey: "claudeModel") ?? "sonnet"),
+            return PlanNotes(generator: ClaudeGenerator(plan: claude, executable: executable, model: defaults.string(forKey: "claudeModel") ?? "sonnet",
+                                                             effort: defaults.string(forKey: "claudeEffort") ?? ""),
                              isAvailable: !executable.isEmpty)
         }
     }

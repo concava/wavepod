@@ -181,6 +181,14 @@ final class ChatGPTTests: XCTestCase {
         while stream.hasBytesAvailable { let count = stream.read(&buffer, maxLength: buffer.count); if count <= 0 { break }; data.append(contentsOf: buffer.prefix(count)) }
         return data
     }
+    func testCatalogEffortLevelsDecodeAndModelsWithoutThemTakeNone() throws {
+        let data = Data(#"{"models":[{"slug":"a","display_name":"A","visibility":"list","supported_reasoning_levels":[{"effort":"low","description":"Fast"},{"effort":"high"}],"default_reasoning_level":"low"},{"slug":"b","display_name":"B","visibility":"list"}]}"#.utf8)
+        struct Catalog: Decodable { let models: [ChatGPTModel] }
+        let models = try JSONDecoder().decode(Catalog.self, from: data).models
+        XCTAssertEqual(models[0].efforts, ["low", "high"])
+        XCTAssertEqual(models[0].default_reasoning_level, "low")
+        XCTAssertEqual(models[1].efforts, [])
+    }
 }
 
 private final class MemoryCredentials: ChatGPTCredentialStore, @unchecked Sendable {

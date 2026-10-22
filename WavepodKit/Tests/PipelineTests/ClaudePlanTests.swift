@@ -47,6 +47,19 @@ final class ClaudePlanTests: XCTestCase {
         XCTAssertEqual(entries[0].method, "EXTERNAL")
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(entries), as: UTF8.self).contains("private transcript"))
     }
+    func testEffortIsPassedOnlyWhereTheModelAcceptsIt() async throws {
+        let executor = ClaudeFixture(), plan = ClaudePlan(root: try temporary(), client: HTTPClient(), executor: executor)
+        _ = try await plan.generate("q", executable: "/usr/bin/true", model: "opus", effort: "xhigh")
+        _ = try await plan.generate("q", executable: "/usr/bin/true", model: "sonnet", effort: "max")
+        _ = try await plan.generate("q", executable: "/usr/bin/true", model: "haiku", effort: "low")
+        let requests = await executor.commands.filter { !$0.input.isEmpty }.map(\.arguments)
+        XCTAssertEqual(requests.count, 3)
+        let opus = try XCTUnwrap(requests[0].firstIndex(of: "--effort"))
+        XCTAssertEqual(requests[0][opus + 1], "xhigh")
+        XCTAssertFalse(requests[1].contains("--effort"), "Sonnet does not take max")
+        XCTAssertFalse(requests[2].contains("--effort"), "Haiku takes no effort")
+        XCTAssertEqual(ClaudePlan.efforts(for: "haiku"), [])
+    }
     func testAPIAccountCannotGenerateAndFailedResultsAreNotAnswers() async throws {
         let executor = ClaudeFixture(method: "api_key"), plan = ClaudePlan(root: try temporary(), client: HTTPClient(), executor: executor)
         do { _ = try await plan.generate("private", executable: "/usr/bin/true", model: "sonnet"); XCTFail("Must require subscription") } catch {}

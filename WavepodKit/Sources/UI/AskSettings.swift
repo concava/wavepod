@@ -109,6 +109,11 @@ struct AskSettings: View {
         }
     }
 
+    /// Effort levels the chosen ChatGPT model lists in its catalog entry.
+    private var chatGPTEfforts: [String] {
+        model.chatGPTModels.first { $0.id == model.chatGPTModelID }?.efforts ?? []
+    }
+
     private var isChatGPTConnected: Bool {
         model.chatGPTProfiles.contains { $0.id == model.chatGPTProfileID && $0.connected }
     }
@@ -140,13 +145,18 @@ struct AskSettings: View {
                     }
                 }
             }
-            SettingRow(title: "Model", detail: "Models your plan includes.", last: true) {
+            SettingRow(title: "Model", detail: "Models your plan includes.", last: chatGPTEfforts.isEmpty) {
                 if model.chatGPTModels.isEmpty {
                     Text("Connect first").font(type.callout).foregroundStyle(Palette.inkMuted)
                 } else {
                     Picker("ChatGPT model", selection: $model.chatGPTModelID) {
                         ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
                     }.labelsHidden().fixedSize()
+                }
+            }
+            if !chatGPTEfforts.isEmpty {
+                SettingRow(title: "Effort", detail: EffortPicker.detail, last: true) {
+                    EffortPicker(selection: $model.chatGPTEffort, efforts: chatGPTEfforts)
                 }
             }
         }
@@ -167,5 +177,20 @@ struct PlanFootnote: View {
             Link(link.title, destination: link.url).font(type.callout)
         }
         .padding(.top, -8)
+    }
+}
+
+/// Reasoning effort for a plan's model: its default, or one of the levels the model accepts.
+struct EffortPicker: View {
+    @Binding var selection: String
+    let efforts: [String]
+    static let detail = "Higher effort gives better answers on hard questions. It takes longer and uses more of your plan."
+
+    var body: some View {
+        Picker("Effort", selection: $selection) {
+            Text("Default").tag("")
+            ForEach(efforts, id: \.self) { Text(AppModel.effortTitle($0)).tag($0) }
+        }
+        .labelsHidden().fixedSize()
     }
 }

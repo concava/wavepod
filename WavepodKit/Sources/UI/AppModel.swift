@@ -179,14 +179,36 @@ public final class AppModel {
         didSet { UserDefaults.standard.set(chatGPTProfileID, forKey: "chatGPTProfile") }
     }
     public var chatGPTModelID = "" {
-        didSet { UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)") }
+        didSet {
+            UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)")
+            chatGPTEffort = UserDefaults.standard.string(forKey: "chatGPTEffort.\(chatGPTModelID)") ?? ""
+        }
+    }
+    /// The reasoning effort for the chosen ChatGPT model, saved per model. Empty: the model's default.
+    public var chatGPTEffort = "" {
+        didSet { UserDefaults.standard.set(chatGPTEffort, forKey: "chatGPTEffort.\(chatGPTModelID)") }
     }
     public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable")
         .flatMap { ClaudePlan.isExecutable($0) ? $0 : nil } ?? ClaudePlan.detectedExecutable {
         didSet { UserDefaults.standard.set(claudeExecutable, forKey: "claudeExecutable"); claudeStatus = "Connect your Claude plan." }
     }
     public var claudeModel = UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet" {
-        didSet { UserDefaults.standard.set(claudeModel, forKey: "claudeModel") }
+        didSet {
+            UserDefaults.standard.set(claudeModel, forKey: "claudeModel")
+            if !ClaudePlan.efforts(for: claudeModel).contains(claudeEffort) { claudeEffort = "" }
+        }
+    }
+    /// One of `ClaudePlan.efforts(for: claudeModel)`, or empty for Claude Code's default.
+    public var claudeEffort = UserDefaults.standard.string(forKey: "claudeEffort") ?? "" {
+        didSet { UserDefaults.standard.set(claudeEffort, forKey: "claudeEffort") }
+    }
+    /// How an effort level reads in Settings.
+    public static func effortTitle(_ effort: String) -> String {
+        switch effort {
+        case "xhigh": "Extra high"
+        case "max": "Maximum"
+        default: effort.capitalized
+        }
     }
     public var claudeStatus = "Connect your Claude plan."
     public var isConnectingClaude = false
@@ -502,7 +524,8 @@ public final class AppModel {
         let id = episode.id, source = transcript, language = "Auto", history = Array(chat.dropLast())
         let provider = askProvider, account = chatGPTProfileID
         let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
-        let claudePath = claudeExecutable, claudeChoice = claudeModel
+        let claudePath = claudeExecutable, claudeChoice = claudeModel, claudeLevel = claudeEffort
+        let chatGPTLevel = UserDefaults.standard.string(forKey: "chatGPTEffort.\(model)") ?? ""
         askProgress = "Preparing transcript…"
         answerTask = Task { [self] in
             defer { isAnswering = false; askProgress = ""; answerTask = nil }
@@ -512,10 +535,10 @@ public final class AppModel {
                 }
                 let claims: [CitedClaim]
                 if provider == "chatgpt" {
-                    claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model), contextLimit: 40_000)
+                    claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model, effort: chatGPTLevel), contextLimit: 40_000)
                         .answer(question: q, language: language, history: history, transcript: source, progress: progress)
                 } else if provider == "claude" {
-                    claims = try await EpisodeAnswers(generator: ClaudeGenerator(plan: services.claude, executable: claudePath, model: claudeChoice), contextLimit: 40_000)
+                    claims = try await EpisodeAnswers(generator: ClaudeGenerator(plan: services.claude, executable: claudePath, model: claudeChoice, effort: claudeLevel), contextLimit: 40_000)
                         .answer(question: q, language: language, history: history, transcript: source, progress: progress)
                 } else {
                     claims = try await services.generator.withSession { generator in

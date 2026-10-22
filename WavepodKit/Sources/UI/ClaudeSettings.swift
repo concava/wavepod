@@ -74,7 +74,7 @@ struct ClaudeSettings: View {
                     .disabled(model.claudeExecutable.isEmpty)
                 }
             }
-            SettingRow(title: "Model", detail: "Sonnet is fast. Opus is the most capable.", last: true) {
+            SettingRow(title: "Model", detail: "Sonnet is fast. Opus is the most capable.", last: ClaudePlan.efforts(for: model.claudeModel).isEmpty) {
                 Picker("Claude model", selection: $model.claudeModel) {
                     Text("Sonnet").tag("sonnet")
                     Text("Opus").tag("opus")
@@ -82,6 +82,11 @@ struct ClaudeSettings: View {
                 }
                 .labelsHidden().fixedSize()
                 .disabled(model.isConnectingClaude)
+            }
+            if !ClaudePlan.efforts(for: model.claudeModel).isEmpty {
+                SettingRow(title: "Effort", detail: EffortPicker.detail, last: true) {
+                    EffortPicker(selection: $model.claudeEffort, efforts: ClaudePlan.efforts(for: model.claudeModel))
+                }
             }
         }
         PlanFootnote(text: "When you ask a question or wavepod writes a summary, your question, recent conversation and transcript text go to Anthropic through Claude Code. wavepod signs in to Claude Code separately, so your other Claude sessions do not change. wavepod does not send audio. Your plan limits apply.",
