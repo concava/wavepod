@@ -55,10 +55,6 @@ struct SidebarView: View {
             NavRow(title: "Settings", symbol: "gearshape", collapsed: collapsed, isSelected: false, badge: activeJobs) {
                 model.openSettings(activeJobs == nil ? nil : .queue)
             }
-            NavRow(title: "On this Mac only", symbol: "lock", collapsed: collapsed, isSelected: false, muted: true) {
-                model.openSettings(.privacy)
-            }
-            .help("Transcription, search and answers run on this Mac. The network log lists every request.")
         }
         .padding(.horizontal, collapsed ? 8 : 12)
         .padding(.bottom, 12)
