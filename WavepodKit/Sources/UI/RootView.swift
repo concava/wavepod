@@ -36,7 +36,10 @@ public struct RootView: View {
                 }
             }
         }
-        .background(Palette.paper)
+        .background(Palette.paper.ignoresSafeArea())
+        // The title bar takes the paper colour too, so the window is one surface in both themes.
+        .toolbarBackground(Palette.paper, for: .windowToolbar)
+        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
         .toolbar {
             ToolbarItem(placement: .navigation) {
