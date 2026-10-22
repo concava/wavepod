@@ -79,6 +79,15 @@ extension AppModel {
         writeMissingNotes()
     }
 
+    /// Opens the episode in the player bar. Playback continues where it is.
+    public func openPlayingEpisode() {
+        guard let id = player.episode?.id, !id.isEmpty else { return }
+        if episode.id == id { section = .library; return }
+        do {
+            if let record = try services?.store.episode(id) { open(record) }
+        } catch { show(error.localizedDescription) }
+    }
+
     /// Opens the podcast's page, with its full episode list and Follow.
     public func openPodcast() {
         guard let feedURL else { return }
