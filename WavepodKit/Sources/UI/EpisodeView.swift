@@ -8,19 +8,87 @@ struct Workspace: View {
     var focus: FocusState<AppModel.FocusTarget?>.Binding
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @AppStorage("detailWidth") private var detailWidth = Workspace.defaultDetailWidth
+    static let defaultDetailWidth = 460.0
+    static let minSummary = 420.0, minDetail = 340.0
+
     var body: some View {
-        HStack(spacing: 8) {
-            SummaryCard(model: model, focus: focus)
-                .frame(minWidth: 420, maxWidth: .infinity)
-                .elevated(cornerRadius: 14)
-            if model.showSidePane {
-                DetailCard(model: model, focus: focus)
-                    .frame(minWidth: 340, idealWidth: 460, maxWidth: 560)
+        GeometryReader { proxy in
+            let maxDetail = max(Workspace.minDetail, proxy.size.width - Workspace.minSummary - CardDivider.width)
+            HStack(spacing: 0) {
+                SummaryCard(model: model, focus: focus)
+                    .frame(minWidth: Workspace.minSummary, maxWidth: .infinity)
                     .elevated(cornerRadius: 14)
-                    .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+                if model.showSidePane {
+                    CardDivider(width: $detailWidth, range: Workspace.minDetail...maxDetail, reset: Workspace.defaultDetailWidth)
+                        .transition(.opacity)
+                    DetailCard(model: model, focus: focus)
+                        .frame(width: min(max(detailWidth, Workspace.minDetail), maxDetail))
+                        .elevated(cornerRadius: 14)
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+                }
             }
         }
         .animation(reduceMotion ? Motion.fade : Motion.standard, value: model.showSidePane)
+    }
+}
+
+/// The gap between the two cards. Drag it to resize the side card, double-click it to go back to the default width.
+/// A grip shows on hover and grows while you drag. The cards follow the pointer with no animation.
+struct CardDivider: View {
+    static let width = 8.0
+    @Binding var width: Double
+    let range: ClosedRange<Double>
+    let reset: Double
+    @State private var hovering = false
+    @State private var start: Double?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var dragging: Bool { start != nil }
+
+    var body: some View {
+        ZStack {
+            Color.clear
+            Capsule()
+                .fill(dragging ? Palette.accent : Palette.inkMuted.opacity(0.5))
+                .frame(width: dragging ? 4 : 3, height: dragging ? 56 : 36)
+                .opacity(hovering || dragging ? 1 : 0)
+                .scaleEffect(reduceMotion || hovering || dragging ? 1 : 0.6)
+        }
+        .frame(width: CardDivider.width)
+        .frame(maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            hovering = inside
+            if inside { if !dragging { NSCursor.resizeLeftRight.push() } } else if !dragging { NSCursor.pop() }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { value in
+                    if start == nil { start = width }
+                    width = min(max((start ?? width) - value.translation.width, range.lowerBound), range.upperBound)
+                }
+                .onEnded { _ in
+                    start = nil
+                    if !hovering { NSCursor.pop() }
+                }
+        )
+        .onTapGesture(count: 2) {
+            withAnimation(motion(Motion.standard, reduced: reduceMotion)) { width = min(max(reset, range.lowerBound), range.upperBound) }
+        }
+        .animation(motion(Motion.fade, reduced: reduceMotion), value: hovering)
+        .animation(motion(Motion.fade, reduced: reduceMotion), value: dragging)
+        .accessibilityElement()
+        .accessibilityLabel("Side card width")
+        .accessibilityValue("\(Int(width)) points")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: width = min(width + 40, range.upperBound)
+            case .decrement: width = max(width - 40, range.lowerBound)
+            @unknown default: break
+            }
+        }
+        .help("Drag to resize. Double-click to reset.")
     }
 }
 

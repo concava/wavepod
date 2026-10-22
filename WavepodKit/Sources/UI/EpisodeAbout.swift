@@ -44,7 +44,8 @@ struct EpisodeAbout: View {
                     .accessibilityLabel("Episode description")
                     .accessibilityValue(String(SafeHTML.render(episode.descriptionHTML).characters))
             }
-            .padding(16)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .contain)
