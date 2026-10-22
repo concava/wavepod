@@ -143,3 +143,48 @@ final class EpisodeCodingTests: XCTestCase {
         XCTAssertEqual(episode.title, SampleData.episode.title)
     }
 }
+
+final class DescriptionFormatterTests: XCTestCase {
+    /// The shape of a real feed: one paragraph per line, no markup.
+    let notes = """
+    <p>Patrocinar el podcast: https://tally.so/r/3EERLN</p><p>SOBRE ITNIG: 🐦 X - https://x.com/itnig</p>\
+    <p>ESCUCHA NUESTRO PODCAST EN:</p><p>🔊 Spotify: http://bit.ly/itnigspotify</p><p>Índice</p>\
+    <p>00:00:00 Trailer</p><p>00:05:43 Cómo evolucionar cuando tu audiencia también envejece</p>\
+    <p>Hablamos a las 10:30 de ventas (12:05) y de producto.</p>
+    """
+
+    private func runs(_ text: AttributedString, _ part: String) -> [AttributedString.Runs.Run] {
+        let range = text.range(of: part)!
+        return Array(text[range].runs)
+    }
+
+    func testHeadingsAreBold() {
+        let text = SafeHTML.renderDescription(notes)
+        for heading in ["ESCUCHA NUESTRO PODCAST EN:", "Índice", "SOBRE ITNIG:"] {
+            XCTAssertTrue(runs(text, heading).allSatisfy { $0.inlinePresentationIntent == .stronglyEmphasized }, heading)
+        }
+        XCTAssertNil(runs(text, "Trailer").first?.inlinePresentationIntent)
+        XCTAssertNil(runs(text, "Patrocinar").first?.inlinePresentationIntent)
+    }
+
+    func testTimestampsLinkToTheirSecond() {
+        let text = SafeHTML.renderDescription(notes)
+        XCTAssertEqual(runs(text, "00:05:43").first?.link, SafeHTML.timeURL(343))
+        XCTAssertEqual(runs(text, "00:05:43").first?.inlinePresentationIntent, .code)
+        XCTAssertEqual(runs(text, "12:05").first?.link, SafeHTML.timeURL(725), "a bracketed time")
+        XCTAssertNil(runs(text, "10:30").first?.link, "a clock time inside a sentence is not a timestamp")
+        XCTAssertEqual(SafeHTML.seconds(in: SafeHTML.timeURL(343)), 343)
+        XCTAssertNil(SafeHTML.seconds(of: "1:75"))
+    }
+
+    func testBareAddressesBecomeLinks() {
+        let text = SafeHTML.renderDescription(notes)
+        XCTAssertEqual(runs(text, "https://x.com/itnig").first?.link, URL(string: "https://x.com/itnig"))
+        XCTAssertEqual(runs(text, "http://bit.ly/itnigspotify").first?.link, URL(string: "http://bit.ly/itnigspotify"))
+    }
+
+    func testPlainTextKeepsItsLines() {
+        let text = String(SafeHTML.renderDescription("Índice\n00:00 Trailer\n\nMore").characters)
+        XCTAssertEqual(text, "Índice\n00:00 Trailer\n\nMore")
+    }
+}

@@ -67,6 +67,18 @@ final class SnapshotTests: XCTestCase {
         check("about", size: CGSize(width: 420, height: 600)) { DetailSnapshot(model: model) }
     }
 
+    /// Plain-line show notes: bold headings, timestamp links and address links.
+    func testAboutNotes() {
+        let model = makeModel()
+        model.sidePane = .about
+        model.episode.descriptionHTML = """
+        <p>Patrocinar el podcast: https://tally.so/r/3EERLN</p><p>SOBRE ITNIG: 🐦 X - https://x.com/itnig</p>\
+        <p>ESCUCHA NUESTRO PODCAST EN:</p><p>🔊 Spotify: http://bit.ly/itnigspotify</p><p>Índice</p>\
+        <p>00:00:00 Trailer</p><p>00:01:05 Inici</p><p>00:05:43 Cómo evolucionar cuando tu audiencia también envejece</p>
+        """
+        check("about-notes", size: CGSize(width: 420, height: 640)) { DetailSnapshot(model: model) }
+    }
+
     func testTranscript() {
         let model = makeModel()
         check("transcript", size: CGSize(width: 760, height: 700)) { TranscriptSnapshot(model: model) }
