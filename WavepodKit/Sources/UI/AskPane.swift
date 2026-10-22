@@ -27,18 +27,14 @@ struct MessageView: View {
                     ForEach(sections) { section in
                         VStack(alignment: .leading, spacing: 8) {
                             if !section.title.isEmpty { SectionHeading(section.title) }
-                            ForEach(section.points) { point in
-                                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                    TimestampPill(time: point.citation.start) { onSeek(point.citation.start) }
-                                        .help("“\(point.citation.quote)”")
-                                    Text(.init(point.text))
-                                        .font(type.reading)
-                                        .foregroundStyle(Palette.ink)
-                                        .lineSpacing(5)
-                                        .textSelection(.enabled)
-                                        .fixedSize(horizontal: false, vertical: true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(section.points) { point in
+                                    SummaryPointRow(text: point.text, time: point.citation.start, quote: point.citation.quote) {
+                                        onSeek(point.citation.start)
+                                    }
                                 }
                             }
+                            .padding(.horizontal, -8)
                         }
                     }
                 }

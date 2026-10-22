@@ -334,11 +334,13 @@ struct SectionHeading: View {
     }
 }
 
-/// A summary point. Clicking it plays the moment that supports it. The time shows only on hover, so the summary reads
-/// as text.
+/// A point in a summary or an answer. Clicking it plays the moment that supports it. The time shows only on hover, so
+/// the text reads as text.
 struct SummaryPointRow: View {
     let text: String
     let time: Double
+    /// The words from the transcript that support the point, shown in the tooltip.
+    var quote: String? = nil
     let onPlay: () -> Void
     @State private var hovering = false
     @Environment(\.typography) private var type
@@ -376,7 +378,7 @@ struct SummaryPointRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
-        .help("Play from \(Timecode.format(time))")
+        .help(quote.map { "“\($0)” · Play from \(Timecode.format(time))" } ?? "Play from \(Timecode.format(time))")
         .accessibilityLabel(plainText)
         .accessibilityHint("Plays from \(Timecode.format(time))")
     }
