@@ -115,11 +115,19 @@ final class SnapshotTests: XCTestCase {
                             showTitle: "Example Show", pubDate: start.addingTimeInterval(Double(i) * 604_800),
                             duration: 3600 + Double(i) * 120, guid: "ep-\(i)")
         }
-        check("podcast-feed", size: CGSize(width: 760, height: 420)) {
+        let shownKey = "podcastShown.\(feed.absoluteString)", collapsedKey = "podcastCollapsed.\(feed.absoluteString)"
+        defer { UserDefaults.standard.removeObject(forKey: shownKey); UserDefaults.standard.removeObject(forKey: collapsedKey) }
+        UserDefaults.standard.removeObject(forKey: shownKey)
+        UserDefaults.standard.removeObject(forKey: collapsedKey)
+        let card = {
             PodcastFeedCard(model: model, title: "Example Show", feedURL: feed, episodes: episodes,
                             subscription: Subscription(feedURL: feed, title: "Example Show", autoTranscribe: true))
                 .padding(20)
         }
+        check("podcast-feed", size: CGSize(width: 760, height: 420)) { card() }
+        // Collapsed: only the header, which says how many episodes the feed has.
+        UserDefaults.standard.set(true, forKey: collapsedKey)
+        check("podcast-feed-collapsed", size: CGSize(width: 760, height: 130)) { card() }
     }
 
     func testOnboarding() {

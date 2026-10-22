@@ -115,6 +115,23 @@ struct PodcastFeedCard: View {
     let subscription: Subscription?
     var onClose: (() -> Void)?
     @Environment(\.typography) private var type
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// How many of the newest episodes the card lists, and whether the list is hidden. Kept per podcast.
+    @AppStorage private var shown: Int
+    @AppStorage private var collapsed: Bool
+    static let shownChoices = [1, 5, 10]
+
+    init(model: AppModel, title: String, feedURL: URL, episodes: [ResolvedEpisode]?, subscription: Subscription?,
+         onClose: (() -> Void)? = nil) {
+        self.model = model
+        self.title = title
+        self.feedURL = feedURL
+        self.episodes = episodes
+        self.subscription = subscription
+        self.onClose = onClose
+        _shown = AppStorage(wrappedValue: 5, "podcastShown.\(feedURL.absoluteString)")
+        _collapsed = AppStorage(wrappedValue: false, "podcastCollapsed.\(feedURL.absoluteString)")
+    }
 
     private var hue: Double {
         Double(title.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 360 }) / 360
@@ -123,25 +140,33 @@ struct PodcastFeedCard: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().overlay(Palette.rule)
-            if let episodes {
-                if episodes.isEmpty {
-                    Text("No episodes in this feed yet.").font(type.callout).foregroundStyle(Palette.inkMuted)
+            if !collapsed {
+                VStack(spacing: 0) {
+                    Divider().overlay(Palette.rule)
+                    if let episodes {
+                        if episodes.isEmpty {
+                            Text("No episodes in this feed yet.").font(type.callout).foregroundStyle(Palette.inkMuted)
+                                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            let latest = ResolvedShow.latest(episodes, shown)
+                            ForEach(Array(latest.enumerated()), id: \.offset) { index, episode in
+                                PodcastEpisodeRow(model: model, episode: episode, isLast: index == latest.count - 1)
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Loading episodes…").font(type.callout).foregroundStyle(Palette.inkMuted)
+                        }
                         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    let latest = ResolvedShow.latest(episodes)
-                    ForEach(Array(latest.enumerated()), id: \.offset) { index, episode in
-                        PodcastEpisodeRow(model: model, episode: episode, isLast: index == latest.count - 1)
                     }
                 }
-            } else {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Loading episodes…").font(type.callout).foregroundStyle(Palette.inkMuted)
-                }
-                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -8)))
             }
         }
+        .clipped()
+        .animation(reduceMotion ? Motion.fade : Motion.standard, value: collapsed)
+        .animation(reduceMotion ? Motion.fade : Motion.standard, value: shown)
         .feedCard()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
@@ -149,12 +174,51 @@ struct PodcastFeedCard: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            ArtworkView(hue: hue, url: episodes?.lazy.compactMap(\.artwork).first, cornerRadius: 9).frame(width: 48, height: 48)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(type.episodeTitle).foregroundStyle(Palette.ink).lineLimit(1)
-                Text(subtitle).font(type.callout).foregroundStyle(Palette.inkMuted).lineLimit(1)
+            // A click on the artwork, name or empty space hides or shows the list. The controls keep their clicks.
+            Button { collapsed.toggle() } label: {
+                HStack(spacing: 14) {
+                    ArtworkView(hue: hue, url: episodes?.lazy.compactMap(\.artwork).first, cornerRadius: 9).frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(title).font(type.episodeTitle).foregroundStyle(Palette.ink).lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Palette.inkMuted)
+                                .rotationEffect(.degrees(collapsed ? -90 : 0))
+                        }
+                        Text(subtitle).font(type.callout).foregroundStyle(Palette.inkMuted).lineLimit(1)
+                    }
+                    Spacer(minLength: 12)
+                }
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 12)
+            .buttonStyle(.plain)
+            .help(collapsed ? "Show the episodes" : "Hide the episodes")
+            .accessibilityLabel(title)
+            .accessibilityValue(collapsed ? "Episodes hidden" : "Episodes shown")
+            .accessibilityHint("Shows or hides the episode list")
+            if !collapsed, let episodes, episodes.count > 1 {
+                Menu {
+                    Picker("Show", selection: $shown) {
+                        ForEach(Self.shownChoices, id: \.self) { Text($0 == 1 ? "Latest episode" : "Latest \($0)").tag($0) }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Last \(shown)")
+                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .semibold))
+                    }
+                    .font(type.callout)
+                    .foregroundStyle(Palette.inkMuted)
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(Palette.sunken, in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                .help("How many recent episodes to show")
+                .accessibilityLabel("Episodes shown")
+                .accessibilityValue("Last \(shown)")
+            }
             if let subscription {
                 Toggle("Auto-transcribe", isOn: Binding(get: { subscription.autoTranscribe || subscription.autoSummarize },
                                                         set: { model.updateSubscription(subscription, transcribe: $0) }))
@@ -201,7 +265,7 @@ struct PodcastFeedCard: View {
     private var subtitle: String {
         var parts: [String] = []
         if let episodes, !episodes.isEmpty {
-            parts.append(episodes.count > 5 ? "Latest 5 of \(episodes.count) episodes" : "\(episodes.count) episodes")
+            parts.append(collapsed || episodes.count <= shown ? "\(episodes.count) episodes" : "Latest \(shown) of \(episodes.count) episodes")
         }
         if subscription != nil {
             if let checked = subscription?.checked {
