@@ -95,7 +95,10 @@ public final class AppModel {
     }
 
     // Navigation and layout
-    public var section: Section = .home
+    public var section: Section = .home { didSet { placeDidChange() } }
+    @ObservationIgnored let history = NavigationHistory(Place(section: .home))
+    /// Changes with each step through the history, so Back and Forward update.
+    var historyVersion = 0
     /// The sidebar shrinks to an icon rail instead of disappearing.
     public var sidebarCollapsed = UserDefaults.standard.bool(forKey: "sidebarCollapsed") {
         didSet { UserDefaults.standard.set(sidebarCollapsed, forKey: "sidebarCollapsed") }
@@ -128,7 +131,7 @@ public final class AppModel {
     }
 
     // Episode in the workspace
-    public internal(set) var episode: Episode
+    public internal(set) var episode: Episode { didSet { if episode.id != oldValue.id { placeDidChange() } } }
     public internal(set) var speakers: [SpeakerID: Speaker]
     public internal(set) var transcript: Transcript
     public internal(set) var paragraphs: [Paragraph]
@@ -246,7 +249,7 @@ public final class AppModel {
     public var savedEpisodes: [EpisodeListing] = []
     public var jobs: [TranscriptionJob] = []
     public var subscriptions: [Subscription] = []
-    public var resolvedShow: ResolvedShow?
+    public var resolvedShow: ResolvedShow? { didSet { placeDidChange() } }
     /// Each followed podcast's feed episodes, fetched when the Podcasts page opens, keyed by feed URL.
     public var podcastEpisodes: [String: [ResolvedEpisode]] = [:]
     public var resolutionCandidates: [ScoredCandidate] = []
