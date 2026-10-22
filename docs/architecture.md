@@ -114,15 +114,15 @@ Suggestions show a confidence. Confirming one, or renaming, updates every paragr
 
 ### 7. Store and index
 
-The record (transcript, speakers, evidence, chapters, summary, chat) goes into SQLite in one transaction.
+The record (transcript, speakers, evidence, summary, chat) goes into SQLite in one transaction.
 Text is indexed for keyword search (FTS5) and, when the embeddings model is installed, as multilingual E5-small
 vectors for search by meaning. Search results open the exact moment.
 
-### 8. Summary and chapters
+### 8. Summary
 
-When the language model is installed, a finished episode gets a summary and chapters automatically
-(`EpisodeNotesService`, shared by the app and the feed checker). The model reads the whole transcript in
-bounded sections and writes a summary in sections: who's there, main discussion, industry news, audience Q&A,
+A finished episode gets a summary automatically (`EpisodeNotesService`, shared by the app and the feed checker),
+written by the answer model chosen in Settings → Ask: the local model, or a ChatGPT or Claude plan
+(`ProviderNotes`, which reads larger sections). The model reads the whole transcript in bounded sections and writes a summary in sections: who's there, main discussion, industry news, audience Q&A,
 closing. If the model is missing, the notes are marked pending and written once it is installed.
 
 ## Ask
@@ -134,7 +134,7 @@ recent conversation and transcript text to the provider, never audio.
 
 ### Every citation is checked
 
-Generated answers, summaries and chapters are claims of the form `{claim, quote, start}`. The validator accepts
+Generated answers and summaries are claims of the form `{claim, quote, start}`. The validator accepts
 a claim only if its quote appears word for word (normalized) in the transcript segment at that time, and in
 the context the model was given. The timestamp shown is where the quoted words actually start. Invalid output
 is retried once. If nothing survives, the answer is "not found", which is different from an error.
@@ -176,13 +176,13 @@ Claude Code (Claude plan answers).
 
 - **Home**: start card, jobs in progress, the library by date, stats.
 - **Podcasts**: the show you just opened plus every followed show, five newest episodes each.
-- **Episode**: three cards. Left, the podcast; middle, the summary and Ask; right, transcript, chapters or about
-  (closable).
-- **Settings** and the first-run **welcome** are overlays: General, Transcription, Ask, Queue, Models,
-  Podcasts, Data and Privacy.
+- **Episode**: two cards. Left, the episode header (artwork, podcast menu, title), Ask, answers and the summary;
+  right, transcript or about (closable).
+- **Settings** and the first-run **welcome** are overlays: General, Transcription, Ask, Queue,
+  Data and Privacy.
 
 The episode on screen and the episode in the player are independent: browsing never stops or swaps playback.
-Only Play, a timestamp, a chapter or a citation loads the viewed episode into the player.
+Only Play, a timestamp or a citation loads the viewed episode into the player.
 
 ## Measured
 

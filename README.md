@@ -10,8 +10,8 @@ middle, and the transcript with named speakers on the right](docs/images/wavepod
 - **Any link.** Spotify, Apple Podcasts, YouTube, an RSS feed or a show's website, or a local audio or video file.
 - **Speakers by name.** Voices are told apart and named from the episode itself; a name you confirm is
   remembered for that show.
-- **Summary and chapters, automatically.** Written when a transcription finishes, every point linked to the moment
-  it was said.
+- **A summary, automatically.** Written when a transcription finishes, on this Mac or your ChatGPT or Claude
+  plan, every point linked to the moment it was said.
 - **Ask the episode.** Questions are answered from the whole transcript with quotes you can click to hear.
 - **Follow podcasts.** New episodes can be transcribed, summarized and downloaded by themselves.
 - **Private.** Audio and transcripts stay on this Mac. Settings › Data and Privacy lists every network request
@@ -59,10 +59,10 @@ Keep the app in one place once you follow podcasts: the background feed checker 
 2. **Add an episode.** Press **⌘K** and paste a link, or drop an audio or video file on the window (**⌘O** opens
    one). A show's link, rather than an episode's, opens the show on the Podcasts page. Progress shows on Home, and
    a long episode resumes where it stopped if you quit.
-3. **Read and listen.** The episode opens as three cards:
-   - **Left:** the podcast, with All Episodes and Follow.
-   - **Middle:** the summary and the Ask field.
-   - **Right:** the transcript, chapters or details. Close it to read with two cards.
+3. **Read and listen.** The episode opens as two cards:
+   - **Left:** the episode, with its podcast's menu (other episodes, All Episodes and Follow), the Ask field,
+     answers and the summary.
+   - **Right:** the transcript or details. Close it to read the episode alone.
 
    Click any timestamp to play from that moment.
 4. **Name the speakers.** Click a speaker's name in the transcript to rename them everywhere. Suggested names show
@@ -86,7 +86,7 @@ On battery, the queue pauses below 20 % and resumes at 25 % or when you plug in.
 | ⌘K | Search, or paste a link |
 | ⌘J | Ask this episode |
 | ⌘O | Open an audio or video file |
-| ⌘1 / ⌘2 / ⌘3 | Transcript / Chapters / About |
+| ⌘1 / ⌘2 | Transcript / About |
 | ⌘↩ | Play or pause |
 | ⌘← / ⌘→ | Back or forward 15 seconds |
 | ⌘] / ⌘\ | Faster / normal speed |
