@@ -126,7 +126,7 @@ struct SettingsView: View {
                 }
             } else {
                 ModelRow(model: model, title: "Transcription and speakers", detail: "Parakeet, Whisper for Catalan and other languages, voice activity and speaker detection.",
-                         kind: "native", folder: "parakeet", last: true)
+                         kind: .native, last: true)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 14) {
@@ -243,13 +243,12 @@ struct ModelRow: View {
     let model: AppModel
     let title: String
     let detail: String
-    let kind: String
-    let folder: String
+    let kind: AppModel.ModelDownload
     var last = false
 
     var body: some View {
         SettingRow(title: title, detail: detail, last: last) {
-            if model.installedModels.contains(folder) {
+            if model.installedModels.contains(kind.folder) {
                 Label("Installed", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(Palette.accent)
             } else {
@@ -318,10 +317,10 @@ struct QueueRow: View {
                 }
                 HStack(spacing: 8) {
                     if job.state == .running || job.state == .queued {
-                        Button("Pause") { model.manageJob(job, action: "pause") }.buttonStyle(SecondaryButtonStyle())
-                        Button("Cancel") { model.manageJob(job, action: "cancel") }.buttonStyle(SecondaryButtonStyle())
+                        Button("Pause") { model.manageJob(job, action: .pause) }.buttonStyle(SecondaryButtonStyle())
+                        Button("Cancel") { model.manageJob(job, action: .cancel) }.buttonStyle(SecondaryButtonStyle())
                     } else {
-                        Button("Resume") { model.manageJob(job, action: "resume") }.buttonStyle(SecondaryButtonStyle())
+                        Button("Resume") { model.manageJob(job, action: .resume) }.buttonStyle(SecondaryButtonStyle())
                     }
                 }
             }

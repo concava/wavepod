@@ -152,6 +152,21 @@ final class PipelineTests: XCTestCase {
         XCTAssertEqual(seen[2], [.summary])
         XCTAssertEqual(seen[3], [.deleted])
     }
+    func testJobStepsAreTypedAndOldJobsStillLoad() throws {
+        var job = TranscriptionJob(episode: ResolvedEpisode(title: "Example", enclosureURL: URL(string: "https://example.com/a.mp3")!, source: .rss))
+        XCTAssertEqual(job.step, .waiting)
+        job.step = .identifyingSpeakers(window: 3)
+        let decoded = try JSONDecoder().decode(TranscriptionJob.self, from: JSONEncoder().encode(job))
+        XCTAssertEqual(decoded.step, .identifyingSpeakers(window: 3))
+        XCTAssertEqual(JobStep.identifyingSpeakers(window: 3).title, "Identifying speakers, window 3")
+        XCTAssertTrue(JobStep.summarizing.isAroundTranscription)
+        XCTAssertFalse(JobStep.transcribing(window: 1).isAroundTranscription)
+
+        var old = try JSONSerialization.jsonObject(with: JSONEncoder().encode(job)) as! [String: Any]
+        old.removeValue(forKey: "step")
+        let loaded = try JSONDecoder().decode(TranscriptionJob.self, from: JSONSerialization.data(withJSONObject: old))
+        XCTAssertNil(loaded.step, "a job saved before steps were typed")
+    }
     func testLANPolicyDoesNotAcceptPublicOrMalformedHosts() {
         for host in ["localhost", "127.0.0.1", "10.0.0.4", "172.16.0.1", "192.168.1.9", "fd00::1", "studio.local"] { XCTAssertTrue(HTTPClient.isPrivateHost(host), host) }
         for host in ["example.com", "8.8.8.8", "172.32.0.1", "192.169.0.1", "localhost.example.com", "fdgarbage::oops", "10.0.0.999", "10.nope.0.0.1", "10..0.0.1", "010.0.0.1", "+10.0.0.1"] { XCTAssertFalse(HTTPClient.isPrivateHost(host), host) }

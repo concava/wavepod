@@ -19,7 +19,7 @@ public struct WindowedTranscriber: Sendable {
     }
 
     public func run(_ asset: AudioAsset, language: String?, folder: URL,
-                    stage: @Sendable (String, Double) async throws -> Void) async throws -> RawTranscript {
+                    stage: @Sendable (JobStep, Double) async throws -> Void) async throws -> RawTranscript {
         var combined = RawTranscript(language: language ?? "und", words: [])
         var start = 0.0
         var index = 0
@@ -38,7 +38,7 @@ public struct WindowedTranscriber: Sendable {
             if let cached = try? Data(contentsOf: rawURL) {
                 raw = try JSONDecoder().decode(RawTranscript.self, from: cached)
             } else {
-                try await stage("Transcribing window \(index + 1)", 0.15 + 0.75 * start / asset.duration)
+                try await stage(.transcribing(window: index + 1), 0.15 + 0.75 * start / asset.duration)
                 raw = try await engine.transcribe(window, options: TranscribeOptions(language: language), progress: { _ in })
                 // Segment-level text gets real word timings rather than interpolated ones. The pipeline's own
                 // "[No speech recognized]" markers are untimed on purpose and never trigger this.
@@ -52,7 +52,7 @@ public struct WindowedTranscriber: Sendable {
             if let cached = try? Data(contentsOf: diarURL) {
                 diar = try JSONDecoder().decode(RawTranscript.self, from: cached)
             } else {
-                try await stage("Identifying speakers, window \(index + 1)", 0.15 + 0.75 * end / asset.duration)
+                try await stage(.identifyingSpeakers(window: index + 1), 0.15 + 0.75 * end / asset.duration)
                 diar = try await diarizer.diarize(window)
                 try JSONEncoder().encode(diar).write(to: diarURL, options: .atomic)
             }

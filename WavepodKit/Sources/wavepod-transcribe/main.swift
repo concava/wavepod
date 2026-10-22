@@ -40,8 +40,8 @@ let asset = FileManager.default.fileExists(atPath: decodedURL.path)
 let duration = asset.duration > 0 ? asset.duration : try AudioDecoder.decode(input, to: decodedURL).duration
 let engine = NativeEngine(models: URL(fileURLWithPath: models))
 let transcriber = WindowedTranscriber(engine: engine, diarizer: engine)
-let raw = try await transcriber.run(AudioAsset(url: decodedURL, duration: duration), language: language, folder: folder) { stage, fraction in
-    FileHandle.standardError.write(Data(String(format: "%3.0f%%  %@\n", fraction * 100, stage).utf8))
+let raw = try await transcriber.run(AudioAsset(url: decodedURL, duration: duration), language: language, folder: folder) { step, fraction in
+    FileHandle.standardError.write(Data(String(format: "%3.0f%%  %@\n", fraction * 100, step.title).utf8))
 }
 let transcript = try WordAlignment.render(raw)
 let elapsed = ContinuousClock.now - started

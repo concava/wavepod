@@ -13,20 +13,21 @@ extension AppModel {
         if let path = ClaudePlan.executable(choosing: url) { claudeExecutable = path }
         else { claudeStatus = "\(url.lastPathComponent) isn’t Claude Code. Install Claude Code, or open the Code tab in the Claude app once. Then choose it again." }
     }
-    func connectClaude(action: String) {
+    enum ClaudeAction { case signIn, checkStatus, disconnect }
+    func connectClaude(action: ClaudeAction) {
         guard let services, !isConnectingClaude else { return }
         isConnectingClaude = true
-        claudeStatus = action == "login" ? "Sign in with your Claude plan in the browser…" : "Checking Claude…"
+        claudeStatus = action == .signIn ? "Sign in with your Claude plan in the browser…" : "Checking Claude…"
         let executable = claudeExecutable
         claudeConnectionTask = Task {
             defer { isConnectingClaude = false; claudeConnectionTask = nil }
             do {
-                if action == "logout" {
+                if action == .disconnect {
                     try await services.claude.disconnect(executable: executable)
                     answerProvider = .local
                     claudeStatus = "Disconnected from Claude."
                 } else {
-                    let account = action == "login" ? try await services.claude.signIn(executable: executable) : try await services.claude.status(executable: executable)
+                    let account = action == .signIn ? try await services.claude.signIn(executable: executable) : try await services.claude.status(executable: executable)
                     claudeStatus = "Claude plan connected: \(account). Claude checks model access when you ask."
                 }
             } catch is CancellationError { claudeStatus = "Claude connection cancelled." }
@@ -62,11 +63,11 @@ struct ClaudeSettings: View {
                     HStack { ProgressView().controlSize(.small); Button("Cancel") { model.claudeConnectionTask?.cancel() } }
                 } else {
                     HStack(spacing: 8) {
-                        Button("Continue with Claude") { model.connectClaude(action: "login") }.buttonStyle(PrimaryButtonStyle())
+                        Button("Continue with Claude") { model.connectClaude(action: .signIn) }.buttonStyle(PrimaryButtonStyle())
                         Menu {
-                            Button("Check Connection") { model.connectClaude(action: "status") }
+                            Button("Check Connection") { model.connectClaude(action: .checkStatus) }
                             Divider()
-                            Button("Disconnect", role: .destructive) { model.connectClaude(action: "logout") }
+                            Button("Disconnect", role: .destructive) { model.connectClaude(action: .disconnect) }
                         } label: { Image(systemName: "ellipsis") }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                         .accessibilityLabel("More account actions")

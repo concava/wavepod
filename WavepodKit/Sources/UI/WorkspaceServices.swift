@@ -98,14 +98,15 @@ extension AppModel {
             catch { show(error.localizedDescription) }
         }
     }
-    public func manageJob(_ job: TranscriptionJob, action: String) {
+    public enum JobAction: Sendable { case pause, cancel, resume }
+    public func manageJob(_ job: TranscriptionJob, action: JobAction) {
         guard let services else { return }
         Task {
             do {
                 switch action {
-                case "pause": try await services.queue.pause(job.id)
-                case "cancel": try await services.queue.cancel(job.id)
-                default: try await services.queue.resume(job.id)
+                case .pause: try await services.queue.pause(job.id)
+                case .cancel: try await services.queue.cancel(job.id)
+                case .resume: try await services.queue.resume(job.id)
                 }
                 await refreshWorkspace()
             } catch { show(error.localizedDescription) }
@@ -143,7 +144,7 @@ extension AppModel {
             else if item.summarized { states.append("Summarized") }
         }
         if let job = jobs.last(where: { JobQueue.episodeID($0.episode) == id && $0.state != .completed && $0.state != .cancelled }) {
-            states.append(job.state == .running ? (job.automation?.transcribe == false || job.stage == "Summarizing" || job.stage.hasPrefix("Download") ? job.stage : "Transcribing · \(job.stage)") : job.state.rawValue.capitalized)
+            states.append(job.state == .running ? (job.automation?.transcribe == false || job.step?.isAroundTranscription == true ? job.stage : "Transcribing · \(job.stage)") : job.state.rawValue.capitalized)
         }
         return states.joined(separator: " · ")
     }
@@ -219,7 +220,25 @@ extension AppModel {
             catch { show(error.localizedDescription) }
         }
     }
-    public func installModels(_ kind: String) {
+    /// The model downloads people can start: what each one installs and the folder that shows it is there.
+    public enum ModelDownload: Sendable {
+        case native, language, embeddings
+        var folder: String {
+            switch self {
+            case .native: "parakeet"
+            case .language: "language"
+            case .embeddings: "embeddings"
+            }
+        }
+        var specs: [ModelSpec] {
+            switch self {
+            case .native: ModelSpec.native
+            case .language: [.language]
+            case .embeddings: [.embeddings]
+            }
+        }
+    }
+    public func installModels(_ kind: ModelDownload) {
         guard let services, !isInstalling else { return }
         isInstalling = true
         modelStatus = "Preparing download…"
@@ -227,15 +246,14 @@ extension AppModel {
             defer { isInstalling = false }
             do {
                 let installer = ModelInstaller(client: services.client, root: services.root.appendingPathComponent("models"))
-                let specs = kind == "native" ? ModelSpec.native : [kind == "language" ? .language : .embeddings]
-                for spec in specs {
+                for spec in kind.specs {
                     try await installer.install(spec) { status in
                         Task { @MainActor [weak self] in self?.modelStatus = status }
                     }
                 }
                 modelStatus = "Models installed"
-                if kind == "embeddings" { indexLibrary() }
-                if kind == "language" { await services.queue.retryPendingSummaries(force: true); await refreshWorkspace() }
+                if kind == .embeddings { indexLibrary() }
+                if kind == .language { await services.queue.retryPendingSummaries(force: true); await refreshWorkspace() }
             } catch { modelStatus = error.localizedDescription }
         }
     }

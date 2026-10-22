@@ -86,7 +86,7 @@ struct AskSettings: View {
             .disabled(model.isAnswering)
             SettingsGroup(title: "Search") {
                 ModelRow(model: model, title: "Search by meaning", detail: "Finds passages that say the same thing in other words or languages.",
-                         kind: "embeddings", folder: "embeddings")
+                         kind: .embeddings)
                 SettingRow(title: "Search index", detail: model.isIndexing ? model.modelStatus : "Rebuild if search misses episodes you know are there.", last: true) {
                     Button(model.isIndexing ? "Indexing…" : "Rebuild", action: model.indexLibrary)
                         .buttonStyle(SecondaryButtonStyle())
@@ -105,7 +105,7 @@ struct AskSettings: View {
     private var localSettings: some View {
         SettingsGroup(title: "On this Mac") {
             ModelRow(model: model, title: "Ask model", detail: "About 2.3 GB. It uses 3.6 GB of memory while it answers. It reads every part of the transcript before it answers, so long episodes are slow.",
-                     kind: "language", folder: "language", last: true)
+                     kind: .language, last: true)
         }
     }
 

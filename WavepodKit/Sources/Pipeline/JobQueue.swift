@@ -8,19 +8,55 @@ import OSLog
 import Resolver
 import Speakers
 
+/// What a running job is doing. The UI decides from this, never from the display text, so rewording a step
+/// can't change behaviour.
+public enum JobStep: Codable, Hashable, Sendable {
+    case waiting, resuming, downloadingForOffline, publishedTranscript, downloading, decoding
+    case transcribing(window: Int)
+    case identifyingSpeakers(window: Int)
+    case saving, summarizing, complete
+
+    public var title: String {
+        switch self {
+        case .waiting: "Waiting"
+        case .resuming: "Resuming checkpoint"
+        case .downloadingForOffline: "Downloading for offline playback"
+        case .publishedTranscript: "Published transcript"
+        case .downloading: "Downloading"
+        case .decoding: "Decoding 16 kHz mono"
+        case .transcribing(let window): "Transcribing window \(window)"
+        case .identifyingSpeakers(let window): "Identifying speakers, window \(window)"
+        case .saving: "Saving library"
+        case .summarizing: "Summarizing"
+        case .complete: "Complete"
+        }
+    }
+
+    /// Work around the transcription itself: downloads and the summary.
+    public var isAroundTranscription: Bool {
+        switch self {
+        case .downloadingForOffline, .downloading, .summarizing: true
+        default: false
+        }
+    }
+}
+
 public struct TranscriptionJob: Codable, Sendable, Identifiable {
     public enum State: String, Codable, Sendable { case queued, running, paused, failed, cancelled, completed }
     public var id: UUID
     public var episode: ResolvedEpisode
     public var state: State
+    /// The step's display text. Kept for jobs saved before `step` existed.
     public var stage: String
+    /// Nil only for jobs saved before steps were typed.
+    public var step: JobStep?
     public var fraction: Double
     public var error: String?
     public var batteryPaused: Bool
     public var automation: SubscriptionAutomation?
     public var engineID: String
     public init(episode: ResolvedEpisode, engineID: String = "native") {
-        id = UUID(); self.episode = episode; state = .queued; stage = "Waiting"; fraction = 0
+        id = UUID(); self.episode = episode; state = .queued; stage = JobStep.waiting.title; step = .waiting; fraction = 0
         batteryPaused = false; self.engineID = engineID
     }
 }
@@ -50,7 +86,7 @@ public actor JobQueue {
         self.engine = engine; self.diarizer = diarizer; self.inferenceGate = inferenceGate
         jobs = try store.values(TranscriptionJob.self, kind: "job").map {
             var job = $0
-            if job.state == .running { job.state = .queued; job.stage = "Resuming checkpoint" }
+            if job.state == .running { job.state = .queued; job.step = .resuming; job.stage = JobStep.resuming.title }
             return job
         }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -140,7 +176,7 @@ public actor JobQueue {
         try store.put(job, kind: "job", id: id.uuidString)
         jobs[index] = job
     }
-    private func stage(_ id: UUID, _ name: String, _ fraction: Double) throws {
+    private func stage(_ id: UUID, _ step: JobStep, _ fraction: Double) throws {
         try Task.checkCancellation()
         if let saved = try store.values(TranscriptionJob.self, kind: "job").first(where: { $0.id == id }),
            saved.state == .paused || saved.state == .cancelled {
@@ -148,9 +184,9 @@ public actor JobQueue {
             throw CancellationError()
         }
         if let activeStage { signposter.endInterval("Pipeline stage", activeStage) }
-        activeStage = signposter.beginInterval("Pipeline stage", "\(name, privacy: .public)")
-        try update(id) { $0.state = .running; $0.stage = name; $0.fraction = fraction }
-        logger.info("Stage: \(name, privacy: .public)")
+        activeStage = signposter.beginInterval("Pipeline stage", "\(step.title, privacy: .public)")
+        try update(id) { $0.state = .running; $0.step = step; $0.stage = step.title; $0.fraction = fraction }
+        logger.info("Stage: \(step.title, privacy: .public)")
     }
     private func process(_ id: UUID) async {
         let interval = signposter.beginInterval("Transcription job")
@@ -170,7 +206,7 @@ public actor JobQueue {
             if job.automation?.download == true, downloaded == nil {
                 guard let enclosure = job.episode.enclosureURL else { throw EngineError.unavailable("This episode has no downloadable audio.") }
                 let destination = directory.deletingLastPathComponent().appendingPathComponent("audio/\(id.uuidString).\(enclosure.pathExtension.isEmpty ? "audio" : enclosure.pathExtension)")
-                try stage(id, "Downloading for offline playback", 0.02)
+                try stage(id, .downloadingForOffline, 0.02)
                 if !FileManager.default.fileExists(atPath: destination.path) {
                     if enclosure.isFileURL {
                         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -188,7 +224,7 @@ public actor JobQueue {
             }
             // A timed publisher transcript bypasses decode, ASR and diarization.
             if record == nil, job.episode.transcripts.count > 0 {
-                try stage(id, "Published transcript", 0.05)
+                try stage(id, .publishedTranscript, 0.05)
                 for link in TranscriptLink.preferred(job.episode.transcripts) {
                     do {
                         let imported = try await resolver.transcript(link)
@@ -222,7 +258,7 @@ public actor JobQueue {
                 } else {
                     guard let enclosure = job.episode.enclosureURL else { throw EngineError.unavailable("This episode has no downloadable audio.") }
                     let source = downloaded ?? folder.appendingPathComponent("source.\(enclosure.pathExtension.isEmpty ? "audio" : enclosure.pathExtension)")
-                    try stage(id, "Downloading", 0.05)
+                    try stage(id, .downloading, 0.05)
                     if !FileManager.default.fileExists(atPath: source.path) {
                         if enclosure.isFileURL {
                             let staging = source.appendingPathExtension(UUID().uuidString + ".importing")
@@ -232,7 +268,7 @@ public actor JobQueue {
                         }
                         else { try await client.allow(enclosure); try await client.download(enclosure, to: source) }
                     }
-                    try stage(id, "Decoding 16 kHz mono", 0.1)
+                    try stage(id, .decoding, 0.1)
                     asset = try await Task.detached { try AudioDecoder.decode(source, to: decodedURL) }.value
                     try JSONEncoder().encode(asset).write(to: folder.appendingPathComponent("decoded.json"), options: .atomic)
                 }
@@ -241,15 +277,15 @@ public actor JobQueue {
                 do {
                     let transcriber = WindowedTranscriber(engine: engine, diarizer: diarizer,
                                                           aligner: engine.id.hasPrefix("scriberr") ? IsolatedEngine() : nil)
-                    let combined = try await transcriber.run(asset, language: job.episode.language, folder: folder) { name, fraction in
-                        try await self.stage(id, name, fraction)
+                    let combined = try await transcriber.run(asset, language: job.episode.language, folder: folder) { step, fraction in
+                        try await self.stage(id, step, fraction)
                     }
                     let transcript = try WordAlignment.render(combined)
                     record = makeRecord(job.episode, transcript: transcript, embeddings: combined.embeddings, audio: asset.url, audioDuration: asset.duration)
                     await inferenceGate.release(inferenceID)
                 } catch { await inferenceGate.release(inferenceID); throw error }
             }
-            try stage(id, "Saving library", 0.95)
+            try stage(id, .saving, 0.95)
             guard var record else { throw EngineError.invalidResult }
             try Task.checkCancellation()
             if let downloaded { record.audioURL = downloaded }
@@ -273,12 +309,12 @@ public actor JobQueue {
                 }
             }
             if job.automation?.summarize == true, record.notesPending == true {
-                try stage(id, "Summarizing", 0.97)
+                try stage(id, .summarizing, 0.97)
                 do { try await notes.completePending(record.id) }
                 catch is CancellationError { throw CancellationError() }
                 catch { logger.notice("Summary pending: \(error.localizedDescription, privacy: .public)") }
             }
-            try update(id) { $0.state = .completed; $0.stage = "Complete"; $0.fraction = 1; $0.error = nil }
+            try update(id) { $0.state = .completed; $0.step = .complete; $0.stage = JobStep.complete.title; $0.fraction = 1; $0.error = nil }
             do {
                 if let show = try store.values(Subscription.self, kind: "subscription").first(where: { $0.feedURL == record.feedURL }) {
                     try AudioRetention.prune(show, store: store, directory: directory.deletingLastPathComponent())
