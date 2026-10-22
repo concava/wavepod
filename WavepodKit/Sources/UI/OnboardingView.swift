@@ -116,9 +116,9 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 0) {
                 ModelRow(model: model, title: "Transcription and speakers", detail: "Needed to transcribe. Recognises who speaks.",
-                         kind: "native", folder: "parakeet")
+                         kind: .native)
                 ModelRow(model: model, title: "Ask model", detail: "About 2.3 GB. Writes summaries and answers questions on this Mac.",
-                         kind: "language", folder: "language", last: true)
+                         kind: .language, last: true)
             }
             .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             if model.isInstalling {

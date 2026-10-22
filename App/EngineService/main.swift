@@ -1,6 +1,7 @@
 import Darwin
 import Engine
 import Foundation
+import Library
 import NativeEngine
 
 final class Service: NSObject, EngineServiceProtocol, NSXPCListenerDelegate, @unchecked Sendable {
@@ -38,8 +39,7 @@ final class Service: NSObject, EngineServiceProtocol, NSXPCListenerDelegate, @un
             defer { memoryWatch.cancel() }
             do {
                 let request = try JSONDecoder().decode(EngineRequest.self, from: data)
-                let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                    .appendingPathComponent("wavepod/models")
+                let directory = WavepodFolder.default.appendingPathComponent("models")
                 let engine = NativeEngine(models: directory)
                 let result = request.diarize ? try await engine.diarize(request.audio) :
                     try await engine.transcribe(request.audio, options: request.options, progress: { _ in })

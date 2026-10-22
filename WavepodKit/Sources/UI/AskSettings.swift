@@ -21,8 +21,8 @@ extension AppModel {
             let models = try await services.chatGPT.models(account: id)
             guard chatGPTProfileID == id else { return }
             chatGPTModels = models
-            let saved = UserDefaults.standard.string(forKey: "chatGPTModel.\(id)") ?? ""
-            chatGPTModelID = models.contains(where: { $0.id == saved }) ? saved : models.first?.id ?? ""
+            // The model last chosen for this account, if it is still offered.
+            if !models.contains(where: { $0.id == chatGPTModelID }) { chatGPTModelID = models.first?.id ?? "" }
             chatGPTStatus = models.isEmpty ? "ChatGPT returned no eligible models for this account." : "ChatGPT plan connected. ChatGPT checks model access when you ask a question."
         } catch { if chatGPTProfileID == id { chatGPTStatus = error.localizedDescription } }
     }
@@ -52,7 +52,7 @@ extension AppModel {
         isConnectingChatGPT = true
         Task {
             defer { isConnectingChatGPT = false }
-            askProvider = "local"
+            answerProvider = .local
             chatGPTModels = []
             do { try await services.chatGPT.disconnect(id); chatGPTStatus = "Disconnected from ChatGPT." }
             catch { chatGPTStatus = error.localizedDescription }
@@ -70,14 +70,14 @@ struct AskSettings: View {
             SettingsGroup(title: "Answer model") {
                 SettingRow(title: "Answers and summaries", detail: model.isAnswering ? "Applies from your next question. The current answer keeps its model."
                            : "On this Mac is private and free. Your ChatGPT or Claude plan is faster and better on long episodes.", last: true) {
-                    Picker("Answer model", selection: $model.askProvider) {
-                        ForEach(AppModel.AskProvider.allCases) { Text($0.title).tag($0.rawValue) }
+                    Picker("Answer model", selection: $model.answerProvider) {
+                        ForEach(AnswerProvider.allCases) { Text($0.title).tag($0) }
                     }.labelsHidden().fixedSize()
                 }
             }
             // Only the connection controls wait for a running answer; the choice of model never does.
             Group {
-                switch AppModel.AskProvider(rawValue: model.askProvider) ?? .local {
+                switch model.answerProvider {
                 case .local: localSettings
                 case .chatgpt: chatGPTSettings
                 case .claude: ClaudeSettings(model: model)
@@ -86,7 +86,7 @@ struct AskSettings: View {
             .disabled(model.isAnswering)
             SettingsGroup(title: "Search") {
                 ModelRow(model: model, title: "Search by meaning", detail: "Finds passages that say the same thing in other words or languages.",
-                         kind: "embeddings", folder: "embeddings")
+                         kind: .embeddings)
                 SettingRow(title: "Search index", detail: model.isIndexing ? model.modelStatus : "Rebuild if search misses episodes you know are there.", last: true) {
                     Button(model.isIndexing ? "Indexing…" : "Rebuild", action: model.indexLibrary)
                         .buttonStyle(SecondaryButtonStyle())
@@ -105,7 +105,7 @@ struct AskSettings: View {
     private var localSettings: some View {
         SettingsGroup(title: "On this Mac") {
             ModelRow(model: model, title: "Ask model", detail: "About 2.3 GB. It uses 3.6 GB of memory while it answers. It reads every part of the transcript before it answers, so long episodes are slow.",
-                     kind: "language", folder: "language", last: true)
+                     kind: .language, last: true)
         }
     }
 

@@ -1,3 +1,4 @@
+import LLM
 import Library
 import SwiftUI
 
@@ -236,8 +237,8 @@ struct SummaryView: View {
                 if model.isGenerating {
                     VStack(spacing: 10) {
                         ProgressView().controlSize(.small)
-                        Text(model.askProvider == "local" ? "Writing the summary on this Mac…"
-                             : "Writing the summary with \((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle)…").font(type.callout).foregroundStyle(Palette.inkMuted)
+                        Text(model.answerProvider == .local ? "Writing the summary on this Mac…"
+                             : "Writing the summary with \(model.answerProvider.shortTitle)…").font(type.callout).foregroundStyle(Palette.inkMuted)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
@@ -245,11 +246,11 @@ struct SummaryView: View {
                     ContentUnavailableView {
                         Label("No summary yet", systemImage: "text.append")
                     } description: {
-                        Text(model.canWriteSummary || !model.isPersistent
+                        Text(model.answerReadiness.isReady || !model.isPersistent
                              ? "Your answer model writes a summary when a transcription finishes."
                              : "To get a summary of every episode, install the Ask model or choose your ChatGPT or Claude plan in Settings → Ask.")
                     } actions: {
-                        if model.isPersistent && !model.canWriteSummary {
+                        if model.isPersistent && !model.answerReadiness.isReady {
                             Button("Set Up Answers") { model.openSettings(.ask) }.buttonStyle(PrimaryButtonStyle())
                         } else if model.isPersistent && !model.transcript.segments.isEmpty {
                             Button("Write Summary") { model.generateNotes() }.buttonStyle(PrimaryButtonStyle())

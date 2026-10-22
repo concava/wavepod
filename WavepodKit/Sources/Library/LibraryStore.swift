@@ -93,8 +93,48 @@ public struct Subscription: Codable, Sendable, Identifiable {
 }
 
 /// GRDB serializes access. Records, FTS rows and vectors commit in the same transaction.
+/// What changed in a saved episode, for views that show it.
+public struct EpisodeChange: Sendable, Equatable {
+    public enum Part: Sendable, Hashable { case transcript, speakers, summary, chat, details, audio, deleted }
+    public let id: String
+    public let parts: Set<Part>
+    public init(id: String, parts: Set<Part>) { self.id = id; self.parts = parts }
+
+    static func between(_ old: EpisodeRecord?, _ new: EpisodeRecord) -> EpisodeChange {
+        var parts: Set<Part> = []
+        if old?.transcript != new.transcript { parts.insert(.transcript) }
+        if old?.speakers != new.speakers { parts.insert(.speakers) }
+        if old?.summary != new.summary || old?.notesPending != new.notesPending { parts.insert(.summary) }
+        if old?.chat != new.chat { parts.insert(.chat) }
+        if old?.episode != new.episode || old?.feedURL != new.feedURL { parts.insert(.details) }
+        if old?.audioURL != new.audioURL { parts.insert(.audio) }
+        return EpisodeChange(id: new.id, parts: parts)
+    }
+}
+
 public final class LibraryStore: Sendable {
     private let db: DatabaseQueue
+    private let listeners = Listeners()
+
+    /// Every change this store makes to a saved episode, as it happens. Changes made by another process (the feed
+    /// checker) are not on it; the app sees those when it next reads the library.
+    public func changes() -> AsyncStream<EpisodeChange> { listeners.stream() }
+
+    private final class Listeners: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuations: [UUID: AsyncStream<EpisodeChange>.Continuation] = [:]
+        func stream() -> AsyncStream<EpisodeChange> {
+            AsyncStream { continuation in
+                let id = UUID()
+                lock.withLock { continuations[id] = continuation }
+                continuation.onTermination = { [weak self] _ in self?.lock.withLock { _ = self?.continuations.removeValue(forKey: id) } }
+            }
+        }
+        func send(_ change: EpisodeChange) {
+            guard !change.parts.isEmpty else { return }
+            for continuation in lock.withLock({ Array(continuations.values) }) { continuation.yield(change) }
+        }
+    }
     public init(url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         var configuration = Configuration()
@@ -110,14 +150,39 @@ public final class LibraryStore: Sendable {
         try migrations.migrate(db)
     }
 
+    /// Saves the whole record. Prefer `update`, which can't overwrite a change another writer made meanwhile.
     public func save(_ record: EpisodeRecord) throws {
+        let change = try db.write { db in try write(record, previous: try read(record.id, in: db), in: db) }
+        listeners.send(change)
+    }
+
+    /// Changes one saved episode inside a single write transaction: the record is read, changed and saved with no
+    /// other writer in between, in this process or the feed checker. A deleted episode stays deleted: without
+    /// `ifMissing` nothing is saved and the result is nil.
+    /// - Parameter ifMissing: saved as it is when the episode doesn't exist yet. `change` is not applied to it.
+    @discardableResult
+    public func update(_ id: String, ifMissing: EpisodeRecord? = nil, _ change: (inout EpisodeRecord) throws -> Void) throws -> EpisodeRecord? {
+        let result: (EpisodeRecord, EpisodeChange)? = try db.write { db in
+            let previous = try read(id, in: db)
+            guard var record = previous ?? ifMissing else { return nil }
+            if previous != nil { try change(&record) }
+            return (record, try write(record, previous: previous, in: db))
+        }
+        guard let result else { return nil }
+        listeners.send(result.1)
+        return result.0
+    }
+
+    private func read(_ id: String, in db: Database) throws -> EpisodeRecord? {
+        try Data.fetchOne(db, sql: "SELECT payload FROM episodes WHERE id=?", arguments: [id])
+            .flatMap { try? JSONDecoder().decode(EpisodeRecord.self, from: $0) }
+    }
+
+    private func write(_ record: EpisodeRecord, previous: EpisodeRecord?, in db: Database) throws -> EpisodeChange {
         let data = try JSONEncoder().encode(record)
-        try db.write { db in
-            let previous = try Data.fetchOne(db, sql: "SELECT payload FROM episodes WHERE id=?", arguments: [record.id])
-                .flatMap { try? JSONDecoder().decode(EpisodeRecord.self, from: $0) }
-            try db.execute(sql: "INSERT INTO episodes VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,date=excluded.date,payload=excluded.payload",
-                           arguments: [record.id, record.episode.title, record.episode.pubDate.timeIntervalSince1970, data])
-            guard previous?.transcript != record.transcript || previous?.episode.title != record.episode.title else { return }
+        try db.execute(sql: "INSERT INTO episodes VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,date=excluded.date,payload=excluded.payload",
+                       arguments: [record.id, record.episode.title, record.episode.pubDate.timeIntervalSince1970, data])
+        if previous?.transcript != record.transcript || previous?.episode.title != record.episode.title {
             try db.execute(sql: "DELETE FROM passages WHERE episodeID=?", arguments: [record.id])
             try db.execute(sql: "DELETE FROM vectors WHERE episodeID=?", arguments: [record.id])
             for segment in record.transcript.segments {
@@ -125,6 +190,7 @@ public final class LibraryStore: Sendable {
                                arguments: [record.id, segment.id, record.episode.title, segment.words.map(\.text).joined(separator: " "), segment.start])
             }
         }
+        return EpisodeChange.between(previous, record)
     }
 
     public func episode(_ id: String) throws -> EpisodeRecord? {
@@ -162,6 +228,7 @@ public final class LibraryStore: Sendable {
             try db.execute(sql: "DELETE FROM vectors WHERE episodeID=?", arguments: [id])
             try db.execute(sql: "DELETE FROM episodes WHERE id=?", arguments: [id])
         }
+        listeners.send(EpisodeChange(id: id, parts: [.deleted]))
     }
 
     public func search(_ query: String, limit: Int = 40) throws -> [SearchHit] {

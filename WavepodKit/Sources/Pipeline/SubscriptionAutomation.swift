@@ -23,7 +23,7 @@ public enum AudioRetention {
                   url.standardizedFileURL.path.hasPrefix(directory.standardizedFileURL.path + "/") else { continue }
             if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
             record.audioURL = nil
-            try store.save(record)
+            try store.update(record.id) { $0.audioURL = nil }
             for job in jobs where JobQueue.episodeID(job.episode) == record.id {
                 let folder = directory.appendingPathComponent("jobs/\(job.id.uuidString)")
                 for name in (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []

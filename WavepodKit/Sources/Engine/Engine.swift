@@ -60,7 +60,7 @@ public enum EngineError: Error, LocalizedError, Sendable {
 
 /// Shared lease for memory-heavy inference. Cancellation removes waiters without releasing another owner's lease.
 public actor InferenceGate {
-    public static let shared = InferenceGate(processLockURL: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("wavepod/inference.lock"))
+    public static let shared = InferenceGate(processLockURL: WavepodFolder.default.appendingPathComponent("inference.lock"))
     private var owner: UUID?
     private var waiters: [(UUID, CheckedContinuation<Void, Error>)] = []
     private var processFD: Int32 = -1

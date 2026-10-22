@@ -126,6 +126,47 @@ final class PipelineTests: XCTestCase {
         XCTAssertTrue(try reopened.search("podcast").isEmpty)
         XCTAssertTrue(try reopened.semanticSearch([1, 0], model: "test").isEmpty)
     }
+    func testUpdateMergesWritersAndKeepsDeletedEpisodesDeleted() async throws {
+        let store = try LibraryStore(url: try temporary().appendingPathComponent("library.sqlite"))
+        let changes = store.changes()
+        try store.save(record())
+        // Two writers that each change their own part: neither overwrites the other.
+        let answer = ChatMessage(role: .assistant, text: "An answer", date: .now)
+        try store.update("ep") { $0.chat.append(answer) }
+        try store.update("ep") { $0.summary = EpisodeSummary(overview: "Notes", points: [], quotes: []) }
+        let saved = try XCTUnwrap(try store.episode("ep"))
+        XCTAssertEqual(saved.chat.map(\.text), ["An answer"])
+        XCTAssertEqual(saved.summary?.overview, "Notes")
+
+        try store.delete("ep")
+        XCTAssertNil(try store.update("ep") { $0.summary = nil }, "a deleted episode is never saved again")
+        XCTAssertNil(try store.episode("ep"))
+        XCTAssertNotNil(try store.update("ep", ifMissing: record()) { $0.chat = [] }, "unless a new record is given")
+
+        var seen: [Set<EpisodeChange.Part>] = []
+        for await change in changes {
+            seen.append(change.parts)
+            if seen.count == 5 { break }
+        }
+        XCTAssertEqual(seen[1], [.chat])
+        XCTAssertEqual(seen[2], [.summary])
+        XCTAssertEqual(seen[3], [.deleted])
+    }
+    func testJobStepsAreTypedAndOldJobsStillLoad() throws {
+        var job = TranscriptionJob(episode: ResolvedEpisode(title: "Example", enclosureURL: URL(string: "https://example.com/a.mp3")!, source: .rss))
+        XCTAssertEqual(job.step, .waiting)
+        job.step = .identifyingSpeakers(window: 3)
+        let decoded = try JSONDecoder().decode(TranscriptionJob.self, from: JSONEncoder().encode(job))
+        XCTAssertEqual(decoded.step, .identifyingSpeakers(window: 3))
+        XCTAssertEqual(JobStep.identifyingSpeakers(window: 3).title, "Identifying speakers, window 3")
+        XCTAssertTrue(JobStep.summarizing.isAroundTranscription)
+        XCTAssertFalse(JobStep.transcribing(window: 1).isAroundTranscription)
+
+        var old = try JSONSerialization.jsonObject(with: JSONEncoder().encode(job)) as! [String: Any]
+        old.removeValue(forKey: "step")
+        let loaded = try JSONDecoder().decode(TranscriptionJob.self, from: JSONSerialization.data(withJSONObject: old))
+        XCTAssertNil(loaded.step, "a job saved before steps were typed")
+    }
     func testLANPolicyDoesNotAcceptPublicOrMalformedHosts() {
         for host in ["localhost", "127.0.0.1", "10.0.0.4", "172.16.0.1", "192.168.1.9", "fd00::1", "studio.local"] { XCTAssertTrue(HTTPClient.isPrivateHost(host), host) }
         for host in ["example.com", "8.8.8.8", "172.32.0.1", "192.169.0.1", "localhost.example.com", "fdgarbage::oops", "10.0.0.999", "10.nope.0.0.1", "10..0.0.1", "010.0.0.1", "+10.0.0.1"] { XCTAssertFalse(HTTPClient.isPrivateHost(host), host) }

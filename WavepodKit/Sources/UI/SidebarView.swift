@@ -1,3 +1,4 @@
+import LLM
 import SwiftUI
 
 /// The sidebar: wordmark, sections, recent episodes and the setup checklist. Collapses to an icon rail.
@@ -196,7 +197,7 @@ struct SetupCard: View {
             Step(id: "show", title: "Follow a podcast", done: !model.subscriptions.isEmpty) {
                 model.section = .shows
             },
-            Step(id: "ask", title: "Set up answers", done: model.canWriteSummary) {
+            Step(id: "ask", title: "Set up answers", done: model.answerReadiness.isReady) {
                 model.openSettings(.ask)
             },
         ]

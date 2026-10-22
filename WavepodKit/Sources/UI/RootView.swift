@@ -24,7 +24,7 @@ public struct RootView: View {
                 Group {
                     switch model.section {
                     // The episode view is its own row of cards, so it sits straight on the paper.
-                    case .library: Workspace(model: model, focus: $focus)
+                    case .library: EpisodeCards(model: model, focus: $focus)
                     case .home: HomeView(model: model).elevated(cornerRadius: 14)
                     default: LibrarySection(model: model).elevated(cornerRadius: 14)
                     }

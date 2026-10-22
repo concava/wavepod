@@ -8,19 +8,13 @@ import Resolver
 @main struct FeedService {
     static func main() async {
         do {
-            var root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("wavepod")
+            var root = WavepodFolder.default
             #if DEBUG
             if let workspace = ProcessInfo.processInfo.environment["WAVEPOD_TEST_WORKSPACE"] { root = URL(fileURLWithPath: workspace) }
             #endif
-            let store = try LibraryStore(url: root.appendingPathComponent("library.sqlite"))
-            let client = HTTPClient(logURL: root.appendingPathComponent("network.json"))
-            let defaults = UserDefaults.standard
-            let engine: any Engine
-            if defaults.string(forKey: "engine") == "scriberr",
-               let value = defaults.string(forKey: "scriberrURL"), let url = URL(string: value) {
-                engine = try ScriberrEngine(base: url, client: client)
-            } else { engine = IsolatedEngine() }
-            let queue = try JobQueue(store: store, directory: root.appendingPathComponent("jobs"), client: client, engine: engine)
+            // The same wiring as the app. Without a window, ChatGPT summaries wait for the app (AnswerModel.interactive).
+            let workspace = try Workspace(root: root, interactive: false)
+            let queue = workspace.queue
             #if DEBUG
             let testing = ProcessInfo.processInfo.environment["WAVEPOD_TEST_AUDIO"] != nil
             #else
@@ -36,8 +30,7 @@ import Resolver
                 try await queue.enqueue(ResolvedEpisode(title: "Packaged engine smoke test", enclosureURL: URL(fileURLWithPath: audio), language: "en", source: .file))
             }
             #endif
-            let monitor = SubscriptionMonitor(store: store, client: client, queue: queue)
-            do { try await monitor.refresh() }
+            do { try await workspace.subscriptions.refresh() }
             catch { NSLog("wavepod feed check: %@", error.localizedDescription) }
             while true {
                 paused = !testing && PowerPolicy.shouldPause(currentlyPaused: paused)

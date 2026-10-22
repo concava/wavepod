@@ -1,3 +1,4 @@
+import LLM
 import Library
 import Pipeline
 import SwiftUI
@@ -165,8 +166,8 @@ struct StatsCard: View {
             Divider().overlay(Palette.rule)
             VStack(alignment: .leading, spacing: 6) {
                 Label("Privacy", systemImage: "lock").font(type.body.weight(.medium)).foregroundStyle(Palette.ink)
-                Text(model.askProvider == "local" ? "Audio, transcripts and answers stay on this Mac."
-                     : "Audio stays on this Mac. Questions and transcript text go to your \((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle) plan when you ask or a summary is written.")
+                Text(model.answerProvider == .local ? "Audio, transcripts and answers stay on this Mac."
+                     : "Audio stays on this Mac. Questions and transcript text go to your \(model.answerProvider.shortTitle) plan when you ask or a summary is written.")
                     .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
                 Button("See the network log") { model.openSettings(.privacy) }
                     .buttonStyle(.link).font(type.callout)

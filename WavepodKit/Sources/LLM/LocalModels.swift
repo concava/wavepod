@@ -9,13 +9,15 @@ import MLXLMCommon
 public struct LocalGenerator: TextGenerating {
     public var directory: URL
     public init(directory: URL) { self.directory = directory }
+    /// Whether the Ask model is downloaded.
+    public var isInstalled: Bool { FileManager.default.fileExists(atPath: directory.appendingPathComponent("config.json").path) }
     public func generate(_ prompt: String) async throws -> String {
         try await withSession { try await $0.generate(prompt) }
     }
     /// Keep weights loaded for one answer (including its retry), or a bounded summary/translation operation.
     /// The container is destroyed before releasing the shared inference lease.
     public func withSession<T: Sendable>(_ operation: @Sendable (any TextGenerating) async throws -> T) async throws -> T {
-        guard FileManager.default.fileExists(atPath: directory.appendingPathComponent("config.json").path) else {
+        guard isInstalled else {
             throw EngineError.unavailable("Install the Ask model in Settings → Ask first.")
         }
         let lease = UUID()

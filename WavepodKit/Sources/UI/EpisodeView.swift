@@ -1,29 +1,30 @@
+import LLM
 import Library
 import SwiftUI
 
 /// One episode as two cards: the episode (its podcast, the Ask field, answers and summary) and a card on the right
 /// with the transcript or the episode's details, which closes to leave the episode alone.
-struct Workspace: View {
+struct EpisodeCards: View {
     @Bindable var model: AppModel
     var focus: FocusState<AppModel.FocusTarget?>.Binding
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @AppStorage("detailWidth") private var detailWidth = Workspace.defaultDetailWidth
+    @AppStorage("detailWidth") private var detailWidth = EpisodeCards.defaultDetailWidth
     static let defaultDetailWidth = 460.0
     static let minSummary = 420.0, minDetail = 340.0
 
     var body: some View {
         GeometryReader { proxy in
-            let maxDetail = max(Workspace.minDetail, proxy.size.width - Workspace.minSummary - CardDivider.width)
+            let maxDetail = max(EpisodeCards.minDetail, proxy.size.width - EpisodeCards.minSummary - CardDivider.width)
             HStack(spacing: 0) {
                 SummaryCard(model: model, focus: focus)
-                    .frame(minWidth: Workspace.minSummary, maxWidth: .infinity)
+                    .frame(minWidth: EpisodeCards.minSummary, maxWidth: .infinity)
                     .elevated(cornerRadius: 14)
                 if model.showSidePane {
-                    CardDivider(width: $detailWidth, range: Workspace.minDetail...maxDetail, reset: Workspace.defaultDetailWidth)
+                    CardDivider(width: $detailWidth, range: EpisodeCards.minDetail...maxDetail, reset: EpisodeCards.defaultDetailWidth)
                         .transition(.opacity)
                     DetailCard(model: model, focus: focus)
-                        .frame(width: min(max(detailWidth, Workspace.minDetail), maxDetail))
+                        .frame(width: min(max(detailWidth, EpisodeCards.minDetail), maxDetail))
                         .elevated(cornerRadius: 14)
                         .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
                 }
@@ -263,15 +264,15 @@ struct AskProviderMenu: View {
 
     var body: some View {
         Menu {
-            ForEach(AppModel.AskProvider.allCases) { provider in
+            ForEach(AnswerProvider.allCases) { provider in
                 Button { choose(provider) } label: {
-                    if provider.rawValue == model.askProvider { Label(provider.title, systemImage: "checkmark") } else { Text(provider.title) }
+                    if provider == model.answerProvider { Label(provider.title, systemImage: "checkmark") } else { Text(provider.title) }
                 }
             }
             Divider()
             Button("Ask Settings…") { model.openSettings(.ask) }
         } label: {
-            Text((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle)
+            Text(model.answerProvider.shortTitle)
                 .font(type.caption)
         }
         .menuStyle(.borderlessButton)
@@ -283,9 +284,9 @@ struct AskProviderMenu: View {
         .task { await model.refreshChatGPTProfiles() }
     }
 
-    private func choose(_ provider: AppModel.AskProvider) {
-        model.askProvider = provider.rawValue
-        if !model.isAskProviderReady { model.openSettings(.ask) }
+    private func choose(_ provider: AnswerProvider) {
+        model.answerProvider = provider
+        if !model.answerReadiness.isReady { model.openSettings(.ask) }
     }
 }
 

@@ -135,19 +135,8 @@ public protocol NotesGenerating: Sendable {
     func notes(_ transcript: Transcript) async throws -> [CitedClaim]
 }
 
-/// Notes from a cloud plan (ChatGPT or Claude): the same instruction and citation checks as the local model, in
-/// larger sections, so a long episode takes a few requests instead of dozens of local passes.
-public struct PlanNotes: NotesGenerating {
-    public let generator: any TextGenerating
-    public let isAvailable: Bool
-    public init(generator: any TextGenerating, isAvailable: Bool) { self.generator = generator; self.isAvailable = isAvailable }
-    public func notes(_ transcript: Transcript) async throws -> [CitedClaim] {
-        try await EpisodeSummaryStyle.notes(transcript, generator: generator, contextLimit: 40_000)
-    }
-}
-
 extension LocalGenerator: NotesGenerating {
-    public var isAvailable: Bool { FileManager.default.fileExists(atPath: directory.appendingPathComponent("config.json").path) }
+    public var isAvailable: Bool { isInstalled }
 }
 
 public struct EpisodeNotesService: Sendable {
@@ -157,17 +146,14 @@ public struct EpisodeNotesService: Sendable {
     @discardableResult public func generate(_ id: String) async throws -> [CitedClaim] {
         guard let source = try store.episode(id), !source.transcript.segments.isEmpty else { return [] }
         let claims = try await generator.notes(source.transcript)
-        guard var record = try store.episode(id) else { return claims }
-        record.summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
-        try store.save(record)
+        let summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
+        try store.update(id) { $0.summary = summary }
         return claims
     }
     public func completePending(_ id: String) async throws {
         guard let record = try store.episode(id), record.notesPending == true,
               !record.transcript.segments.isEmpty, generator.isAvailable else { return }
         try await generate(id)
-        guard var latest = try store.episode(id) else { return }
-        latest.notesPending = false
-        try store.save(latest)
+        try store.update(id) { $0.notesPending = false }
     }
 }
