@@ -186,7 +186,7 @@ public final class AppModel {
         didSet { UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)") }
     }
     public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable")
-        .flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil } ?? ClaudePlan.detectedExecutable {
+        .flatMap { ClaudePlan.isExecutable($0) ? $0 : nil } ?? ClaudePlan.detectedExecutable {
         didSet { UserDefaults.standard.set(claudeExecutable, forKey: "claudeExecutable"); claudeStatus = "Connect your Claude plan." }
     }
     public var claudeModel = UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet" {

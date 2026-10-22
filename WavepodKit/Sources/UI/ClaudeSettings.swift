@@ -1,14 +1,17 @@
 import AppKit
 import Engine
+import LLM
 import SwiftUI
 
 extension AppModel {
     func chooseClaudeExecutable() {
         let panel = NSOpenPanel()
-        panel.message = "Choose the Claude Code executable installed by Anthropic."
+        panel.message = "Choose Claude Code, or the Claude app to use the Claude Code inside it."
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url { claudeExecutable = url.path }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if let path = ClaudePlan.executable(choosing: url) { claudeExecutable = path }
+        else { claudeStatus = "\(url.lastPathComponent) isn’t Claude Code. Install Claude Code, or open the Code tab in the Claude app once, then choose it again." }
     }
     func connectClaude(action: String) {
         guard let services, !isConnectingClaude else { return }
@@ -42,7 +45,9 @@ struct ClaudeSettings: View {
             Text("Requires a current Claude Code installation. Wavepod uses a separate sign-in; your other Claude Code sessions are unchanged.")
                 .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
             HStack {
-                Text(model.claudeExecutable.isEmpty ? "Claude Code not found" : model.claudeExecutable)
+                Text(model.claudeExecutable.isEmpty ? "Claude Code not found"
+                     : model.claudeExecutable.contains("/Application Support/Claude/claude-code/") ? "Claude Code from the Claude app" : model.claudeExecutable)
+                    .help(model.claudeExecutable)
                     .font(type.callout).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                 Button("Choose executable", action: model.chooseClaudeExecutable)
                 Link("Install Claude Code", destination: URL(string: "https://code.claude.com/docs/en/setup")!)

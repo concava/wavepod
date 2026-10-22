@@ -85,7 +85,35 @@ public struct ClaudePlan: Sendable {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return [home.appendingPathComponent(".local/bin/claude").path, home.appendingPathComponent(".claude/local/claude").path,
                 "/opt/homebrew/bin/claude", "/usr/local/bin/claude", home.appendingPathComponent(".npm-global/bin/claude").path,
-                home.appendingPathComponent(".bun/bin/claude").path].first { FileManager.default.isExecutableFile(atPath: $0) } ?? ""
+                home.appendingPathComponent(".bun/bin/claude").path].first(where: isExecutable) ?? desktopExecutable(home: home) ?? ""
+    }
+    /// A runnable file. `isExecutableFile` alone also accepts folders, such as an `.app` bundle.
+    public static func isExecutable(_ path: String) -> Bool {
+        var folder: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path, isDirectory: &folder) && !folder.boolValue
+            && FileManager.default.isExecutableFile(atPath: path)
+    }
+    /// The Claude Code the Claude desktop app keeps for its Code tab, newest version first. Wavepod signs it in
+    /// with its own `CLAUDE_CONFIG_DIR`, so the desktop app's own sign-in is never read or changed.
+    static func desktopExecutable(home: URL) -> String? {
+        let root = home.appendingPathComponent("Library/Application Support/Claude/claude-code")
+        let versions = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+        for version in versions.sorted(by: { $0.compare($1, options: .numeric) == .orderedDescending }) {
+            let folder = root.appendingPathComponent(version)
+            for build in (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [] {
+                let path = folder.appendingPathComponent(build).appendingPathComponent("claude.app/Contents/MacOS/claude").path
+                if isExecutable(path) { return path }
+            }
+        }
+        return nil
+    }
+    /// The Claude Code inside a chosen app: the desktop app means its bundled Claude Code, a `claude.app` its binary.
+    public static func executable(choosing url: URL) -> String? {
+        guard url.pathExtension == "app" else { return isExecutable(url.path) ? url.path : nil }
+        let inner = url.appendingPathComponent("Contents/MacOS/claude").path
+        if isExecutable(inner) { return inner }
+        return Bundle(url: url)?.bundleIdentifier == "com.anthropic.claudefordesktop"
+            ? desktopExecutable(home: FileManager.default.homeDirectoryForCurrentUser) : nil
     }
     private static let settings = "{\"forceLoginMethod\":\"claudeai\",\"disableAllHooks\":true,\"autoMemoryEnabled\":false}"
     static func environment(root: URL, inherited: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {
@@ -99,7 +127,7 @@ public struct ClaudePlan: Sendable {
         return result
     }
     private func command(_ executable: String, arguments: [String], input: String = "", timeout: TimeInterval = 30) throws -> ClaudeCommand {
-        guard executable.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: executable) else {
+        guard executable.hasPrefix("/"), Self.isExecutable(executable) else {
             throw EngineError.unavailable("Install Claude Code, then select its executable in Settings → Ask.")
         }
         let directory = root.appendingPathComponent("workspace")

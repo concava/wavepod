@@ -59,6 +59,26 @@ final class ClaudePlanTests: XCTestCase {
         }
         XCTAssertThrowsError(try ClaudePlan.answer(.init(data: Data(#"{"type":"result","subtype":"success","is_error":false,"result":"[]"}"#.utf8), status: 1)))
     }
+    func testFindsClaudeCodeInsideAppsAndNeverRunsAFolder() throws {
+        let home = try temporary()
+        func binary(_ relative: String) throws -> URL {
+            let url = home.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("#!/bin/sh\n".utf8).write(to: url)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+            return url
+        }
+        let root = "Library/Application Support/Claude/claude-code/"
+        _ = try binary(root + "2.1.9/a1/claude.app/Contents/MacOS/claude")
+        let newest = try binary(root + "2.1.10/b2/claude.app/Contents/MacOS/claude")
+        XCTAssertEqual(ClaudePlan.desktopExecutable(home: home), newest.path)
+        XCTAssertNil(ClaudePlan.desktopExecutable(home: try temporary()))
+        let app = newest.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        XCTAssertFalse(ClaudePlan.isExecutable(app.path))
+        XCTAssertEqual(ClaudePlan.executable(choosing: app), newest.path)
+        XCTAssertEqual(ClaudePlan.executable(choosing: newest), newest.path)
+        XCTAssertNil(ClaudePlan.executable(choosing: home.appendingPathComponent("Other.app")))
+    }
     func testSignInAndDisconnectUseOnlyWavepodConfiguration() async throws {
         let executor = ClaudeFixture(), root = try temporary()
         let plan = ClaudePlan(root: root, client: HTTPClient(), executor: executor)
