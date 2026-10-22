@@ -48,7 +48,7 @@ struct ShowsSection: View {
             }
             .padding(.horizontal, 40)
             .padding(.vertical, 34)
-            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: 1180, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
