@@ -12,7 +12,8 @@
 #   NOTARY_KEY_PATH, NOTARY_KEY_ID, NOTARY_ISSUER
 #                        App Store Connect API key for notarytool; needs DEVELOPER_ID
 #
-# Output: dist/Wavepod-$VERSION.dmg
+# Output: dist/Wavepod-$VERSION.dmg, and the same file as dist/Wavepod.dmg for the README's
+#         releases/latest/download/Wavepod.dmg link, which needs one name in every release
 set -euo pipefail
 
 : "${VERSION:?set VERSION, e.g. VERSION=0.2.0}"
@@ -66,5 +67,6 @@ if [[ -n "${DEVELOPER_ID:-}" ]]; then
     spctl --assess --type open --context context:primary-signature --verbose "$DMG"
   fi
 fi
+cp -f "$DMG" dist/Wavepod.dmg
 
 echo "$DMG"
