@@ -95,7 +95,10 @@ public final class AppModel {
     }
 
     // Navigation and layout
-    public var section: Section = .home
+    public var section: Section = .home { didSet { placeDidChange() } }
+    @ObservationIgnored let history = NavigationHistory(Place(section: .home))
+    /// Changes with each step through the history, so Back and Forward update.
+    var historyVersion = 0
     /// The sidebar shrinks to an icon rail instead of disappearing.
     public var sidebarCollapsed = UserDefaults.standard.bool(forKey: "sidebarCollapsed") {
         didSet { UserDefaults.standard.set(sidebarCollapsed, forKey: "sidebarCollapsed") }
@@ -128,7 +131,7 @@ public final class AppModel {
     }
 
     // Episode in the workspace
-    public internal(set) var episode: Episode
+    public internal(set) var episode: Episode { didSet { if episode.id != oldValue.id { placeDidChange() } } }
     public internal(set) var speakers: [SpeakerID: Speaker]
     public internal(set) var transcript: Transcript
     public internal(set) var paragraphs: [Paragraph]
@@ -197,6 +200,15 @@ public final class AppModel {
         get { answerChoice.claudeEffort }
         set { answerChoice.claudeEffort = newValue }
     }
+    /// "GPT-6.1 · High": the chosen ChatGPT model and effort, for the answer-model selector.
+    var chatGPTSummary: String {
+        let name = chatGPTModels.first { $0.id == chatGPTModelID }?.display_name ?? chatGPTModelID
+        return [name, chatGPTEffort.isEmpty ? "" : Self.effortTitle(chatGPTEffort)].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+    /// "Opus · Maximum": the chosen Claude model and effort.
+    var claudeSummary: String {
+        [claudeModel.capitalized, claudeEffort.isEmpty ? "" : Self.effortTitle(claudeEffort)].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
     /// How an effort level reads in Settings.
     public static func effortTitle(_ effort: String) -> String {
         switch effort {
@@ -237,7 +249,7 @@ public final class AppModel {
     public var savedEpisodes: [EpisodeListing] = []
     public var jobs: [TranscriptionJob] = []
     public var subscriptions: [Subscription] = []
-    public var resolvedShow: ResolvedShow?
+    public var resolvedShow: ResolvedShow? { didSet { placeDidChange() } }
     /// Each followed podcast's feed episodes, fetched when the Podcasts page opens, keyed by feed URL.
     public var podcastEpisodes: [String: [ResolvedEpisode]] = [:]
     public var resolutionCandidates: [ScoredCandidate] = []
