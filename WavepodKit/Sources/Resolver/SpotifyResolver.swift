@@ -68,10 +68,10 @@ public struct SpotifyResolver: Sendable {
         let ranked = candidates.map { ScoredCandidate(candidate: $0, confidence: score(metadata, candidate: $0)) }
             .sorted { $0.confidence > $1.confidence }
         guard candidates.contains(where: { TextNormalization.similarity(metadata.title, $0.title) > 0.5 }) else {
-            return .notFound(reason: "This episode seems to be Spotify-exclusive, so wavepod can't get its audio.")
+            return .notFound(reason: "This episode seems to be Spotify-exclusive, so Wavepod can't get its audio.")
         }
         guard let best = ranked.first, best.confidence >= 0.6 else {
-            return .notFound(reason: "wavepod found no close match in a public podcast feed.")
+            return .notFound(reason: "Wavepod found no close match in a public podcast feed.")
         }
         if best.confidence >= 0.85 { return .matched(best.candidate, confidence: best.confidence) }
         return .needsConfirmation(Array(ranked.prefix(5)))

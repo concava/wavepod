@@ -5,7 +5,7 @@ public enum NetworkError: Error, LocalizedError, Sendable {
     case denied(String), invalidResponse, status(Int), tooLarge
     public var errorDescription: String? {
         switch self {
-        case .denied(let host): "wavepod does not allow network access to \(host)."
+        case .denied(let host): "Wavepod does not allow network access to \(host)."
         case .invalidResponse: "The server returned an invalid response."
         case .status(let code): "The server returned HTTP \(code)."
         case .tooLarge: "The response exceeded the size limit."

@@ -19,7 +19,7 @@ enum ChatGPTOAuth {
                          "response_type": "code", "redirect_uri": redirect.absoluteString,
                          "scope": scopes, "resource": resource, "state": state, "nonce": nonce,
                          "code_challenge_method": "S256", "code_challenge": Data(SHA256.hash(data: Data(verifier.utf8))).base64URL]
-            if clientID == nil { items["agent_name_hint"] = "wavepod" }
+            if clientID == nil { items["agent_name_hint"] = "Wavepod" }
             if let idTokenHint { items["id_token_hint"] = idTokenHint }
             url.queryItems = items.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
             return url.url!
@@ -40,7 +40,7 @@ enum ChatGPTOAuth {
             return (code, issued)
         }
     }
-    static func invalid() -> EngineError { .unavailable("wavepod could not verify the ChatGPT sign-in. Try again.") }
+    static func invalid() -> EngineError { .unavailable("Wavepod could not verify the ChatGPT sign-in. Try again.") }
     static func random() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
         precondition(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess)
@@ -124,6 +124,6 @@ struct ChatGPTKeychain: ChatGPTCredentialStore {
             add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             status = SecItemAdd(add as CFDictionary, nil)
         }
-        guard status == errSecSuccess else { throw EngineError.unavailable("wavepod could not save the ChatGPT connection in the Keychain.") }
+        guard status == errSecSuccess else { throw EngineError.unavailable("Wavepod could not save the ChatGPT connection in the Keychain.") }
     }
 }

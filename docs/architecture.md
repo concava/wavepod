@@ -1,14 +1,14 @@
-# How wavepod works
+# How Wavepod works
 
 This is the map of the app: what runs where, what happens to an episode from the moment a link is pasted, and
 where everything is stored. The *why* behind each choice is in [decisions](decisions/README.md).
 
 ## The pieces
 
-wavepod is one macOS app bundle with three processes and one Swift package.
+Wavepod is one macOS app bundle with three processes and one Swift package.
 
 ```
-wavepod.app
+Wavepod.app
 ├── wavepod                 the app: SwiftUI window, library, queue, player, Ask
 ├── WavepodEngine.xpc       speech recognition and speaker detection, in its own process
 └── wavepod-feeds           hourly background checker (LaunchAgent), works while the app is closed
@@ -63,7 +63,7 @@ full pipeline on a file, used by the golden-set evaluation) and `wavepod-ask` (A
   and matches the episode in its RSS feed. A confident match continues; close matches are shown as candidates
   ("Choose the matching episode"). Spotify audio itself is never used.
 - **YouTube**: a pinned, hash-verified `yt-dlp` reads metadata only (user config and plugins ignored); the
-  chosen M4A audio is downloaded through wavepod's own client.
+  chosen M4A audio is downloaded through Wavepod's own client.
 - **A file**: used as is.
 
 If the feed publishes a **timed transcript** (`podcast:transcript`), it is used directly and download and

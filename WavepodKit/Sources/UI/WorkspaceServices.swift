@@ -251,7 +251,7 @@ extension AppModel {
             UserDefaults.standard.set(engineChoice, forKey: "engine")
             UserDefaults.standard.set(scriberrURL, forKey: "scriberrURL")
             scriberrKey = ""
-            show("Engine saved. Restart wavepod after current jobs finish to apply it.")
+            show("Engine saved. Restart Wavepod after current jobs finish to apply it.")
         } catch { show(error.localizedDescription) }
     }
     public func setBackgroundChecks(_ enabled: Bool) {

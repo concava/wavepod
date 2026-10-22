@@ -21,7 +21,7 @@ struct SettingsView: View {
                     }
                 }
                 Spacer()
-                Text("wavepod \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
+                Text("Wavepod \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
                     .font(type.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .padding(.horizontal, 10)
@@ -98,7 +98,7 @@ struct SettingsView: View {
         }
         SettingsGroup(title: "Podcasts") {
             SettingRow(title: "Check podcasts in the background",
-                       detail: "Checks every hour, also when wavepod is closed. wavepod transcribes new episodes only for podcasts where you turn on Auto-transcribe.",
+                       detail: "Checks every hour, also when Wavepod is closed. Wavepod transcribes new episodes only for podcasts where you turn on Auto-transcribe.",
                        last: true) {
                 Toggle("Check podcasts in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
                     .labelsHidden().toggleStyle(.switch)
@@ -118,7 +118,7 @@ struct SettingsView: View {
                 .labelsHidden().fixedSize()
             }
             if model.engineChoice == "scriberr" {
-                SettingRow(title: "Server", detail: "wavepod saves the API key in the Keychain.", last: true) {
+                SettingRow(title: "Server", detail: "Wavepod saves the API key in the Keychain.", last: true) {
                     VStack(alignment: .trailing) {
                         TextField("Server URL", text: $model.scriberrURL).frame(width: 260)
                         SecureField("API key", text: $model.scriberrKey).frame(width: 260)
@@ -163,7 +163,7 @@ struct SettingsView: View {
 
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Audio and transcripts stay on this Mac unless you choose your own Scriberr server. Answers stay on this Mac unless you choose a ChatGPT or Claude plan. This list shows every request that wavepod made: model downloads, feeds, artwork, link lookups and answers.")
+            Text("Audio and transcripts stay on this Mac unless you choose your own Scriberr server. Answers stay on this Mac unless you choose a ChatGPT or Claude plan. This list shows every request that Wavepod made: model downloads, feeds, artwork, link lookups and answers.")
                 .font(type.body).foregroundStyle(Palette.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
             SettingsGroup(title: "Network log") {

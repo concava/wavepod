@@ -89,7 +89,7 @@ struct ClaudeSettings: View {
                 }
             }
         }
-        PlanFootnote(text: "When you ask a question or wavepod writes a summary, your question, recent conversation and transcript text go to Anthropic through Claude Code. wavepod signs in to Claude Code separately, so your other Claude sessions do not change. wavepod does not send audio. Your plan limits apply.",
+        PlanFootnote(text: "When you ask a question or Wavepod writes a summary, your question, recent conversation and transcript text go to Anthropic through Claude Code. Wavepod signs in to Claude Code separately, so your other Claude sessions do not change. Wavepod does not send audio. Your plan limits apply.",
                      link: ("Manage usage", URL(string: "https://claude.ai/settings/usage")!))
     }
 }

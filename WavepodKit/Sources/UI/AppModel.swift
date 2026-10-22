@@ -294,7 +294,7 @@ public final class AppModel {
         isPersistent = persistent
         if persistent {
             showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
-            episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
+            episode = Episode(id: "", showName: "Wavepod", title: "Open an episode", pubDate: .now, duration: 0,
                               descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
             paragraphs = []; summary = nil; chat = []

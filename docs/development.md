@@ -1,6 +1,6 @@
-# Developing wavepod
+# Developing Wavepod
 
-How to build, test, measure and release. For what the code does, read [How wavepod works](architecture.md)
+How to build, test, measure and release. For what the code does, read [How Wavepod works](architecture.md)
 first.
 
 ## Build
@@ -12,10 +12,10 @@ Xcode 27), XcodeGen.
 ```sh
 xcodegen generate
 xcodebuild -project wavepod.xcodeproj -scheme wavepod -configuration Debug -derivedDataPath build/dd -quiet build
-open build/dd/Build/Products/Debug/wavepod.app
+open build/dd/Build/Products/Debug/Wavepod.app
 ```
 
-The **wavepod** scheme builds the app, the `WavepodEngine` XPC service and the `wavepod-feeds` checker, and
+The **Wavepod** scheme builds the app, the `WavepodEngine` XPC service and the `wavepod-feeds` checker, and
 embeds the last two in the bundle.
 
 MLX needs Xcode's Metal toolchain. If `xcrun metal --version` reports it missing:
@@ -30,7 +30,7 @@ xcodebuild -downloadComponent MetalToolchain
 snapshots. Launch the app on it, without touching your library:
 
 ```sh
-open build/dd/Build/Products/Debug/wavepod.app --args -WavepodSampleData YES
+open build/dd/Build/Products/Debug/Wavepod.app --args -WavepodSampleData YES
 ```
 
 The README screenshot is taken this way.

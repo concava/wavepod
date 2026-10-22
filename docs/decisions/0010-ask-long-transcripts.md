@@ -42,7 +42,7 @@ can follow once it preserves coverage for broad questions and explicit absence c
 
 Settings → Ask offers **On this Mac** (default) and **My ChatGPT plan**. The latter uses the supported
 [Sign in with ChatGPT flow for open-source/local clients](https://developers.openai.com/siwc/token-sharing-open-source).
-Eligible users authorize wavepod's own client registration and ChatGPT plan usage in their browser.
+Eligible users authorize Wavepod's own client registration and ChatGPT plan usage in their browser.
 
 - The registration uses a stable per-install host ID, fresh PKCE/state/nonce, a listener bound to
   `127.0.0.1`, and the exact `/auth/callback` URI. Use the issued client ID for token exchange and subsequent

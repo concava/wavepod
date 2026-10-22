@@ -160,7 +160,7 @@ struct AskSettings: View {
                 }
             }
         }
-        PlanFootnote(text: "When you ask a question or wavepod writes a summary, your question, recent conversation and transcript text go to OpenAI. wavepod does not send audio or read your ChatGPT conversations. Your plan limits apply.",
+        PlanFootnote(text: "When you ask a question or Wavepod writes a summary, your question, recent conversation and transcript text go to OpenAI. Wavepod does not send audio or read your ChatGPT conversations. Your plan limits apply.",
                      link: ("Manage usage", URL(string: "https://chatgpt.com/#settings/Usage")!))
     }
 }

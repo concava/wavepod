@@ -33,7 +33,7 @@ public struct EpisodeAnswers: Sendable {
         for (offset, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             await progress("Reading transcript \(offset + 1) of \(chunks.count)…")
-            let instruction = chunks.count == 1 ? task : task + "\nThis is part \(offset + 1) of \(chunks.count) of the transcript. Give every relevant fact in this part. Include conditions, examples, dates and changes of opinion. wavepod sends the other parts in separate requests. Do not conclude that the whole episode lacks a fact. Return [] only if this part has no evidence."
+            let instruction = chunks.count == 1 ? task : task + "\nThis is part \(offset + 1) of \(chunks.count) of the transcript. Give every relevant fact in this part. Include conditions, examples, dates and changes of opinion. Wavepod sends the other parts in separate requests. Do not conclude that the whole episode lacks a fact. Return [] only if this part has no evidence."
             findings += try await grounded.answer(instruction: instruction, context: chunk, transcript: transcript, index: index, report: report)
         }
         findings = Self.unique(findings)

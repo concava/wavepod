@@ -5,7 +5,7 @@
 
 ## Decision
 
-- wavepod is **free** and distributed **directly**: a signed, notarized `.dmg` on GitHub Releases.
+- Wavepod is **free** and distributed **directly**: a signed, notarized `.dmg` on GitHub Releases.
 - Signing: Developer ID Application certificate, hardened runtime, notarized with `notarytool`, stapled.
 - Updates: **Sparkle 2** with an EdDSA-signed appcast. The appcast is served from GitHub Pages. The Sparkle private
   key is kept in the CI secret store and on one offline backup, never in the repo.
@@ -31,11 +31,11 @@ cache. It uses the hardened runtime with no exceptions except `com.apple.securit
 
 ## yt-dlp handling
 
-- Not bundled. On first YouTube use, wavepod downloads the pinned `yt-dlp_macos` release from GitHub, checks the
+- Not bundled. On first YouTube use, Wavepod downloads the pinned `yt-dlp_macos` release from GitHub, checks the
   SHA-256 against the value pinned in the app (and published in the release's `SHA2-256SUMS`), stores it in
   Application Support, and runs it as a child process.
-- A newer yt-dlp is accepted only through a wavepod update that pins its checksum. (Trade-off: a YouTube breakage
-  can need a wavepod release; Sparkle makes that fast.)
+- A newer yt-dlp is accepted only through a Wavepod update that pins its checksum. (Trade-off: a YouTube breakage
+  can need a Wavepod release; Sparkle makes that fast.)
 
 ## Owner action needed
 

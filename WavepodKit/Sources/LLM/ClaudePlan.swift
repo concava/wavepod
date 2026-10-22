@@ -167,14 +167,14 @@ public struct ClaudePlan: Sendable {
     }
     public func disconnect(executable: String) async throws {
         let result = try await executor.run(command(executable, arguments: ["auth", "logout"]))
-        guard result.status == 0 else { throw EngineError.unavailable("Claude could not disconnect this wavepod account. Try again.") }
+        guard result.status == 0 else { throw EngineError.unavailable("Claude could not disconnect this Wavepod account. Try again.") }
     }
     static func answer(_ output: ClaudeOutput) throws -> String {
         struct Result: Decodable { let type: String; let subtype: String; let is_error: Bool; let result: String? }
         guard output.status == 0, let result = try? JSONDecoder().decode(Result.self, from: output.data),
               result.type == "result", result.subtype == "success", !result.is_error,
               let text = result.result, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw EngineError.unavailable("Claude could not complete the answer. wavepod kept no part of it. Check your plan limits, or connect again in Settings → Ask.")
+            throw EngineError.unavailable("Claude could not complete the answer. Wavepod kept no part of it. Check your plan limits, or connect again in Settings → Ask.")
         }
         return text
     }

@@ -6,7 +6,7 @@
 
 ## Question
 
-Which speech recognizer runs inside wavepod on Apple Silicon, and how close is it to the reference?
+Which speech recognizer runs inside Wavepod on Apple Silicon, and how close is it to the reference?
 
 ## Candidates
 

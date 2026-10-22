@@ -158,7 +158,7 @@ public actor ChatGPTPlan {
         try save(account)
         if let refresh {
             do { _ = try await post("/api/accounts/oauth/revoke", form: ["token": refresh, "token_type_hint": "refresh_token", "client_id": id]) }
-            catch { throw EngineError.unavailable("Disconnected on this Mac. wavepod could not confirm that ChatGPT removed its access. Disconnect wavepod in ChatGPT Settings → Usage.") }
+            catch { throw EngineError.unavailable("Disconnected on this Mac. Wavepod could not confirm that ChatGPT removed its access. Disconnect Wavepod in ChatGPT Settings → Usage.") }
         }
     }
     public func models(account: String) async throws -> [ChatGPTModel] {
@@ -216,14 +216,14 @@ actor ChatGPTResponse {
                 throw EngineError.unavailable("You reached your ChatGPT plan limit. Manage usage in ChatGPT Settings, try again later, or use the Ask model on this Mac.")
             }
             if error?["code"] as? String == "subscription_sharing_usage_unavailable" {
-                throw EngineError.unavailable("This connection cannot use your ChatGPT plan. Enable wavepod in ChatGPT Settings, or continue with ChatGPT again.")
+                throw EngineError.unavailable("This connection cannot use your ChatGPT plan. Enable Wavepod in ChatGPT Settings, or continue with ChatGPT again.")
             }
             throw EngineError.unavailable("ChatGPT could not complete the answer. Check your ChatGPT usage limits or connection, then try again. Manage usage in ChatGPT Settings.")
         default: break
         }
     }
     func answer() throws -> String {
-        guard completed, !text.isEmpty else { throw EngineError.unavailable("ChatGPT stopped before the answer was complete. wavepod saved no part of it. Try again.") }
+        guard completed, !text.isEmpty else { throw EngineError.unavailable("ChatGPT stopped before the answer was complete. Wavepod saved no part of it. Try again.") }
         return text
     }
 }

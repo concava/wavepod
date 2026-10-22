@@ -57,7 +57,7 @@ public struct ModelInstaller: Sendable {
             if path.contains(".mlmodelc/") { return true }
             return !path.contains("/") && ["safetensors", "json", "txt", "model", "jinja"].contains(URL(fileURLWithPath: path).pathExtension)
         }
-        guard !files.isEmpty else { throw EngineError.unavailable("wavepod found no compatible files for \(spec.repository).") }
+        guard !files.isEmpty else { throw EngineError.unavailable("Wavepod found no compatible files for \(spec.repository).") }
         for (index, file) in files.enumerated() {
             try Task.checkCancellation()
             let relative = String(file.rfilename.dropFirst(spec.prefix.count))

@@ -78,13 +78,13 @@ struct Wordmark: View {
                 .stroke(Palette.accent, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
                 .frame(width: 26, height: 20)
             if !compact {
-                Text("wavepod")
+                Text("Wavepod")
                     .font(.system(size: 21, weight: .semibold, design: .serif))
                     .foregroundStyle(Palette.ink)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("wavepod")
+        .accessibilityLabel("Wavepod")
     }
 }
 
@@ -204,7 +204,7 @@ struct SetupCard: View {
         if done < steps.count {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Set up wavepod").font(type.label).foregroundStyle(Palette.ink)
+                    Text("Set up Wavepod").font(type.label).foregroundStyle(Palette.ink)
                     Spacer()
                     Button { model.hideSetup = true } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
                         .buttonStyle(.plain).foregroundStyle(Palette.inkMuted)

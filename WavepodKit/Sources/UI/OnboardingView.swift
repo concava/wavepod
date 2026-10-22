@@ -22,7 +22,7 @@ struct OnboardingView: View {
                     .font(type.label)
                     .foregroundStyle(Palette.inkMuted)
                     .keyboardShortcut(.cancelAction)
-                    .help("Close the welcome. Help → Welcome to wavepod opens it again.")
+                    .help("Close the welcome. Help → Welcome to Wavepod opens it again.")
             }
             .padding(.horizontal, 28)
             .padding(.top, 22)
@@ -93,7 +93,7 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 16) {
                 Feature(symbol: "text.quote", title: "Transcripts with speakers",
-                        detail: "Paste a Spotify, Apple Podcasts, YouTube or RSS link, or drop an audio file. Name a voice once and wavepod recognises it in the next episode.")
+                        detail: "Paste a Spotify, Apple Podcasts, YouTube or RSS link, or drop an audio file. Name a voice once and Wavepod recognises it in the next episode.")
                 Feature(symbol: "text.append", title: "A summary of every episode",
                         detail: "Your answer model writes it when the transcription finishes. Ask questions, and every answer links to its moment in the episode.")
                 Feature(symbol: "lock", title: "Private by design",

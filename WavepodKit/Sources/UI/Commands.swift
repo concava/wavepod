@@ -9,7 +9,7 @@ public struct WavepodCommands: Commands {
 
     public var body: some Commands {
         CommandGroup(replacing: .help) {
-            Button("Welcome to wavepod") { model.showSettings = false; model.showOnboarding = true }
+            Button("Welcome to Wavepod") { model.showSettings = false; model.showOnboarding = true }
         }
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") { model.openSettings() }.keyboardShortcut(",")

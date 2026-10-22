@@ -96,7 +96,7 @@ final class ResolutionTests: XCTestCase {
     func testSpotifyExclusiveAndLowScore() {
         let metadata = SpotifyMetadata(title: "Paper Boats Rain", showTitle: "Invented Workshop", pubDate: Date(), duration: 13410)
         let exclusive = SpotifyResolver.match(metadata, candidates: [EpisodeCandidate(title: "Other Words", feedURL: feedURL)])
-        XCTAssertEqual(exclusive, .notFound(reason: "This episode seems to be Spotify-exclusive, so wavepod can't get its audio."))
+        XCTAssertEqual(exclusive, .notFound(reason: "This episode seems to be Spotify-exclusive, so Wavepod can't get its audio."))
         let candidate = EpisodeCandidate(title: "Paper Boats Rain", showTitle: "Other Show", feedURL: feedURL,
                                          pubDate: .distantPast, duration: 1)
         guard case .notFound = SpotifyResolver.match(metadata, candidates: [candidate]) else { return XCTFail("Expected low-score result") }

@@ -12,7 +12,7 @@ struct WavepodApp: App {
     }()
 
     var body: some Scene {
-        Window("wavepod", id: "main") {
+        Window("Wavepod", id: "main") {
             RootView(model: model)
                 .frame(minWidth: 1080, minHeight: 640)
                 .onOpenURL { url in
