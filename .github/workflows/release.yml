@@ -98,14 +98,15 @@ jobs:
           if [ -f "docs/releases/$VERSION.md" ]; then cp "docs/releases/$VERSION.md" "$notes"; else : > "$notes"; fi
           if [ "${NOTARIZED:-}" = true ]; then
             if [ -s "$notes" ]; then
-              gh release create "$TAG" "$DMG" --title "Wavepod $VERSION" --notes-file "$notes"
+              gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION" --notes-file "$notes"
             else
-              gh release create "$TAG" "$DMG" --title "Wavepod $VERSION" --generate-notes
+              gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION" --generate-notes
             fi
           else
             { echo "> Ad-hoc signed and not notarized: for testing only. macOS will refuse to open it until you allow it in System Settings → Privacy & Security."
               echo; cat "$notes"; } > "$notes.test"
-            gh release create "$TAG" "$DMG" --title "Wavepod $VERSION (test build)" --prerelease --notes-file "$notes.test"
+            gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION (test build)" --prerelease \
+              --notes-file "$notes.test"
           fi
 
       - name: Appcast

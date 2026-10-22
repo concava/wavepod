@@ -39,20 +39,18 @@ bottom.](docs/images/wavepod.png)
 
 ## Download and install
 
-The first public release is on its way. When it's out, it will be on the
-[Releases page](https://github.com/concava/wavepod/releases). Until then, [build Wavepod from source](#build-from-source).
+**[Download Wavepod for Mac](https://github.com/concava/wavepod/releases/latest/download/Wavepod.dmg)** (the latest
+release). Other versions are on the [Releases page](https://github.com/concava/wavepod/releases).
 
-To install a release:
-
-1. Download `Wavepod-<version>.dmg` from the [Releases page](https://github.com/concava/wavepod/releases).
+1. Download `Wavepod.dmg` from the link above.
 2. Open the `.dmg` and drag **Wavepod** to **Applications**.
 3. Open Wavepod from Applications.
 4. If macOS says it can't verify Wavepod, the release is a test build that Apple hasn't checked yet (a
-   pre-release). Open **System Settings › Privacy & Security**, scroll down and click **Open Anyway**. Do this once.
-   Releases that Apple has checked (notarized) open without this step.
+   pre-release). Click **Done**, open **System Settings › Privacy & Security**, scroll down and click
+   **Open Anyway**. Do this once. Releases that Apple has checked (notarized) open without this step.
 
 Signed releases update themselves: Wavepod checks for updates and offers to install them. You can also choose
-**Wavepod › Check for Updates…**.
+**Wavepod › Check for Updates…**. Test builds don't update themselves: download the new version and replace the app.
 
 ## Get started
 
