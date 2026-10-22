@@ -17,7 +17,7 @@ public struct NativeEngine: Engine, Diarizing {
     private func required(_ path: String) throws -> URL {
         let url = models.appendingPathComponent(path)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw EngineError.unavailable("Install the native models in Settings (missing \(path)).")
+            throw EngineError.unavailable("Install the transcription models in Settings → Transcription. Missing: \(path).")
         }
         return url
     }

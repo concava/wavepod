@@ -112,15 +112,15 @@ public enum ResolverError: Error, LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .unsupportedLink: "This page doesn't link to a podcast feed."
-        case .invalidFeed: "This feed couldn’t be read. Try another link from the show."
-        case .episodeNotFound: "This episode wasn’t found in the show’s feed."
-        case .appleEpisodeOutsideWindow: "This episode is outside Apple’s latest 200 results. Pick it from the show’s episode list."
+        case .invalidFeed: "wavepod couldn’t read this feed. Try another link from the podcast."
+        case .episodeNotFound: "This episode isn’t in the podcast’s feed."
+        case .appleEpisodeOutsideWindow: "This episode is outside Apple’s latest 200 results. Choose it from the podcast’s episode list."
         case .networkUnavailable: "The request couldn’t connect. Check your connection and try again."
         case .invalidResponse: "The service returned a response wavepod couldn’t read."
         case .httpStatus(let code): "The request couldn’t finish (HTTP \(code)). Try again later."
         case .extractorUnavailable: "Install yt-dlp to read this YouTube link."
         case .processFailed: "yt-dlp couldn’t read this video. Try again later."
-        case .checksumMismatch: "The yt-dlp download didn’t pass verification. Please try again."
+        case .checksumMismatch: "The yt-dlp download failed verification. Try again."
         }
     }
 }

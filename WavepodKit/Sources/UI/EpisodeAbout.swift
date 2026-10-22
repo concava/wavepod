@@ -17,7 +17,7 @@ struct EpisodeAbout: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(Palette.accentSoft, in: Capsule())
-                    .accessibilityLabel("Show: \(episode.showName)")
+                    .accessibilityLabel("Podcast: \(episode.showName)")
 
                 HStack(spacing: 14) {
                     Group {

@@ -95,7 +95,7 @@ struct ShowsSection: View {
             Image(systemName: "dot.radiowaves.left.and.right").font(.system(size: 22)).foregroundStyle(Palette.inkMuted)
                 .accessibilityHidden(true)
             Text("No podcasts yet").font(type.body.weight(.medium)).foregroundStyle(Palette.ink)
-            Text("Paste a podcast's link with ⌘K, then Follow it to see its newest episodes here.")
+            Text("Paste a podcast link with ⌘K. Then follow the podcast to see its newest episodes here.")
                 .font(type.callout).foregroundStyle(Palette.inkMuted)
         }
         .padding(28)
@@ -161,7 +161,7 @@ struct PodcastFeedCard: View {
                     .toggleStyle(.switch).controlSize(.mini).tint(Palette.accent)
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
                     .fixedSize()
-                    .help("Transcribe new episodes as soon as they come out")
+                    .help("Transcribe each new episode when the podcast publishes it")
                 Menu {
                     Toggle("Download for Offline Playback", isOn: Binding(get: { subscription.autoDownload },
                                                                           set: { model.updateSubscription(subscription, download: $0) }))

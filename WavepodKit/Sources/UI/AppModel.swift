@@ -228,7 +228,7 @@ public final class AppModel {
     public var isIndexing = false
     public var isGenerating = false
     public var isInstalling = false
-    public var modelStatus = "Models are downloaded once and run on this Mac."
+    public var modelStatus = "You download each model once. It runs on this Mac."
     public var networkEntries: [NetworkEntry] = []
     public var engineChoice = UserDefaults.standard.string(forKey: "engine") ?? "native"
     public var scriberrURL = UserDefaults.standard.string(forKey: "scriberrURL") ?? "http://localhost:8080"

@@ -40,7 +40,7 @@ enum ChatGPTOAuth {
             return (code, issued)
         }
     }
-    static func invalid() -> EngineError { .unavailable("ChatGPT sign-in could not be verified. Please try again.") }
+    static func invalid() -> EngineError { .unavailable("wavepod could not verify the ChatGPT sign-in. Try again.") }
     static func random() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
         precondition(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess)
@@ -124,6 +124,6 @@ struct ChatGPTKeychain: ChatGPTCredentialStore {
             add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             status = SecItemAdd(add as CFDictionary, nil)
         }
-        guard status == errSecSuccess else { throw EngineError.unavailable("The ChatGPT connection could not be saved in Keychain.") }
+        guard status == errSecSuccess else { throw EngineError.unavailable("wavepod could not save the ChatGPT connection in the Keychain.") }
     }
 }

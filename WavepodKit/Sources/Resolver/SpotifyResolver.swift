@@ -71,7 +71,7 @@ public struct SpotifyResolver: Sendable {
             return .notFound(reason: "This episode seems to be Spotify-exclusive, so wavepod can't get its audio.")
         }
         guard let best = ranked.first, best.confidence >= 0.6 else {
-            return .notFound(reason: "No close match was found in a public podcast feed.")
+            return .notFound(reason: "wavepod found no close match in a public podcast feed.")
         }
         if best.confidence >= 0.85 { return .matched(best.candidate, confidence: best.confidence) }
         return .needsConfirmation(Array(ranked.prefix(5)))

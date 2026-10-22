@@ -14,7 +14,7 @@ public enum APIKeyStore {
         add[kSecValueData as String] = Data(key.utf8)
         add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         guard SecItemAdd(add as CFDictionary, nil) == errSecSuccess else {
-            throw EngineError.unavailable("The Scriberr key could not be saved in Keychain.")
+            throw EngineError.unavailable("wavepod could not save the Scriberr key in the Keychain.")
         }
     }
     public static func get(host: String) -> String? {

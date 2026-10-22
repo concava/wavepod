@@ -211,7 +211,7 @@ public actor JobQueue {
                         }
                         break
                     } catch is CancellationError { throw CancellationError() }
-                    catch { logger.notice("Publisher transcript unavailable; trying next source") }
+                    catch { logger.notice("No publisher transcript. Trying the next source") }
                 }
             }
             if record == nil {

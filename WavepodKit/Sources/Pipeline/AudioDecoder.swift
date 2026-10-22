@@ -14,7 +14,7 @@ public enum AudioDecoder {
         guard let converter = AVAudioConverter(from: input.processingFormat, to: format),
               let incoming = AVAudioPCMBuffer(pcmFormat: input.processingFormat, frameCapacity: 65536),
               let outgoing = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 65536) else {
-            throw EngineError.unavailable("This audio format could not be decoded.")
+            throw EngineError.unavailable("wavepod cannot decode this audio format.")
         }
         var settings = format.settings
         settings[AVLinearPCMIsNonInterleaved] = false

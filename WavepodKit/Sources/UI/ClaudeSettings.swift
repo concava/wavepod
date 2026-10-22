@@ -11,12 +11,12 @@ extension AppModel {
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         if let path = ClaudePlan.executable(choosing: url) { claudeExecutable = path }
-        else { claudeStatus = "\(url.lastPathComponent) isn’t Claude Code. Install Claude Code, or open the Code tab in the Claude app once, then choose it again." }
+        else { claudeStatus = "\(url.lastPathComponent) isn’t Claude Code. Install Claude Code, or open the Code tab in the Claude app once. Then choose it again." }
     }
     func connectClaude(action: String) {
         guard let services, !isConnectingClaude else { return }
         isConnectingClaude = true
-        claudeStatus = action == "login" ? "Finish signing in with your Claude subscription in the browser…" : "Checking Claude…"
+        claudeStatus = action == "login" ? "Sign in with your Claude plan in the browser…" : "Checking Claude…"
         let executable = claudeExecutable
         claudeConnectionTask = Task {
             defer { isConnectingClaude = false; claudeConnectionTask = nil }
@@ -27,7 +27,7 @@ extension AppModel {
                     claudeStatus = "Disconnected from Claude."
                 } else {
                     let account = action == "login" ? try await services.claude.signIn(executable: executable) : try await services.claude.status(executable: executable)
-                    claudeStatus = "Claude plan connected: \(account). Model eligibility is checked when you ask."
+                    claudeStatus = "Claude plan connected: \(account). Claude checks model access when you ask."
                 }
             } catch is CancellationError { claudeStatus = "Claude connection cancelled." }
             catch { claudeStatus = error.localizedDescription }
@@ -74,7 +74,7 @@ struct ClaudeSettings: View {
                     .disabled(model.claudeExecutable.isEmpty)
                 }
             }
-            SettingRow(title: "Model", detail: "Sonnet is fast; Opus is the most capable.", last: true) {
+            SettingRow(title: "Model", detail: "Sonnet is fast. Opus is the most capable.", last: true) {
                 Picker("Claude model", selection: $model.claudeModel) {
                     Text("Sonnet").tag("sonnet")
                     Text("Opus").tag("opus")
@@ -84,7 +84,7 @@ struct ClaudeSettings: View {
                 .disabled(model.isConnectingClaude)
             }
         }
-        PlanFootnote(text: "Questions, recent conversation and transcript text go to Anthropic through Claude Code, which wavepod signs in separately; your other Claude sessions are unchanged. Audio is not sent. Plan limits apply.",
+        PlanFootnote(text: "When you ask a question or wavepod writes a summary, your question, recent conversation and transcript text go to Anthropic through Claude Code. wavepod signs in to Claude Code separately, so your other Claude sessions do not change. wavepod does not send audio. Your plan limits apply.",
                      link: ("Manage usage", URL(string: "https://claude.ai/settings/usage")!))
     }
 }

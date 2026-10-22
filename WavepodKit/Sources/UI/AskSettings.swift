@@ -23,7 +23,7 @@ extension AppModel {
             chatGPTModels = models
             let saved = UserDefaults.standard.string(forKey: "chatGPTModel.\(id)") ?? ""
             chatGPTModelID = models.contains(where: { $0.id == saved }) ? saved : models.first?.id ?? ""
-            chatGPTStatus = models.isEmpty ? "No eligible models were returned for this account." : "ChatGPT plan connected. Model access is verified when you ask a question."
+            chatGPTStatus = models.isEmpty ? "ChatGPT returned no eligible models for this account." : "ChatGPT plan connected. ChatGPT checks model access when you ask a question."
         } catch { if chatGPTProfileID == id { chatGPTStatus = error.localizedDescription } }
     }
     public func connectChatGPT(newAccount: Bool = false) {
@@ -36,13 +36,13 @@ extension AppModel {
             do {
                 let profile = try await services.chatGPT.signIn(reusing: id) { url in
                     let opened = await MainActor.run { NSWorkspace.shared.open(url) }
-                    guard opened else { throw EngineError.unavailable("The sign-in browser could not be opened.") }
+                    guard opened else { throw EngineError.unavailable("The browser did not open for sign-in.") }
                 }
                 chatGPTProfileID = profile.id
                 await refreshChatGPTProfiles()
                 let key = "chatGPTUsageNotice.\(profile.id)"
                 if !UserDefaults.standard.bool(forKey: key) { showChatGPTPlanNotice = true; UserDefaults.standard.set(true, forKey: key) }
-            } catch is CancellationError { chatGPTStatus = "Connection cancelled. Local inference is still available." }
+            } catch is CancellationError { chatGPTStatus = "Connection cancelled. You can still use the Ask model on this Mac." }
             catch { chatGPTStatus = error.localizedDescription }
         }
     }
@@ -68,7 +68,7 @@ struct AskSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             SettingsGroup(title: "Answer model") {
-                SettingRow(title: "Answers and summaries", detail: model.isAnswering ? "Applies from your next question; the current answer keeps its model."
+                SettingRow(title: "Answers and summaries", detail: model.isAnswering ? "Applies from your next question. The current answer keeps its model."
                            : "On this Mac is private and free. Your ChatGPT or Claude plan is faster and better on long episodes.", last: true) {
                     Picker("Answer model", selection: $model.askProvider) {
                         ForEach(AppModel.AskProvider.allCases) { Text($0.title).tag($0.rawValue) }
@@ -98,13 +98,13 @@ struct AskSettings: View {
         .alert("You’re using your ChatGPT plan", isPresented: $model.showChatGPTPlanNotice) {
             Button("Got it", role: .cancel) {}
         } message: {
-            Text("Eligible requests use your ChatGPT plan. You can manage app access and usage in ChatGPT Settings. Local inference remains available in wavepod.")
+            Text("Eligible requests use your ChatGPT plan. Manage app access and usage in ChatGPT Settings. You can still use the Ask model on this Mac.")
         }
     }
 
     private var localSettings: some View {
         SettingsGroup(title: "On this Mac") {
-            ModelRow(model: model, title: "Language model", detail: "About 2.3 GB, 3.6 GB of memory while answering. Every transcript section is read before answering, so long episodes take a while.",
+            ModelRow(model: model, title: "Ask model", detail: "About 2.3 GB. It uses 3.6 GB of memory while it answers. It reads every part of the transcript before it answers, so long episodes are slow.",
                      kind: "language", folder: "language", last: true)
         }
     }
@@ -150,7 +150,7 @@ struct AskSettings: View {
                 }
             }
         }
-        PlanFootnote(text: "Questions, recent conversation and transcript text go to OpenAI when you ask or a summary is written. Audio is not sent, and your ChatGPT conversations are not read. Plan limits apply.",
+        PlanFootnote(text: "When you ask a question or wavepod writes a summary, your question, recent conversation and transcript text go to OpenAI. wavepod does not send audio or read your ChatGPT conversations. Your plan limits apply.",
                      link: ("Manage usage", URL(string: "https://chatgpt.com/#settings/Usage")!))
     }
 }

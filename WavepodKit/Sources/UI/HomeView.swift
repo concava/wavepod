@@ -118,7 +118,7 @@ struct StartCard: View {
                 Text("Every episode, searchable and quotable")
                     .font(.system(size: 24, weight: .regular, design: .serif))
                     .foregroundStyle(.white)
-                Text("Transcribed on this Mac with speakers named. Ask questions and jump to the moment it was said.")
+                Text("wavepod transcribes on this Mac and names the speakers. Ask questions and go to the moment that answers them.")
                     .font(type.body)
                     .foregroundStyle(.white.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)

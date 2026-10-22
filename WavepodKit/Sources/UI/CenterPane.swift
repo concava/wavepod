@@ -224,7 +224,7 @@ struct SummaryView: View {
                         }
                         .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text("Written from the transcript. Every point links to where it is said.")
+                    Text("Every point links to the moment in the episode that supports it.")
                         .font(type.caption)
                         .foregroundStyle(Palette.inkMuted)
                 }
@@ -246,8 +246,8 @@ struct SummaryView: View {
                         Label("No summary yet", systemImage: "text.append")
                     } description: {
                         Text(model.canWriteSummary || !model.isPersistent
-                             ? "Summaries are written with your answer model when a transcription finishes."
-                             : "Install the Ask model, or choose your ChatGPT or Claude plan in Settings → Ask, to get a summary of every episode.")
+                             ? "Your answer model writes a summary when a transcription finishes."
+                             : "To get a summary of every episode, install the Ask model or choose your ChatGPT or Claude plan in Settings → Ask.")
                     } actions: {
                         if model.isPersistent && !model.canWriteSummary {
                             Button("Set Up Answers") { model.openSettings(.ask) }.buttonStyle(PrimaryButtonStyle())

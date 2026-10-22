@@ -277,7 +277,7 @@ extension AppModel {
                 }
                 let retained = try services.store.episode(id)?.audioURL
                 if episode.id == id { episodeAudioURL = retained }
-                show(retained == nil ? "Audio removed by this show's retention setting" : "Audio downloaded")
+                show(retained == nil ? "This podcast's retention setting removed the audio" : "Audio downloaded")
             } catch { show(error.localizedDescription) }
         }
     }
@@ -302,7 +302,7 @@ extension AppModel {
             let claims = try await EpisodeNotesService(store: services.store, generator: services.notes).generate(id)
             guard let record = try services.store.episode(id) else { return }
             if episode.id == id { install(record) }
-            if claims.isEmpty { show("Not found in this episode: no claims passed citation checking.") }
+            if claims.isEmpty { show("Not found in this episode. No claim passed the citation check.") }
         } catch { show(error.localizedDescription) }
     }
     public func translate(to target: AskLanguage) {
