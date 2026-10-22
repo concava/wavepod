@@ -14,8 +14,7 @@ public struct RootView: View {
 
     /// The player shows only after an episode is played. Before that it holds a blank placeholder with an empty id.
     private var showsPlayer: Bool { !(model.player.episode?.id.isEmpty ?? true) }
-    /// Settings and the welcome float over a dimmed window. SwiftUI cannot draw over the title bar, so the title
-    /// bar dims itself by the same amount.
+    /// Settings and the welcome float over a dimmed window. The title bar controls fade and stop taking clicks.
     private var isDimmed: Bool { model.showSettings || model.showOnboarding }
 
     public var body: some View {
@@ -45,9 +44,9 @@ public struct RootView: View {
             }
         }
         .background(Palette.paper.ignoresSafeArea())
-        // The title bar takes the paper colour too, so the window is one surface in both themes.
-        .toolbarBackground(isDimmed ? Palette.paper.mix(with: .black, by: 0.28) : Palette.paper, for: .windowToolbar)
-        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
+        // No system title bar background: the paper and the dimming layer reach under the title bar, so the window
+        // is one surface in both themes and the title bar dims exactly like the rest.
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
         .toolbar {
             ToolbarItem(placement: .navigation) {
