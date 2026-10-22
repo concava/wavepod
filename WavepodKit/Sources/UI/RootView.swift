@@ -92,7 +92,7 @@ public struct RootView: View {
                 .transition(.opacity)
             }
         }
-        .animation(model.showSettings ? Motion.enter : Motion.exit, value: model.showSettings)
+        .animation(motion(model.showSettings ? Motion.enter : Motion.exit, reduced: reduceMotion), value: model.showSettings)
         .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showOnboarding)
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {

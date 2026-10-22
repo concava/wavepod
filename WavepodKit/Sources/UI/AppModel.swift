@@ -168,7 +168,7 @@ public final class AppModel {
     var isAskProviderReady: Bool {
         switch AskProvider(rawValue: askProvider) ?? .local {
         case .local: true
-        case .chatgpt: chatGPTProfiles.contains { $0.id == chatGPTProfileID && $0.connected }
+        case .chatgpt: !chatGPTModelID.isEmpty && chatGPTProfiles.contains { $0.id == chatGPTProfileID && $0.connected }
         case .claude: !claudeExecutable.isEmpty
         }
     }

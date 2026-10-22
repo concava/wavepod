@@ -46,9 +46,13 @@ public actor ChatGPTPlan {
     private var signingIn = false
     public init(client: HTTPClient) { self.client = client; self.store = ChatGPTKeychain() }
     init(client: HTTPClient, store: any ChatGPTCredentialStore) { self.client = client; self.store = store }
+    /// Accounts read once per launch. Each Keychain read can show a password prompt, so later calls use this copy.
+    private var cached: [ChatGPTCredentials]?
     private func accounts() throws -> [ChatGPTCredentials] {
-        guard let data = try store.read() else { return [] }
-        return try JSONDecoder().decode([ChatGPTCredentials].self, from: data)
+        if let cached { return cached }
+        let all = try store.read().map { try JSONDecoder().decode([ChatGPTCredentials].self, from: $0) } ?? []
+        cached = all
+        return all
     }
     public func profiles() throws -> [ChatGPTProfile] {
         try accounts().map { .init(id: $0.client, label: "\($0.email) · \($0.client.suffix(6))", connected: $0.access != nil) }
@@ -58,6 +62,7 @@ public actor ChatGPTPlan {
         all.removeAll { $0.client == account.client }
         all.append(account)
         try store.write(JSONEncoder().encode(all))
+        cached = all
     }
     private func post(_ path: String, form: [String: String]) async throws -> Data {
         let url = URL(string: ChatGPTOAuth.issuer + path)!
