@@ -98,7 +98,7 @@ final class ChatGPTCallback: @unchecked Sendable {
                       items.first(where: { $0.name == "state" })?.value == self.state else { return nil }
                 return url
             }
-            let body = url == nil ? "Invalid callback." : "Return to wavepod to finish connecting. You can close this window."
+            let body = url == nil ? "Invalid callback." : "Return to Wavepod to finish connecting. You can close this window."
             let response = "HTTP/1.1 \(url == nil ? "400 Bad Request" : "200 OK")\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: \(body.utf8.count)\r\n\r\n\(body)"
             connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
                 connection.cancel()

@@ -22,7 +22,7 @@ struct OnboardingView: View {
                     .font(type.label)
                     .foregroundStyle(Palette.inkMuted)
                     .keyboardShortcut(.cancelAction)
-                    .help("Close the welcome. Help → Welcome to wavepod opens it again.")
+                    .help("Close the welcome. Help → Welcome to Wavepod opens it again.")
             }
             .padding(.horizontal, 28)
             .padding(.top, 22)
@@ -93,11 +93,11 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 16) {
                 Feature(symbol: "text.quote", title: "Transcripts with speakers",
-                        detail: "Paste a Spotify, Apple Podcasts, YouTube or RSS link, or drop an audio file. Name a voice once and wavepod recognises it in the next episode.")
+                        detail: "Paste a Spotify, Apple Podcasts, YouTube or RSS link, or drop an audio file. Name a voice once and Wavepod recognises it in the next episode.")
                 Feature(symbol: "text.append", title: "A summary of every episode",
-                        detail: "Written when the transcription finishes. Ask questions and every answer links to the moment it was said.")
+                        detail: "Your answer model writes it when the transcription finishes. Ask questions, and every answer links to its moment in the episode.")
                 Feature(symbol: "lock", title: "Private by design",
-                        detail: "Audio, transcripts and answers never leave this Mac. Settings lists every network request.")
+                        detail: "Audio and transcripts stay on this Mac. Answers stay too, unless you choose a ChatGPT or Claude plan. Settings lists every network request.")
             }
         }
     }
@@ -107,14 +107,14 @@ struct OnboardingView: View {
             Text("Download the models once")
                 .font(type.display)
                 .foregroundStyle(Palette.ink)
-            Text("They run on this Mac, so they download one time. Transcription works without the Ask model; add it now or later in Settings.")
+            Text("The models run on this Mac, so you download them once. Transcription works without the Ask model. Add it now or later in Settings.")
                 .font(type.body)
                 .foregroundStyle(Palette.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 0) {
                 ModelRow(model: model, title: "Transcription and speakers", detail: "Needed to transcribe. Recognises who speaks.",
                          kind: "native", folder: "parakeet")
-                ModelRow(model: model, title: "Ask and summaries", detail: "About 2.3 GB. Writes summaries and answers questions.",
+                ModelRow(model: model, title: "Ask model", detail: "About 2.3 GB. Writes summaries and answers questions on this Mac.",
                          kind: "language", folder: "language", last: true)
             }
             .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

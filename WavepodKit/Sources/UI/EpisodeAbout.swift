@@ -17,7 +17,7 @@ struct EpisodeAbout: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(Palette.accentSoft, in: Capsule())
-                    .accessibilityLabel("Show: \(episode.showName)")
+                    .accessibilityLabel("Podcast: \(episode.showName)")
 
                 HStack(spacing: 14) {
                     Group {
@@ -36,15 +36,16 @@ struct EpisodeAbout: View {
                 }
 
                 Text(SafeHTML.render(episode.descriptionHTML))
-                    .font(type.callout)
+                    .font(type.reading)
                     .foregroundStyle(Palette.ink)
-                    .lineSpacing(3)
+                    .lineSpacing(5)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel("Episode description")
                     .accessibilityValue(String(SafeHTML.render(episode.descriptionHTML).characters))
             }
-            .padding(16)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .contain)

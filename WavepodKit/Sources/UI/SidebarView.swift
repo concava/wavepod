@@ -3,6 +3,8 @@ import SwiftUI
 /// The sidebar: wordmark, sections, recent episodes and the setup checklist. Collapses to an icon rail.
 struct SidebarView: View {
     @Bindable var model: AppModel
+    /// The player bar's height while it shows. Settings then sits on the player's centre line.
+    var footerHeight: CGFloat? = nil
     @Environment(\.typography) private var type
 
     private var collapsed: Bool { model.sidebarCollapsed }
@@ -51,17 +53,15 @@ struct SidebarView: View {
                     .padding(.bottom, 12)
             }
 
-            Divider().overlay(Palette.rule).padding(.bottom, 8)
+            // Next to the player bar the row lines up with the player instead, so no divider.
+            if footerHeight == nil { Divider().overlay(Palette.rule).padding(.bottom, 8) }
             NavRow(title: "Settings", symbol: "gearshape", collapsed: collapsed, isSelected: false, badge: activeJobs) {
                 model.openSettings(activeJobs == nil ? nil : .queue)
             }
-            NavRow(title: "On this Mac only", symbol: "lock", collapsed: collapsed, isSelected: false, muted: true) {
-                model.openSettings(.privacy)
-            }
-            .help("Transcription, search and answers run on this Mac. The network log lists every request.")
+            .frame(height: footerHeight, alignment: .center)
         }
         .padding(.horizontal, collapsed ? 8 : 12)
-        .padding(.bottom, 12)
+        .padding(.bottom, footerHeight == nil ? 12 : 8)
         .frame(width: collapsed ? 60 : 236)
         .frame(maxHeight: .infinity, alignment: .top)
     }
@@ -82,13 +82,13 @@ struct Wordmark: View {
                 .stroke(Palette.accent, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
                 .frame(width: 26, height: 20)
             if !compact {
-                Text("wavepod")
+                Text("Wavepod")
                     .font(.system(size: 21, weight: .semibold, design: .serif))
                     .foregroundStyle(Palette.ink)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("wavepod")
+        .accessibilityLabel("Wavepod")
     }
 }
 
@@ -182,7 +182,7 @@ struct SetupCard: View {
     var steps: [Step] {
         [
             Step(id: "models", title: "Install transcription models", done: model.installedModels.contains("parakeet")) {
-                model.openSettings(.models)
+                model.openSettings(.transcription)
             },
             Step(id: "episode", title: "Transcribe a first episode", done: !model.savedEpisodes.isEmpty) {
                 model.focusRequest = .command
@@ -196,8 +196,8 @@ struct SetupCard: View {
             Step(id: "show", title: "Follow a podcast", done: !model.subscriptions.isEmpty) {
                 model.section = .shows
             },
-            Step(id: "ask", title: "Install the Ask model", done: model.installedModels.contains("language")) {
-                model.openSettings(.models)
+            Step(id: "ask", title: "Set up answers", done: model.canWriteSummary) {
+                model.openSettings(.ask)
             },
         ]
     }
@@ -208,7 +208,7 @@ struct SetupCard: View {
         if done < steps.count {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Set up wavepod").font(type.label).foregroundStyle(Palette.ink)
+                    Text("Set up Wavepod").font(type.label).foregroundStyle(Palette.ink)
                     Spacer()
                     Button { model.hideSetup = true } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
                         .buttonStyle(.plain).foregroundStyle(Palette.inkMuted)

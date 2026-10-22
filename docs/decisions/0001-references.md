@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-18
-- Context: wavepod ships under Apache-2.0 (see [0006](0006-license-and-brand.md)). Every reference was read at
+- Context: Wavepod ships under Apache-2.0 (see [0006](0006-license-and-brand.md)). Every reference was read at
   the commit listed below. Licenses were confirmed from each repository's LICENSE file, not the README.
 
 | Project | Commit read | License (from LICENSE) | How we use it |
@@ -75,7 +75,7 @@ What we do not take: multi-user auth, the web UI, the Docker/CUDA packaging, Pyt
 
 ## kaixxx/noScribe (GPL-3.0) — ideas only
 
-wavepod is Apache-2.0, so no noScribe code may enter this repository. These notes describe behaviour. Our
+Wavepod is Apache-2.0, so no noScribe code may enter this repository. These notes describe behaviour. Our
 implementation is written from the descriptions below, not from the source.
 
 Ideas we take:

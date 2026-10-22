@@ -162,7 +162,7 @@ private final class XPCCall: @unchecked Sendable {
             lock.unlock()
             connection.remoteObjectInterface = NSXPCInterface(with: EngineServiceProtocol.self)
             connection.interruptionHandler = { [weak self] in self?.finish(.failure(EngineError.unavailable("The engine helper stopped. Resume the job to retry this stage."))) }
-            connection.invalidationHandler = { [weak self] in self?.finish(.failure(EngineError.unavailable("The engine helper is unavailable. Open the built wavepod app to use native transcription."))) }
+            connection.invalidationHandler = { [weak self] in self?.finish(.failure(EngineError.unavailable("The engine helper is unavailable. Open the built Wavepod app to use native transcription."))) }
             connection.resume()
             let proxy = connection.remoteObjectProxyWithErrorHandler { [weak self] error in
                 self?.finish(.failure(EngineError.remoteFailure(error.localizedDescription)))

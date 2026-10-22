@@ -21,7 +21,7 @@ struct SettingsView: View {
                     }
                 }
                 Spacer()
-                Text("wavepod \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
+                Text("Wavepod \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
                     .font(type.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .padding(.horizontal, 10)
@@ -56,13 +56,11 @@ struct SettingsView: View {
         case .transcription: transcription
         case .ask: AskSettings(model: model)
         case .queue: queue
-        case .models: models
-        case .shows: shows
         case .privacy: privacy
         }
     }
 
-    private var general: some View {
+    @ViewBuilder private var general: some View {
         SettingsGroup(title: "Appearance") {
             SettingRow(title: "Theme", detail: "Follow the system, or always use light or dark.") {
                 Picker("Theme", selection: $model.appearance) {
@@ -72,11 +70,38 @@ struct SettingsView: View {
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
-            SettingRow(title: "Text size", detail: "Scales every text in the window. Also ⌘+ and ⌘−.", last: true) {
+            SettingRow(title: "Text size", detail: "Changes the size of all text in the window. You can also use ⌘+ and ⌘−.") {
                 Picker("Text size", selection: $model.textScale) {
                     ForEach(Typography.scales, id: \.self) { Text("\(Int($0 * 100)) %").tag($0) }
                 }
                 .labelsHidden().fixedSize()
+            }
+            SettingRow(title: "Reading font", detail: "The font of the transcript, answers, summary and About text.") {
+                Picker("Reading font", selection: $model.readingFont) {
+                    ForEach(ReadingFont.allCases) { Text($0.title).tag($0) }
+                }
+                .labelsHidden().fixedSize()
+            }
+            SettingRow(title: "Reading size", detail: "The size of the transcript, answers, summary and About text.") {
+                Picker("Reading size", selection: $model.readingSize) {
+                    ForEach(Typography.readingSizes, id: \.self) { Text("\($0.formatted()) pt").tag($0) }
+                }
+                .labelsHidden().fixedSize()
+            }
+            Text("The quick brown fox jumps over the lazy dog.")
+                .font(type.reading)
+                .foregroundStyle(Palette.ink)
+                .lineSpacing(5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 18).padding(.vertical, 14)
+                .accessibilityHidden(true)
+        }
+        SettingsGroup(title: "Podcasts") {
+            SettingRow(title: "Check podcasts in the background",
+                       detail: "Checks every hour, also when Wavepod is closed. Wavepod transcribes new episodes only for podcasts where you turn on Auto-transcribe.",
+                       last: true) {
+                Toggle("Check podcasts in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
+                    .labelsHidden().toggleStyle(.switch)
             }
         }
     }
@@ -84,7 +109,7 @@ struct SettingsView: View {
     private var transcription: some View {
         SettingsGroup(title: "Engine") {
             SettingRow(title: "Where audio is transcribed",
-                       detail: "On this Mac, audio never leaves it. A Scriberr server you run yourself receives the audio.",
+                       detail: "With On this Mac, the audio stays on this Mac. With your own Scriberr server, the audio goes to that server.",
                        last: model.engineChoice != "scriberr") {
                 Picker("Engine", selection: $model.engineChoice) {
                     Text("On this Mac").tag("native")
@@ -93,17 +118,20 @@ struct SettingsView: View {
                 .labelsHidden().fixedSize()
             }
             if model.engineChoice == "scriberr" {
-                SettingRow(title: "Server", detail: "The API key is saved in the Keychain.", last: true) {
+                SettingRow(title: "Server", detail: "Wavepod saves the API key in the Keychain.", last: true) {
                     VStack(alignment: .trailing) {
                         TextField("Server URL", text: $model.scriberrURL).frame(width: 260)
                         SecureField("API key", text: $model.scriberrKey).frame(width: 260)
                     }
                 }
+            } else {
+                ModelRow(model: model, title: "Transcription and speakers", detail: "Parakeet, Whisper for Catalan and other languages, voice activity and speaker detection.",
+                         kind: "native", folder: "parakeet", last: true)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 14) {
             HStack {
-                Label("On battery, transcription pauses below 20 % and in Low Power Mode, and resumes from saved checkpoints.", systemImage: "battery.75percent")
+                Label("On battery power, transcription pauses below 20 % and in Low Power Mode. It continues from the last checkpoint.", systemImage: "battery.75percent")
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
                 Spacer()
                 Button("Save Engine", action: model.saveEngine).buttonStyle(PrimaryButtonStyle())
@@ -114,12 +142,12 @@ struct SettingsView: View {
     private var queue: some View {
         VStack(alignment: .leading, spacing: 14) {
             if model.isPowerPaused && !model.jobs.contains(where: { $0.state == .running }) {
-                Label("Paused: battery below 20 % or Low Power Mode. Jobs resume when the Mac is plugged in.", systemImage: "battery.50percent")
+                Label("Paused: battery below 20 % or Low Power Mode. Jobs continue when you connect the Mac to power.", systemImage: "battery.50percent")
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
             }
             SettingsGroup(title: "Transcriptions") {
                 if model.jobs.isEmpty {
-                    Text("Nothing is being transcribed. Paste a podcast link or open an audio file.")
+                    Text("The queue is empty. Paste a podcast link or open an audio file.")
                         .font(type.callout).foregroundStyle(Palette.inkMuted).padding(18)
                 }
                 ForEach(model.jobs) { job in
@@ -133,40 +161,9 @@ struct SettingsView: View {
         }
     }
 
-    private var models: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SettingsGroup(title: "Models on this Mac") {
-                ModelRow(model: model, title: "Transcription and speakers", detail: "Parakeet, Whisper for Catalan and other languages, voice activity and speaker detection.",
-                         kind: "native", folder: "parakeet")
-                ModelRow(model: model, title: "Ask, summaries and chapters", detail: "A 4-billion-parameter language model, about 2.3 GB. Uses about 3.6 GB of memory while answering.",
-                         kind: "language", folder: "language")
-                ModelRow(model: model, title: "Search by meaning", detail: "Finds passages that say the same thing in other words or languages.",
-                         kind: "embeddings", folder: "embeddings", last: true)
-            }
-            HStack {
-                Text(model.modelStatus).font(type.callout).foregroundStyle(Palette.inkMuted).textSelection(.enabled)
-                Spacer()
-                Button(model.isIndexing ? "Indexing…" : "Rebuild Search Index", action: model.indexLibrary)
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(model.isIndexing)
-            }
-        }
-    }
-
-    private var shows: some View {
-        SettingsGroup(title: "Followed podcasts") {
-            SettingRow(title: "Check podcasts in the background",
-                       detail: "Checks hourly, also while wavepod is closed. New episodes are transcribed only for podcasts where you turn it on.",
-                       last: true) {
-                Toggle("Check podcasts in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
-                    .labelsHidden().toggleStyle(.switch)
-            }
-        }
-    }
-
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Audio, transcripts and answers stay on this Mac unless you choose your own Scriberr server. These are the requests wavepod made: model downloads, feeds and link lookups.")
+            Text("Audio and transcripts stay on this Mac unless you choose your own Scriberr server. Answers stay on this Mac unless you choose a ChatGPT or Claude plan. This list shows every request that Wavepod made: model downloads, feeds, artwork, link lookups and answers.")
                 .font(type.body).foregroundStyle(Palette.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
             SettingsGroup(title: "Network log") {
@@ -301,7 +298,7 @@ struct QueueRow: View {
                 if job.state == .running || job.state == .queued || job.state == .paused {
                     ProgressView(value: job.fraction).tint(Palette.accent)
                 }
-                Text(job.batteryPaused ? "Paused to save battery. Resumes when the Mac is plugged in." : job.stage)
+                Text(job.batteryPaused ? "Paused to save battery. Continues when you connect the Mac to power." : job.stage)
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
                 if let error = job.error {
                     Text(error).font(type.callout).foregroundStyle(.red).textSelection(.enabled)

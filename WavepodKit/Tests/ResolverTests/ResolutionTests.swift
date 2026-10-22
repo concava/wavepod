@@ -96,7 +96,7 @@ final class ResolutionTests: XCTestCase {
     func testSpotifyExclusiveAndLowScore() {
         let metadata = SpotifyMetadata(title: "Paper Boats Rain", showTitle: "Invented Workshop", pubDate: Date(), duration: 13410)
         let exclusive = SpotifyResolver.match(metadata, candidates: [EpisodeCandidate(title: "Other Words", feedURL: feedURL)])
-        XCTAssertEqual(exclusive, .notFound(reason: "This episode seems to be Spotify-exclusive, so wavepod can't get its audio."))
+        XCTAssertEqual(exclusive, .notFound(reason: "This episode seems to be Spotify-exclusive, so Wavepod can't get its audio."))
         let candidate = EpisodeCandidate(title: "Paper Boats Rain", showTitle: "Other Show", feedURL: feedURL,
                                          pubDate: .distantPast, duration: 1)
         guard case .notFound = SpotifyResolver.match(metadata, candidates: [candidate]) else { return XCTFail("Expected low-score result") }
@@ -119,13 +119,11 @@ final class ResolutionTests: XCTestCase {
     func testUnknownSniffDirectFilesAndPublishedContent() async throws {
         let mystery = url("https://example.org/mystery")
         let resolver = Resolver(fetcher: FixtureFetcher(files: [mystery: "podcasting.xml",
-             url("https://example.org/transcript.json"): "transcript.json", url("https://example.org/chapters.json"): "chapters.json"]))
+             url("https://example.org/transcript.json"): "transcript.json"]))
         guard case .show(let show) = try await resolver.resolve(mystery.absoluteString) else { return XCTFail("Expected sniffed feed") }
         XCTAssertEqual(show.feedURL, mystery)
         let transcript = try await resolver.transcript(show.episodes[0].transcripts[0])
         XCTAssertTrue(transcript.hasTimings)
-        let chapters = try await resolver.chapters(show.episodes[0].chaptersURL!)
-        XCTAssertEqual(chapters.count, 2)
         guard case .episode(let file) = try await resolver.resolve("https://example.org/local.mp3") else { return XCTFail("Expected file") }
         XCTAssertEqual(file.source, .file)
         XCTAssertNil(file.feedURL)

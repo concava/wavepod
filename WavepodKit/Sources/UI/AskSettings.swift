@@ -23,7 +23,7 @@ extension AppModel {
             chatGPTModels = models
             let saved = UserDefaults.standard.string(forKey: "chatGPTModel.\(id)") ?? ""
             chatGPTModelID = models.contains(where: { $0.id == saved }) ? saved : models.first?.id ?? ""
-            chatGPTStatus = models.isEmpty ? "No eligible models were returned for this account." : "ChatGPT plan connected. Model access is verified when you ask a question."
+            chatGPTStatus = models.isEmpty ? "ChatGPT returned no eligible models for this account." : "ChatGPT plan connected. ChatGPT checks model access when you ask a question."
         } catch { if chatGPTProfileID == id { chatGPTStatus = error.localizedDescription } }
     }
     public func connectChatGPT(newAccount: Bool = false) {
@@ -36,13 +36,13 @@ extension AppModel {
             do {
                 let profile = try await services.chatGPT.signIn(reusing: id) { url in
                     let opened = await MainActor.run { NSWorkspace.shared.open(url) }
-                    guard opened else { throw EngineError.unavailable("The sign-in browser could not be opened.") }
+                    guard opened else { throw EngineError.unavailable("The browser did not open for sign-in.") }
                 }
                 chatGPTProfileID = profile.id
                 await refreshChatGPTProfiles()
                 let key = "chatGPTUsageNotice.\(profile.id)"
                 if !UserDefaults.standard.bool(forKey: key) { showChatGPTPlanNotice = true; UserDefaults.standard.set(true, forKey: key) }
-            } catch is CancellationError { chatGPTStatus = "Connection cancelled. Local inference is still available." }
+            } catch is CancellationError { chatGPTStatus = "Connection cancelled. You can still use the Ask model on this Mac." }
             catch { chatGPTStatus = error.localizedDescription }
         }
     }
@@ -64,59 +64,133 @@ extension AppModel {
 struct AskSettings: View {
     @Bindable var model: AppModel
     @Environment(\.typography) private var type
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 22) {
             SettingsGroup(title: "Answer model") {
-                SettingRow(title: "Run answers", detail: "Local is the default. Choose an eligible ChatGPT or Claude plan for cloud answers.", last: true) {
+                SettingRow(title: "Answers and summaries", detail: model.isAnswering ? "Applies from your next question. The current answer keeps its model."
+                           : "On this Mac is private and free. Your ChatGPT or Claude plan is faster and better on long episodes.", last: true) {
                     Picker("Answer model", selection: $model.askProvider) {
-                        Text("On this Mac").tag("local")
-                        Text("My ChatGPT plan").tag("chatgpt")
-                        Text("My Claude plan").tag("claude")
+                        ForEach(AppModel.AskProvider.allCases) { Text($0.title).tag($0.rawValue) }
                     }.labelsHidden().fixedSize()
                 }
             }
-            if model.askProvider == "chatgpt" {
-                Text("Questions, recent conversation and transcript text are sent to OpenAI when you ask. Audio is not sent. ChatGPT plan limits apply. This connection does not read your existing ChatGPT conversations.")
-                    .font(type.callout).foregroundStyle(Palette.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-                if !model.chatGPTProfiles.isEmpty {
-                    Picker("ChatGPT account", selection: $model.chatGPTProfileID) {
-                        ForEach(model.chatGPTProfiles) { profile in Text(profile.label + (profile.connected ? "" : " (disconnected)")).tag(profile.id) }
-                    }.onChange(of: model.chatGPTProfileID) { _, _ in Task { await model.loadChatGPTModels() } }
+            // Only the connection controls wait for a running answer; the choice of model never does.
+            Group {
+                switch AppModel.AskProvider(rawValue: model.askProvider) ?? .local {
+                case .local: localSettings
+                case .chatgpt: chatGPTSettings
+                case .claude: ClaudeSettings(model: model)
                 }
-                HStack {
-                    Button("Continue with ChatGPT") { model.connectChatGPT() }.buttonStyle(PrimaryButtonStyle())
-                    Button("Add another account") { model.connectChatGPT(newAccount: true) }
-                    if model.chatGPTProfiles.contains(where: { $0.id == model.chatGPTProfileID && $0.connected }) {
-                        Button("Disconnect", action: model.disconnectChatGPT)
-                    }
-                }.disabled(model.isConnectingChatGPT)
-                if model.isConnectingChatGPT {
-                    HStack { ProgressView().controlSize(.small); Button("Cancel") { model.chatGPTConnectionTask?.cancel() } }
+            }
+            .disabled(model.isAnswering)
+            SettingsGroup(title: "Search") {
+                ModelRow(model: model, title: "Search by meaning", detail: "Finds passages that say the same thing in other words or languages.",
+                         kind: "embeddings", folder: "embeddings")
+                SettingRow(title: "Search index", detail: model.isIndexing ? model.modelStatus : "Rebuild if search misses episodes you know are there.", last: true) {
+                    Button(model.isIndexing ? "Indexing…" : "Rebuild", action: model.indexLibrary)
+                        .buttonStyle(SecondaryButtonStyle())
+                        .disabled(model.isIndexing)
                 }
-                if !model.chatGPTModels.isEmpty {
-                    Picker("ChatGPT model", selection: $model.chatGPTModelID) {
-                        ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
-                    }
-                }
-                Text(model.chatGPTStatus).font(type.callout).foregroundStyle(Palette.inkMuted).textSelection(.enabled)
-                HStack {
-                    Button("Refresh models") { Task { await model.loadChatGPTModels() } }
-                    Link("Manage usage", destination: URL(string: "https://chatgpt.com/#settings/Usage")!)
-                }
-            } else if model.askProvider == "claude" {
-                ClaudeSettings(model: model)
-            } else {
-                Text("Uses the language model installed in Models. Every transcript section is read before producing an answer; long episodes take longer on the local model.")
-                    .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
             }
         }
-        .disabled(model.isAnswering)
         .task { await model.refreshChatGPTProfiles() }
         .alert("You’re using your ChatGPT plan", isPresented: $model.showChatGPTPlanNotice) {
             Button("Got it", role: .cancel) {}
         } message: {
-            Text("Eligible requests use your ChatGPT plan. You can manage app access and usage in ChatGPT Settings. Local inference remains available in wavepod.")
+            Text("Eligible requests use your ChatGPT plan. Manage app access and usage in ChatGPT Settings. You can still use the Ask model on this Mac.")
         }
+    }
+
+    private var localSettings: some View {
+        SettingsGroup(title: "On this Mac") {
+            ModelRow(model: model, title: "Ask model", detail: "About 2.3 GB. It uses 3.6 GB of memory while it answers. It reads every part of the transcript before it answers, so long episodes are slow.",
+                     kind: "language", folder: "language", last: true)
+        }
+    }
+
+    /// Effort levels the chosen ChatGPT model lists in its catalog entry.
+    private var chatGPTEfforts: [String] {
+        model.chatGPTModels.first { $0.id == model.chatGPTModelID }?.efforts ?? []
+    }
+
+    private var isChatGPTConnected: Bool {
+        model.chatGPTProfiles.contains { $0.id == model.chatGPTProfileID && $0.connected }
+    }
+
+    @ViewBuilder private var chatGPTSettings: some View {
+        SettingsGroup(title: "ChatGPT") {
+            SettingRow(title: "Account", detail: model.chatGPTStatus) {
+                if model.isConnectingChatGPT {
+                    HStack { ProgressView().controlSize(.small); Button("Cancel") { model.chatGPTConnectionTask?.cancel() } }
+                } else {
+                    HStack(spacing: 8) {
+                        if model.chatGPTProfiles.count > 1 {
+                            Picker("ChatGPT account", selection: $model.chatGPTProfileID) {
+                                ForEach(model.chatGPTProfiles) { profile in Text(profile.label + (profile.connected ? "" : " (disconnected)")).tag(profile.id) }
+                            }
+                            .labelsHidden().fixedSize()
+                            .onChange(of: model.chatGPTProfileID) { _, _ in Task { await model.loadChatGPTModels() } }
+                        }
+                        if !isChatGPTConnected {
+                            Button("Continue with ChatGPT") { model.connectChatGPT() }.buttonStyle(PrimaryButtonStyle())
+                        }
+                        Menu {
+                            Button("Add Another Account") { model.connectChatGPT(newAccount: true) }
+                            Button("Refresh Models") { Task { await model.loadChatGPTModels() } }
+                            if isChatGPTConnected { Divider(); Button("Disconnect", role: .destructive, action: model.disconnectChatGPT) }
+                        } label: { Image(systemName: "ellipsis") }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .accessibilityLabel("More account actions")
+                    }
+                }
+            }
+            SettingRow(title: "Model", detail: "Models your plan includes.", last: chatGPTEfforts.isEmpty) {
+                if model.chatGPTModels.isEmpty {
+                    Text("Connect first").font(type.callout).foregroundStyle(Palette.inkMuted)
+                } else {
+                    Picker("ChatGPT model", selection: $model.chatGPTModelID) {
+                        ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
+                    }.labelsHidden().fixedSize()
+                }
+            }
+            if !chatGPTEfforts.isEmpty {
+                SettingRow(title: "Effort", detail: EffortPicker.detail, last: true) {
+                    EffortPicker(selection: $model.chatGPTEffort, efforts: chatGPTEfforts)
+                }
+            }
+        }
+        PlanFootnote(text: "When you ask a question or Wavepod writes a summary, your question, recent conversation and transcript text go to OpenAI. Wavepod does not send audio or read your ChatGPT conversations. Your plan limits apply.",
+                     link: ("Manage usage", URL(string: "https://chatgpt.com/#settings/Usage")!))
+    }
+}
+
+/// The privacy note and usage link under a plan's settings.
+struct PlanFootnote: View {
+    let text: String
+    let link: (title: String, url: URL)
+    @Environment(\.typography) private var type
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(text).font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
+            Link(link.title, destination: link.url).font(type.callout)
+        }
+        .padding(.top, -8)
+    }
+}
+
+/// Reasoning effort for a plan's model: its default, or one of the levels the model accepts.
+struct EffortPicker: View {
+    @Binding var selection: String
+    let efforts: [String]
+    static let detail = "Higher effort gives better answers on hard questions. It takes longer and uses more of your plan."
+
+    var body: some View {
+        Picker("Effort", selection: $selection) {
+            Text("Default").tag("")
+            ForEach(efforts, id: \.self) { Text(AppModel.effortTitle($0)).tag($0) }
+        }
+        .labelsHidden().fixedSize()
     }
 }

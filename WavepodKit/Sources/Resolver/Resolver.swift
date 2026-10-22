@@ -54,10 +54,6 @@ public struct Resolver: Sendable {
         try PublishedContentParser.transcript(await fetcher.data(link.url), type: link.type)
     }
 
-    public func chapters(_ url: URL) async throws -> [ImportedChapter] {
-        try PublishedContentParser.chapters(await fetcher.data(url))
-    }
-
     private func websiteOrFeed(_ url: URL) async throws -> RSSFeed {
         let (data, response) = try await fetcher.get(url, headers: [:])
         guard (200..<300).contains(response.statusCode) else { throw ResolverError.httpStatus(response.statusCode) }

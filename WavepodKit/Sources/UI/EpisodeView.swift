@@ -1,32 +1,99 @@
 import Library
 import SwiftUI
 
-/// One episode as a row of cards: the podcast and its episodes, the summary with an Ask field, and a card on the
-/// right that shows the transcript, answers, chapters or details, or closes to leave two cards.
+/// One episode as two cards: the episode (its podcast, the Ask field, answers and summary) and a card on the right
+/// with the transcript or the episode's details, which closes to leave the episode alone.
 struct Workspace: View {
     @Bindable var model: AppModel
     var focus: FocusState<AppModel.FocusTarget?>.Binding
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @AppStorage("detailWidth") private var detailWidth = Workspace.defaultDetailWidth
+    static let defaultDetailWidth = 460.0
+    static let minSummary = 420.0, minDetail = 340.0
 
     var body: some View {
-        HStack(spacing: 8) {
-            PodcastCard(model: model)
-                .frame(width: 250)
-                .elevated(cornerRadius: 14)
-            SummaryCard(model: model, focus: focus)
-                .frame(minWidth: 380, maxWidth: .infinity)
-                .elevated(cornerRadius: 14)
-            if model.showSidePane {
-                DetailCard(model: model, focus: focus)
-                    .frame(minWidth: 340, idealWidth: 420, maxWidth: 520)
+        GeometryReader { proxy in
+            let maxDetail = max(Workspace.minDetail, proxy.size.width - Workspace.minSummary - CardDivider.width)
+            HStack(spacing: 0) {
+                SummaryCard(model: model, focus: focus)
+                    .frame(minWidth: Workspace.minSummary, maxWidth: .infinity)
                     .elevated(cornerRadius: 14)
+                if model.showSidePane {
+                    CardDivider(width: $detailWidth, range: Workspace.minDetail...maxDetail, reset: Workspace.defaultDetailWidth)
+                        .transition(.opacity)
+                    DetailCard(model: model, focus: focus)
+                        .frame(width: min(max(detailWidth, Workspace.minDetail), maxDetail))
+                        .elevated(cornerRadius: 14)
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+                }
             }
         }
+        .animation(reduceMotion ? Motion.fade : Motion.standard, value: model.showSidePane)
     }
 }
 
-// MARK: - Left: the podcast
+/// The gap between the two cards. Drag it to resize the side card, double-click it to go back to the default width.
+/// A grip shows on hover and grows while you drag. The cards follow the pointer with no animation.
+struct CardDivider: View {
+    static let width = 8.0
+    @Binding var width: Double
+    let range: ClosedRange<Double>
+    let reset: Double
+    @State private var hovering = false
+    @State private var start: Double?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-struct PodcastCard: View {
+    private var dragging: Bool { start != nil }
+
+    var body: some View {
+        ZStack {
+            Color.clear
+            Capsule()
+                .fill(dragging ? Palette.accent : Palette.inkMuted.opacity(0.5))
+                .frame(width: dragging ? 4 : 3, height: dragging ? 56 : 36)
+                .opacity(hovering || dragging ? 1 : 0)
+                .scaleEffect(reduceMotion || hovering || dragging ? 1 : 0.6)
+        }
+        .frame(width: CardDivider.width)
+        .frame(maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            hovering = inside
+            if inside { if !dragging { NSCursor.resizeLeftRight.push() } } else if !dragging { NSCursor.pop() }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { value in
+                    if start == nil { start = width }
+                    width = min(max((start ?? width) - value.translation.width, range.lowerBound), range.upperBound)
+                }
+                .onEnded { _ in
+                    start = nil
+                    if !hovering { NSCursor.pop() }
+                }
+        )
+        .onTapGesture(count: 2) {
+            withAnimation(motion(Motion.standard, reduced: reduceMotion)) { width = min(max(reset, range.lowerBound), range.upperBound) }
+        }
+        .animation(motion(Motion.fade, reduced: reduceMotion), value: hovering)
+        .animation(motion(Motion.fade, reduced: reduceMotion), value: dragging)
+        .accessibilityElement()
+        .accessibilityLabel("Side card width")
+        .accessibilityValue("\(Int(width)) points")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: width = min(width + 40, range.upperBound)
+            case .decrement: width = max(width - 40, range.lowerBound)
+            @unknown default: break
+            }
+        }
+        .help("Drag to resize. Double-click to reset.")
+    }
+}
+
+/// The podcast's name, opening a menu of its other episodes in the library and its page.
+struct PodcastMenu: View {
     let model: AppModel
     @Environment(\.typography) private var type
 
@@ -39,62 +106,33 @@ struct PodcastCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                ArtworkView(hue: model.episode.artworkHue, cornerRadius: 10)
-                    .frame(width: 64, height: 64)
-                Text(model.episode.showName)
-                    .font(type.episodeTitle)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(2)
-                    .accessibilityAddTraits(.isHeader)
-                Text(episodes.count == 1 ? "1 episode in your library" : "\(episodes.count) episodes in your library")
-                    .font(type.caption)
-                    .foregroundStyle(Palette.inkMuted)
-                if model.feedURL != nil {
-                    HStack(spacing: 6) {
-                        if isFollowing {
-                            Label("Following", systemImage: "checkmark")
-                                .font(type.label)
-                                .foregroundStyle(Palette.accent)
-                        }
-                        Button(isFollowing ? "All Episodes" : "All Episodes and Follow", action: model.openPodcast)
-                            .buttonStyle(SecondaryButtonStyle())
-                            .disabled(model.isResolving)
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            .padding(16)
-            Divider().overlay(Palette.rule)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
+        Menu {
+            if episodes.count > 1 {
+                Section("In your library") {
                     ForEach(episodes) { item in
-                        let current = item.id == model.episode.id
                         Button { model.open(item) } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.episode.title)
-                                    .font(type.callout.weight(current ? .semibold : .regular))
-                                    .foregroundStyle(Palette.ink)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                                Text("\(item.episode.pubDate.formatted(date: .abbreviated, time: .omitted)) · \(Timecode.format(item.episode.duration))")
-                                    .font(type.caption)
-                                    .foregroundStyle(Palette.inkMuted)
-                            }
-                            .padding(.horizontal, 10).padding(.vertical, 7)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(current ? Palette.selection : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .contentShape(Rectangle())
+                            if item.id == model.episode.id { Label(item.episode.title, systemImage: "checkmark") } else { Text(item.episode.title) }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(current ? .isSelected : [])
                     }
                 }
-                .padding(8)
             }
+            if model.feedURL != nil {
+                Button(isFollowing ? "All Episodes" : "All Episodes and Follow", action: model.openPodcast)
+                    .disabled(model.isResolving)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(model.episode.showName).lineLimit(1).truncationMode(.tail)
+                if isFollowing { Image(systemName: "checkmark.circle.fill").imageScale(.small).accessibilityLabel("Following") }
+            }
+            .font(type.label)
         }
-        .frame(maxHeight: .infinity, alignment: .top)
+        .menuStyle(.borderlessButton)
+        // Only the height is fixed. A long podcast name shortens instead of widening the summary card.
+        .fixedSize(horizontal: false, vertical: true)
+        .foregroundStyle(Palette.accent)
+        .disabled(episodes.count <= 1 && model.feedURL == nil)
+        .help("Episodes of this podcast")
     }
 }
 
@@ -109,8 +147,11 @@ struct SummaryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                ArtworkView(hue: episode.artworkHue, url: episode.artworkURL, cornerRadius: 10)
+                    .frame(width: 72, height: 72)
                 VStack(alignment: .leading, spacing: 4) {
+                    PodcastMenu(model: model)
                     Text(episode.title)
                         .font(type.readingTitle)
                         .foregroundStyle(Palette.ink)
@@ -181,6 +222,7 @@ struct AskField: View {
                     if new.count > Self.maxLength { draft = String(new.prefix(Self.maxLength)) }
                 }
                 .accessibilityLabel("Ask this episode")
+            AskProviderMenu(model: model)
             if model.isAnswering {
                 ProgressView().controlSize(.small).accessibilityLabel("Answering")
             } else {
@@ -214,7 +256,40 @@ struct AskField: View {
     }
 }
 
-// MARK: - Right: transcript, answers, chapters or details
+/// Where answers run, switchable from the Ask field. Picking a plan that isn't set up opens Settings → Ask.
+struct AskProviderMenu: View {
+    @Bindable var model: AppModel
+    @Environment(\.typography) private var type
+
+    var body: some View {
+        Menu {
+            ForEach(AppModel.AskProvider.allCases) { provider in
+                Button { choose(provider) } label: {
+                    if provider.rawValue == model.askProvider { Label(provider.title, systemImage: "checkmark") } else { Text(provider.title) }
+                }
+            }
+            Divider()
+            Button("Ask Settings…") { model.openSettings(.ask) }
+        } label: {
+            Text((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle)
+                .font(type.caption)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.visible)
+        .fixedSize()
+        .foregroundStyle(Palette.inkMuted)
+        .help("Choose where answers run")
+        .accessibilityLabel("Answers run on")
+        .task { await model.refreshChatGPTProfiles() }
+    }
+
+    private func choose(_ provider: AppModel.AskProvider) {
+        model.askProvider = provider.rawValue
+        if !model.isAskProviderReady { model.openSettings(.ask) }
+    }
+}
+
+// MARK: - Right: transcript or details
 
 struct DetailCard: View {
     @Bindable var model: AppModel
@@ -261,21 +336,6 @@ struct DetailCard: View {
                                 .padding(.bottom, 10)
                             }
                         }
-                case .chapters:
-                    if model.chapters.isEmpty {
-                        ContentUnavailableView {
-                            Label(model.isGenerating ? "Writing chapters…" : "No chapters yet", systemImage: "list.number")
-                        } description: {
-                            Text("Chapters are written on this Mac by the local model.")
-                        } actions: {
-                            if model.isPersistent && !model.isGenerating && model.installedModels.contains("language") {
-                                Button("Write Chapters") { model.generateNotes(chaptersOnly: true) }
-                                    .buttonStyle(PrimaryButtonStyle())
-                            }
-                        }
-                    } else {
-                        ChaptersView(model: model)
-                    }
                 case .about: EpisodeAbout(model: model)
                 }
             }

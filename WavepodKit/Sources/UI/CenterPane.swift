@@ -181,6 +181,7 @@ struct SpeakerLabel: View {
 struct SummaryView: View {
     let model: AppModel
     @Environment(\.typography) private var type
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -223,18 +224,20 @@ struct SummaryView: View {
                         }
                         .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text("Written on this Mac from the transcript. Every point links to where it is said.")
+                    Text("Every point links to the moment in the episode that supports it.")
                         .font(type.caption)
                         .foregroundStyle(Palette.inkMuted)
                 }
                 .padding(.horizontal, 22)
                 .padding(.vertical, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.arrive(reduced: reduceMotion))
             } else {
                 if model.isGenerating {
                     VStack(spacing: 10) {
                         ProgressView().controlSize(.small)
-                        Text("Writing the summary on this Mac…").font(type.callout).foregroundStyle(Palette.inkMuted)
+                        Text(model.askProvider == "local" ? "Writing the summary on this Mac…"
+                             : "Writing the summary with \((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle)…").font(type.callout).foregroundStyle(Palette.inkMuted)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
@@ -242,12 +245,12 @@ struct SummaryView: View {
                     ContentUnavailableView {
                         Label("No summary yet", systemImage: "text.append")
                     } description: {
-                        Text(model.installedModels.contains("language") || !model.isPersistent
-                             ? "Summaries are written on this Mac when a transcription finishes."
-                             : "Install the Ask model to get a summary of every episode, written on this Mac.")
+                        Text(model.canWriteSummary || !model.isPersistent
+                             ? "Your answer model writes a summary when a transcription finishes."
+                             : "To get a summary of every episode, install the Ask model or choose your ChatGPT or Claude plan in Settings → Ask.")
                     } actions: {
-                        if model.isPersistent && !model.installedModels.contains("language") {
-                            Button("Install Ask Model") { model.openSettings(.models) }.buttonStyle(PrimaryButtonStyle())
+                        if model.isPersistent && !model.canWriteSummary {
+                            Button("Set Up Answers") { model.openSettings(.ask) }.buttonStyle(PrimaryButtonStyle())
                         } else if model.isPersistent && !model.transcript.segments.isEmpty {
                             Button("Write Summary") { model.generateNotes() }.buttonStyle(PrimaryButtonStyle())
                         }
@@ -255,6 +258,7 @@ struct SummaryView: View {
                 }
             }
         }
+        .animation(reduceMotion ? Motion.fade : Motion.enter, value: model.summary != nil)
     }
 }
 
@@ -262,6 +266,7 @@ struct SummaryView: View {
 struct AnswersSection: View {
     let model: AppModel
     @Environment(\.typography) private var type
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Each question with the answer that followed it.
     private var exchanges: [(question: ChatMessage, answer: ChatMessage?)] {
@@ -276,13 +281,7 @@ struct AnswersSection: View {
     var body: some View {
         if !model.chat.isEmpty || model.isAnswering {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    SectionHeading("Answers")
-                    Spacer()
-                    Button(model.askProvider == "chatgpt" ? "ChatGPT plan" : model.askProvider == "claude" ? "Claude plan" : "On this Mac") { model.openSettings(.ask) }
-                        .font(type.caption).buttonStyle(.plain).foregroundStyle(Palette.inkMuted)
-                        .help("Choose where answers run")
-                }
+                SectionHeading("Answers")
                 if model.isAnswering {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
@@ -293,22 +292,26 @@ struct AnswersSection: View {
                     }
                 }
                 ForEach(exchanges, id: \.question.id) { exchange in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text(exchange.question.text)
-                            .font(type.body.weight(.semibold))
+                            .font(type.episodeTitle)
                             .foregroundStyle(Palette.ink)
                             .textSelection(.enabled)
                             .accessibilityLabel("You asked: \(exchange.question.text)")
                         if let answer = exchange.answer {
                             MessageView(message: answer) { model.play(from: $0) }
+                                .transition(.arrive(reduced: reduceMotion))
                         }
                     }
+                    .transition(.arrive(reduced: reduceMotion))
                 }
                 Divider().overlay(Palette.rule).padding(.top, 4)
             }
             .padding(.horizontal, 22)
             .padding(.top, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(reduceMotion ? Motion.fade : Motion.enter, value: model.chat.count)
+            .animation(Motion.fade, value: model.isAnswering)
         }
     }
 }
@@ -324,51 +327,5 @@ struct SectionHeading: View {
             .tracking(0.8)
             .foregroundStyle(Palette.inkMuted)
             .accessibilityAddTraits(.isHeader)
-    }
-}
-
-// MARK: - Chapters
-
-struct ChaptersView: View {
-    let model: AppModel
-    @Environment(\.typography) private var type
-
-    var body: some View {
-        let current = model.currentChapterIndex
-        ScrollView {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(model.chapters.enumerated()), id: \.element.id) { index, chapter in
-                    Button {
-                        model.play(from: chapter.start)
-                    } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text(Timecode.format(chapter.start))
-                                .font(type.timestamp)
-                                .monospacedDigit()
-                                .foregroundStyle(Palette.accent)
-                                .frame(width: 52, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(chapter.title)
-                                    .font(type.reading.weight(.semibold))
-                                    .foregroundStyle(Palette.ink)
-                                Text(chapter.summary)
-                                    .font(type.callout)
-                                    .foregroundStyle(Palette.inkMuted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(10)
-                        .background(index == current ? Palette.highlight : .clear,
-                                    in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(chapter.title), at \(Timecode.spoken(chapter.start))")
-                    .accessibilityHint("Play from this chapter")
-                }
-            }
-            .padding(12)
-        }
     }
 }

@@ -19,11 +19,14 @@ struct WorkspaceServices: Sendable {
     let subscriptions: SubscriptionMonitor
     let chatGPT: ChatGPTPlan
     let claude: ClaudePlan
+    let artwork: ArtworkCache
     var resolver: Resolver {
         let executable = root.appendingPathComponent("tools/yt-dlp")
         return Resolver(fetcher: URLSessionFetcher(client: client), extractor: FileManager.default.isExecutableFile(atPath: executable.path) ? YtDlpExtractor(executable: executable) : nil)
     }
     var generator: LocalGenerator { LocalGenerator(directory: root.appendingPathComponent("models/language")) }
+    /// Summaries run where answers run: on this Mac, or on the ChatGPT or Claude plan chosen in Settings → Ask.
+    var notes: ProviderNotes { ProviderNotes(local: generator, chatGPT: chatGPT, claude: claude) }
     var embeddings: LocalEmbeddings { LocalEmbeddings(directory: root.appendingPathComponent("models/embeddings")) }
     init(root: URL) throws {
         self.root = root
@@ -31,12 +34,14 @@ struct WorkspaceServices: Sendable {
         client = HTTPClient(logURL: root.appendingPathComponent("network.json"))
         chatGPT = ChatGPTPlan(client: client)
         claude = ClaudePlan(root: root.appendingPathComponent("claude"), client: client)
+        artwork = ArtworkCache(directory: root.appendingPathComponent("artwork"), client: client)
         let engine: any Engine
         if UserDefaults.standard.string(forKey: "engine") == "scriberr",
            let value = UserDefaults.standard.string(forKey: "scriberrURL"), let url = URL(string: value) {
             engine = try ScriberrEngine(base: url, client: client)
         } else { engine = IsolatedEngine() }
-        queue = try JobQueue(store: store, directory: root.appendingPathComponent("jobs"), client: client, engine: engine)
+        queue = try JobQueue(store: store, directory: root.appendingPathComponent("jobs"), client: client, engine: engine,
+                             notesGenerator: ProviderNotes(local: LocalGenerator(directory: root.appendingPathComponent("models/language")), chatGPT: chatGPT, claude: claude))
         subscriptions = SubscriptionMonitor(store: store, client: client, queue: queue)
     }
     static var defaultRoot: URL {
@@ -246,7 +251,7 @@ extension AppModel {
             UserDefaults.standard.set(engineChoice, forKey: "engine")
             UserDefaults.standard.set(scriberrURL, forKey: "scriberrURL")
             scriberrKey = ""
-            show("Engine saved. Restart wavepod after current jobs finish to apply it.")
+            show("Engine saved. Restart Wavepod after current jobs finish to apply it.")
         } catch { show(error.localizedDescription) }
     }
     public func setBackgroundChecks(_ enabled: Bool) {
@@ -272,42 +277,33 @@ extension AppModel {
                 }
                 let retained = try services.store.episode(id)?.audioURL
                 if episode.id == id { episodeAudioURL = retained }
-                show(retained == nil ? "Audio removed by this show's retention setting" : "Audio downloaded")
+                show(retained == nil ? "This podcast's retention setting removed the audio" : "Audio downloaded")
             } catch { show(error.localizedDescription) }
         }
     }
-    public func generateNotes(chaptersOnly: Bool = false) {
-        Task { await writeNotes(chaptersOnly ? [.chapters] : [.summary]) }
+    public func generateNotes() {
+        Task { await writeSummary() }
     }
 
-    enum NoteKind { case summary, chapters }
-
-    /// Writes the summary and chapters an episode lacks, once per episode per launch, when the language model is
-    /// installed. Called when a transcription finishes and when an episode opens.
+    /// Writes the summary an episode lacks, once per episode per launch, when the chosen answer model can run.
+    /// Called when a transcription finishes and when an episode opens.
     func writeMissingNotes() {
-        guard installedModels.contains("language"), !episode.id.isEmpty, !autoNoted.contains(episode.id) else { return }
-        var kinds: [NoteKind] = []
-        if summary == nil { kinds.append(.summary) }
-        if chapters.isEmpty { kinds.append(.chapters) }
-        guard !kinds.isEmpty else { return }
+        guard let services, services.notes.isAvailable, !episode.id.isEmpty, summary == nil, !autoNoted.contains(episode.id) else { return }
         autoNoted.insert(episode.id)
-        Task { await writeNotes(kinds) }
+        Task { await writeSummary() }
     }
 
-    func writeNotes(_ kinds: [NoteKind]) async {
+    func writeSummary() async {
         guard let services, !isGenerating, !transcript.segments.isEmpty else { return }
         isGenerating = true
         defer { isGenerating = false }
         let id = episode.id
-        let notes = EpisodeNotesService(store: services.store, generator: services.generator)
-        for kind in kinds {
-            do {
-                let claims = try await notes.generate(id, chapters: kind == .chapters)
-                guard let record = try services.store.episode(id) else { return }
-                if episode.id == id { install(record) }
-                if claims.isEmpty { show("Not found in this episode: no claims passed citation checking.") }
-            } catch { show(error.localizedDescription) }
-        }
+        do {
+            let claims = try await EpisodeNotesService(store: services.store, generator: services.notes).generate(id)
+            guard let record = try services.store.episode(id) else { return }
+            if episode.id == id { install(record) }
+            if claims.isEmpty { show("Not found in this episode. No claim passed the citation check.") }
+        } catch { show(error.localizedDescription) }
     }
     public func translate(to target: AskLanguage) {
         guard let services, !isGenerating, target != .auto else { return }
@@ -334,4 +330,34 @@ extension ResolvedShow {
     static func latest(_ episodes: [ResolvedEpisode], _ count: Int = 5) -> [ResolvedEpisode] {
         Array(episodes.sorted { ($0.pubDate ?? .distantPast) > ($1.pubDate ?? .distantPast) }.prefix(count))
     }
+}
+
+/// The summary writer for the answer model chosen in Settings → Ask, read when it runs so a change applies to the
+/// next summary, including ones the queue writes in the background.
+struct ProviderNotes: NotesGenerating {
+    let local: LocalGenerator
+    let chatGPT: ChatGPTPlan
+    let claude: ClaudePlan
+
+    private var current: any NotesGenerating {
+        let defaults = UserDefaults.standard
+        switch AppModel.AskProvider(rawValue: defaults.string(forKey: "askProvider") ?? "") ?? .local {
+        case .local:
+            return local
+        case .chatgpt:
+            let account = defaults.string(forKey: "chatGPTProfile") ?? ""
+            let model = defaults.string(forKey: "chatGPTModel.\(account)") ?? ""
+            return PlanNotes(generator: ChatGPTGenerator(plan: chatGPT, account: account, model: model,
+                                                               effort: defaults.string(forKey: "chatGPTEffort.\(model)") ?? ""),
+                             isAvailable: !account.isEmpty && !model.isEmpty)
+        case .claude:
+            let executable = defaults.string(forKey: "claudeExecutable").flatMap { ClaudePlan.isExecutable($0) ? $0 : nil }
+                ?? ClaudePlan.detectedExecutable
+            return PlanNotes(generator: ClaudeGenerator(plan: claude, executable: executable, model: defaults.string(forKey: "claudeModel") ?? "sonnet",
+                                                             effort: defaults.string(forKey: "claudeEffort") ?? ""),
+                             isAvailable: !executable.isEmpty)
+        }
+    }
+    var isAvailable: Bool { current.isAvailable }
+    func notes(_ transcript: Transcript) async throws -> [CitedClaim] { try await current.notes(transcript) }
 }

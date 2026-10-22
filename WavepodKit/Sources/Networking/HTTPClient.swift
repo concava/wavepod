@@ -5,7 +5,7 @@ public enum NetworkError: Error, LocalizedError, Sendable {
     case denied(String), invalidResponse, status(Int), tooLarge
     public var errorDescription: String? {
         switch self {
-        case .denied(let host): "Network access is not allowed for \(host)."
+        case .denied(let host): "Wavepod does not allow network access to \(host)."
         case .invalidResponse: "The server returned an invalid response."
         case .status(let code): "The server returned HTTP \(code)."
         case .tooLarge: "The response exceeded the size limit."
@@ -119,9 +119,10 @@ public actor HTTPClient {
                 guard followRedirects, request.httpBody == nil, request.value(forHTTPHeaderField: "Authorization") == nil,
                       request.value(forHTTPHeaderField: "X-API-Key") == nil else { throw NetworkError.denied(next.host ?? "redirect") }
                 // Model CDNs are part of Hugging Face's signed download chain. Feed redirects are explicitly
-                // authorized by the user opening that feed. Auth and request bodies never cross origins.
+                // authorized by the user opening that feed, and so is the artwork it names. Auth and request bodies
+                // never cross origins.
                 if !localOnly, request.httpMethod == nil || ["GET", "HEAD"].contains(request.httpMethod ?? "GET") {
-                    if purpose == "feed" || purpose == "audio" ||
+                    if purpose == "feed" || purpose == "audio" || purpose == "artwork" ||
                         (purpose == "model" && next.scheme == "https" &&
                          (next.host?.hasSuffix(".huggingface.co") == true || next.host?.hasSuffix(".hf.co") == true)) {
                         try allow(next)

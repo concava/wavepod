@@ -24,7 +24,6 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(first.descriptionHTML, "<p>An invented conversation.</p>")
         XCTAssertEqual(first.transcripts.count, 2)
         XCTAssertEqual(first.transcripts[0].language, "ca")
-        XCTAssertEqual(first.chaptersURL, url("https://example.org/chapters.json"))
         XCTAssertEqual(feed.episode(guid: "boat-1"), first)
         XCTAssertEqual(feed.episode(guid: "missing", enclosureURL: first.enclosureURL), first)
         XCTAssertEqual(feed.episode(title: "#502 – PÁPER boats & rain", date: first.pubDate), first)
@@ -40,7 +39,6 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(episode.guid, "kite-1")
         XCTAssertEqual(episode.persons, [Person(name: "Bo", role: "guest", group: "cast", href: url("https://example.org/bo"))])
         XCTAssertEqual(episode.transcripts, [TranscriptLink(url: url("https://example.org/kite.json"), type: "application/json", language: "en")])
-        XCTAssertEqual(episode.chaptersURL, url("https://example.org/kite-chapters.json"))
     }
 
     func testItunesAndNamespaceSpoofing() throws {
@@ -75,7 +73,7 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(FeedValueParser.duration("1:02:03.5"), 3723.5)
     }
 
-    func testPublishedTranscriptsAndChapters() throws {
+    func testPublishedTranscripts() throws {
         for (file, type) in [("transcript.json", "application/json"), ("transcript.srt", "application/x-subrip"), ("transcript.vtt", "text/vtt")] {
             let transcript = try PublishedContentParser.transcript(fixture(file), type: type)
             XCTAssertTrue(transcript.hasTimings)
@@ -92,11 +90,6 @@ final class ParserTests: XCTestCase {
             XCTAssertNil(transcript.cues[0].start)
             XCTAssertFalse(transcript.cues[0].text.contains("<p>"))
         }
-        let chapters = try PublishedContentParser.chapters(fixture("chapters.json"))
-        XCTAssertEqual(chapters.map(\.title), ["First Fold", "Launch"])
-        XCTAssertEqual(chapters[0].url, url("https://example.org/fold"))
-        XCTAssertEqual(chapters[0].img, url("https://example.org/fold.jpg"))
-        XCTAssertEqual(chapters[1].start, 5)
     }
 
     func testTranscriptPreference() {

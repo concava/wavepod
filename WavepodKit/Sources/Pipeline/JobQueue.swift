@@ -211,7 +211,7 @@ public actor JobQueue {
                         }
                         break
                     } catch is CancellationError { throw CancellationError() }
-                    catch { logger.notice("Publisher transcript unavailable; trying next source") }
+                    catch { logger.notice("No publisher transcript. Trying the next source") }
                 }
             }
             if record == nil {
@@ -252,15 +252,11 @@ public actor JobQueue {
             }
             try stage(id, "Saving library", 0.95)
             guard var record else { throw EngineError.invalidResult }
-            if let chapters = job.episode.chaptersURL {
-                record.chapters = (try? await resolver.chapters(chapters))?.map { Chapter(title: $0.title, start: $0.start, summary: "") } ?? []
-            }
             try Task.checkCancellation()
             if let downloaded { record.audioURL = downloaded }
             if let previous {
                 record.chat = previous.chat
                 record.summary = previous.summary
-                if !previous.chapters.isEmpty { record.chapters = previous.chapters }
                 if !previous.speakers.isEmpty { record.speakers = previous.speakers; record.speakerEvidence = previous.speakerEvidence }
             }
             record.notesPending = job.automation?.summarize == true || previous?.notesPending == true
@@ -343,7 +339,7 @@ public actor JobQueue {
         let episode = Episode(id: Self.episodeID(resolved), showName: resolved.showTitle ?? "Imported audio", title: resolved.title,
                               pubDate: resolved.pubDate ?? .now, duration: max(resolved.duration ?? 0, transcript.duration, audioDuration),
                               descriptionHTML: resolved.descriptionHTML ?? "", sourceName: "Source", sourceURL: resolved.feedURL,
-                              enclosureURL: resolved.enclosureURL, artworkHue: 0.15)
+                              enclosureURL: resolved.enclosureURL, artworkHue: 0.15, artworkURL: resolved.artwork)
         return EpisodeRecord(episode: episode, transcript: transcript, speakers: speakers, audioURL: audio,
                              feedURL: resolved.feedURL, embeddings: embeddings, speakerEvidence: evidence)
     }

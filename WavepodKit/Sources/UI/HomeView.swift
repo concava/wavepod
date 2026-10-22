@@ -118,7 +118,7 @@ struct StartCard: View {
                 Text("Every episode, searchable and quotable")
                     .font(.system(size: 24, weight: .regular, design: .serif))
                     .foregroundStyle(.white)
-                Text("Transcribed on this Mac with speakers named. Ask questions and jump to the moment it was said.")
+                Text("Wavepod transcribes on this Mac and names the speakers. Ask questions and go to the moment that answers them.")
                     .font(type.body)
                     .foregroundStyle(.white.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
@@ -164,8 +164,10 @@ struct StatsCard: View {
             .padding(22)
             Divider().overlay(Palette.rule)
             VStack(alignment: .leading, spacing: 6) {
-                Label("On this Mac only", systemImage: "lock").font(type.body.weight(.medium)).foregroundStyle(Palette.ink)
-                Text("Audio, transcripts and answers never leave it.").font(type.callout).foregroundStyle(Palette.inkMuted)
+                Label("Privacy", systemImage: "lock").font(type.body.weight(.medium)).foregroundStyle(Palette.ink)
+                Text(model.askProvider == "local" ? "Audio, transcripts and answers stay on this Mac."
+                     : "Audio stays on this Mac. Questions and transcript text go to your \((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle) plan when you ask or a summary is written.")
+                    .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
                 Button("See the network log") { model.openSettings(.privacy) }
                     .buttonStyle(.link).font(type.callout)
             }

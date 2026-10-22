@@ -124,19 +124,6 @@ extension Array where Element == Paragraph {
     }
 }
 
-public struct Chapter: Identifiable, Hashable, Sendable, Codable {
-    public var id: Seconds { start }
-    public var title: String
-    public var start: Seconds
-    public var summary: String
-
-    public init(title: String, start: Seconds, summary: String) {
-        self.title = title
-        self.start = start
-        self.summary = summary
-    }
-}
-
 /// A claim that points into the transcript. `quote` must match the words at `start` (validated in the LLM module).
 public struct Citation: Hashable, Sendable, Codable {
     public var start: Seconds
@@ -193,13 +180,17 @@ public struct ChatMessage: Identifiable, Hashable, Sendable, Codable {
     public var text: String
     public var citations: [Citation]
     public var date: Date
+    /// An answer organized under headings, each point with its citation. nil for plain answers and for messages
+    /// saved before structured answers; `text` always holds the whole answer.
+    public var sections: [SummarySection]?
 
-    public init(id: UUID = UUID(), role: Role, text: String, citations: [Citation] = [], date: Date) {
+    public init(id: UUID = UUID(), role: Role, text: String, citations: [Citation] = [], date: Date, sections: [SummarySection]? = nil) {
         self.id = id
         self.role = role
         self.text = text
         self.citations = citations
         self.date = date
+        self.sections = sections
     }
 }
 
@@ -216,9 +207,12 @@ public struct Episode: Identifiable, Hashable, Sendable, Codable {
     public var enclosureURL: URL?
     /// Seed for the generated placeholder artwork until real artwork is downloaded.
     public var artworkHue: Double
+    /// The episode's or show's image from the feed. nil for imported files and episodes saved before artwork.
+    public var artworkURL: URL?
 
     public init(id: String, showName: String, title: String, pubDate: Date, duration: Seconds,
-                descriptionHTML: String, sourceName: String, sourceURL: URL?, enclosureURL: URL?, artworkHue: Double) {
+                descriptionHTML: String, sourceName: String, sourceURL: URL?, enclosureURL: URL?, artworkHue: Double,
+                artworkURL: URL? = nil) {
         self.id = id
         self.showName = showName
         self.title = title
@@ -229,5 +223,6 @@ public struct Episode: Identifiable, Hashable, Sendable, Codable {
         self.sourceURL = sourceURL
         self.enclosureURL = enclosureURL
         self.artworkHue = artworkHue
+        self.artworkURL = artworkURL
     }
 }

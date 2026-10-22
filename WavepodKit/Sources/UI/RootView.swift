@@ -8,12 +8,18 @@ public struct RootView: View {
     @Bindable var model: AppModel
     @FocusState private var focus: AppModel.FocusTarget?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var playerHeight: CGFloat = 0
 
     public init(model: AppModel) { self.model = model }
 
+    /// The player shows only after an episode is played. Before that it holds a blank placeholder with an empty id.
+    private var showsPlayer: Bool { !(model.player.episode?.id.isEmpty ?? true) }
+    /// Settings and the welcome float over a dimmed window. The title bar controls fade and stop taking clicks.
+    private var isDimmed: Bool { model.showSettings || model.showOnboarding }
+
     public var body: some View {
         HStack(spacing: 0) {
-            SidebarView(model: model)
+            SidebarView(model: model, footerHeight: showsPlayer && playerHeight > 0 ? playerHeight : nil)
             VStack(spacing: 8) {
                 Group {
                     switch model.section {
@@ -24,9 +30,10 @@ public struct RootView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if model.section == .library || model.player.duration > 0 {
+                if showsPlayer {
                     PlayerBar(player: model.player)
                         .elevated(cornerRadius: 14)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { playerHeight = $0 }
                 }
             }
             .padding([.trailing, .bottom], 8)
@@ -36,7 +43,10 @@ public struct RootView: View {
                 }
             }
         }
-        .background(Palette.paper)
+        .background(Palette.paper.ignoresSafeArea())
+        // No system title bar background: the paper and the dimming layer reach under the title bar, so the window
+        // is one surface in both themes and the title bar dims exactly like the rest.
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -47,16 +57,20 @@ public struct RootView: View {
                 }
                 .help(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
                 .accessibilityLabel(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
+                .dimmed(isDimmed)
             }
             ToolbarItem(placement: .principal) {
                 CommandField(model: model)
+                .dimmed(isDimmed)
             }
             ToolbarItem(placement: .primaryAction) {
                 AppearanceButton(model: model)
+                .dimmed(isDimmed)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button("Settings", systemImage: "gearshape") { model.openSettings() }
                     .help("Settings (⌘,)")
+                    .dimmed(isDimmed)
             }
         }
         .dropDestination(for: URL.self) { urls, _ in
@@ -77,6 +91,7 @@ public struct RootView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .shadow(color: .black.opacity(0.18), radius: 30, y: 12)
                         .accessibilityAddTraits(.isModal)
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.98).combined(with: .opacity))
                 }
                 .transition(.opacity)
             }
@@ -91,7 +106,7 @@ public struct RootView: View {
                 .transition(.opacity)
             }
         }
-        .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showSettings)
+        .animation(motion(model.showSettings ? Motion.enter : Motion.exit, reduced: reduceMotion), value: model.showSettings)
         .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showOnboarding)
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
@@ -99,8 +114,16 @@ public struct RootView: View {
                 ScrollView { Text(model.translationText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
             }.padding().frame(width: 640, height: 560)
         }
-        .environment(\.typography, Typography(scale: model.textScale))
-        .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
+        .environment(\.typography, Typography(scale: model.textScale, readingFont: model.readingFont, readingSize: model.readingSize))
+        .environment(\.artworkCache, model.services?.artwork)
+        // preferredColorScheme(nil) does not give the window back to the system theme on macOS, so set it in AppKit.
+        .onChange(of: model.appearance, initial: true) { _, appearance in
+            NSApp.appearance = switch appearance {
+            case .system: nil
+            case .light: NSAppearance(named: .aqua)
+            case .dark: NSAppearance(named: .darkAqua)
+            }
+        }
         .tint(Palette.accent)
         .onChange(of: model.focusRequest) { _, request in
             // The command field lives in the toolbar, a focus scope of its own, and takes ⌘K itself.
@@ -233,4 +256,9 @@ struct NoticeBar: View {
             )
             .accessibilityAddTraits(.updatesFrequently)
     }
+}
+
+private extension View {
+    /// Fades and disables a title bar control while a dimmed overlay covers the window.
+    func dimmed(_ on: Bool) -> some View { opacity(on ? 0.45 : 1).disabled(on).allowsHitTesting(!on) }
 }

@@ -22,27 +22,53 @@ struct MessageView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel("You asked: \(message.text)")
         case .assistant:
-            VStack(alignment: .leading, spacing: 10) {
-                Text(message.text)
-                    .font(type.body)
-                    .foregroundStyle(Palette.ink)
-                    .lineSpacing(3)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                ForEach(message.citations, id: \.self) { citation in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        TimestampPill(time: citation.start) { onSeek(citation.start) }
-                        Text("“\(citation.quote)”")
-                            .font(type.callout.italic())
-                            .foregroundStyle(Palette.inkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
+            if let sections = message.sections {
+                VStack(alignment: .leading, spacing: 18) {
+                    ForEach(sections) { section in
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !section.title.isEmpty { SectionHeading(section.title) }
+                            ForEach(section.points) { point in
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    TimestampPill(time: point.citation.start) { onSeek(point.citation.start) }
+                                        .help("“\(point.citation.quote)”")
+                                    Text(.init(point.text))
+                                        .font(type.reading)
+                                        .foregroundStyle(Palette.ink)
+                                        .lineSpacing(5)
+                                        .textSelection(.enabled)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .contain)
+            } else {
+                plain
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .accessibilityElement(children: .contain)
         }
+    }
+
+    private var plain: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(.init(message.text))
+                .font(type.reading)
+                .foregroundStyle(Palette.ink)
+                .lineSpacing(5)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(message.citations, id: \.self) { citation in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    TimestampPill(time: citation.start) { onSeek(citation.start) }
+                    Text("“\(citation.quote)”")
+                        .font(type.reading.italic())
+                        .foregroundStyle(Palette.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 }

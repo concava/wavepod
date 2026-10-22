@@ -24,15 +24,16 @@ public struct EpisodeAnswers: Sendable {
         }.joined(separator: "\n")
         let task = """
         Answer the current question in \(language == "Auto" ? "the language of the question" : language).
-        Use the conversation only to interpret follow-up questions; it is not transcript evidence.
+        Use the conversation only to understand follow-up questions. The conversation is not transcript evidence.
         <conversation>\(conversation)</conversation>
         Current question: \(question)
+        \(AnswerStyle.instruction)
         """
         var findings: [CitedClaim] = []
         for (offset, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             await progress("Reading transcript \(offset + 1) of \(chunks.count)…")
-            let instruction = chunks.count == 1 ? task : task + "\nThis is section \(offset + 1) of \(chunks.count). Extract all relevant facts here, including qualifications, examples, dates and changes of view. Other sections will be read separately. Do not infer that something is absent from the whole episode. Return [] only if this section has no evidence."
+            let instruction = chunks.count == 1 ? task : task + "\nThis is part \(offset + 1) of \(chunks.count) of the transcript. Give every relevant fact in this part. Include conditions, examples, dates and changes of opinion. Wavepod sends the other parts in separate requests. Do not conclude that the whole episode lacks a fact. Return [] only if this part has no evidence."
             findings += try await grounded.answer(instruction: instruction, context: chunk, transcript: transcript, index: index, report: report)
         }
         findings = Self.unique(findings)
@@ -44,11 +45,11 @@ public struct EpisodeAnswers: Sendable {
             let groups = Self.groups(findings, limit: contextLimit)
             var reduced: [CitedClaim] = []
             for group in groups {
-                let notes = group.map { "[\($0.start)] Finding: \($0.claim)\nExact quote: \($0.quote)" }.joined(separator: "\n")
+                let notes = group.map { "[\($0.start)]\($0.section.map { " (section: \($0))" } ?? "") Finding: \($0.claim)\nExact quote: \($0.quote)" }.joined(separator: "\n")
                 let evidence = group.enumerated().map { offset, claim in
                     Segment(id: offset, speaker: SpeakerID("evidence"), words: [Word(text: claim.quote, start: claim.start, end: claim.start)])
                 }
-                let result = try await grounded.answer(instruction: task + "\nSynthesize the verified findings below into a clear, direct answer. Combine duplicates, compare different parts of the episode, preserve important qualifications and answer all parts of the question. Use original quotes, never quote a finding as though it were transcript text.\n<findings>\(notes)</findings>",
+                let result = try await grounded.answer(instruction: task + "\nWrite one direct answer from the verified findings below. Merge findings that say the same thing. Compare what different parts of the episode say. Keep important conditions. Answer every part of the question. Quote only original transcript words. Never quote a finding as transcript text.\n<findings>\(notes)</findings>",
                                                        context: evidence, transcript: transcript, index: index, report: report)
                 // A synthesis cannot turn verified evidence into a false “not found”.
                 reduced += result.isEmpty ? group : result
@@ -61,6 +62,19 @@ public struct EpisodeAnswers: Sendable {
             findings = reduced
         }
         return findings
+    }
+
+    /// Organizes an answer's claims under their sections, in the order the model gave them. Answers without
+    /// sections, or with a single unnamed one, stay plain.
+    public static func sections(from claims: [CitedClaim]) -> [SummarySection]? {
+        var sections: [SummarySection] = []
+        for claim in claims {
+            let title = claim.section?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let point = SummaryPoint(text: claim.claim, citation: claim.citation)
+            if let index = sections.firstIndex(where: { $0.title == title }) { sections[index].points.append(point) }
+            else { sections.append(SummarySection(title: title, points: [point])) }
+        }
+        return sections.contains(where: { !$0.title.isEmpty }) ? sections : nil
     }
 
     private static func unique(_ claims: [CitedClaim]) -> [CitedClaim] {
@@ -78,4 +92,21 @@ public struct EpisodeAnswers: Sendable {
         if !current.isEmpty { result.append(current) }
         return result
     }
+}
+
+/// How answers are written: the structure of good episode notes, scaled to the question.
+public enum AnswerStyle {
+    public static let instruction = """
+    Write each claim as one bullet of one to three sentences.
+    Start each bullet with a short bold label for its topic or speaker, for example "**Budget limits (host):** ...".
+    Be specific. Keep names, roles, numbers, dates, the order of events, examples, anecdotes and who said what.
+    Give each opinion and estimate with the name of its speaker.
+    Present news and anecdotes as statements made in the conversation.
+    If the answer has different parts, give each claim a "section" field with a short heading.
+    Write the heading in the language of the answer.
+    Examples of parts: who takes part, the main topic, anecdotes, news, audience questions.
+    Give the same heading to claims that belong together. Put the most important part first.
+    A heading can name its subject, for example "Main topic: personal agents (late 2025 to October 2026)".
+    For a short factual question, give one or two bullets and no "section" field.
+    """
 }

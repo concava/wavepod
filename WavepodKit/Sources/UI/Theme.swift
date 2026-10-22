@@ -50,12 +50,20 @@ extension NSColor {
 /// style; VoiceOver and the system's accessibility text settings still apply on top.
 public struct Typography: Sendable {
     public var scale: Double
+    /// The font of long text: transcript, answers, summary and the episode description.
+    public var readingFont: ReadingFont
+    /// The size of long text in points at 100 %. The window text size scales it too.
+    public var readingSize: Double
 
-    public init(scale: Double = 1) { self.scale = scale }
+    public init(scale: Double = 1, readingFont: ReadingFont = .serif, readingSize: Double = 15.5) {
+        self.scale = scale
+        self.readingFont = readingFont
+        self.readingSize = readingSize
+    }
 
     func size(_ base: Double) -> CGFloat { CGFloat((base * scale).rounded()) }
 
-    public var reading: Font { .system(size: size(15.5), design: .serif) }
+    public var reading: Font { .system(size: size(readingSize), design: readingFont.design) }
     public var readingTitle: Font { .system(size: size(22), weight: .semibold, design: .serif) }
     public var paneTitle: Font { .system(size: size(13), weight: .semibold) }
     public var body: Font { .system(size: size(13)) }
@@ -73,6 +81,28 @@ public struct Typography: Sendable {
     public var speaker: Font { .system(size: size(12), weight: .semibold) }
 
     public static let scales: [Double] = [0.85, 1, 1.15, 1.3, 1.5]
+    public static let readingSizes: [Double] = [13, 14, 15.5, 17, 19, 22]
+}
+
+public enum ReadingFont: String, CaseIterable, Identifiable, Sendable {
+    case serif, sans, rounded, mono
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .serif: "Serif"
+        case .sans: "Sans serif"
+        case .rounded: "Rounded"
+        case .mono: "Monospaced"
+        }
+    }
+    var design: Font.Design {
+        switch self {
+        case .serif: .serif
+        case .sans: .default
+        case .rounded: .rounded
+        case .mono: .monospaced
+        }
+    }
 }
 
 private struct TypographyKey: EnvironmentKey {
@@ -127,6 +157,26 @@ extension View {
 
 /// An animation that becomes none under Reduce Motion.
 func motion(_ animation: Animation, reduced: Bool) -> Animation? { reduced ? nil : animation }
+
+/// The app's motion language: one decisive curve for things that move, short fades for the rest. Under Reduce
+/// Motion, views swap movement for `fade`, a plain cross-fade, instead of appearing abruptly.
+enum Motion {
+    /// Cards and panels moving into place.
+    static let standard = Animation.timingCurve(0.2, 0, 0, 1, duration: 0.25)
+    /// Infrequent content arriving: an answer, a summary, an overlay.
+    static let enter = Animation.easeOut(duration: 0.3)
+    /// Leaving is shorter than arriving.
+    static let exit = Animation.easeOut(duration: 0.15)
+    static let fade = Animation.easeOut(duration: 0.2)
+}
+
+extension AnyTransition {
+    /// Content rising 12 pt into place, for infrequent arrivals. A cross-fade under Reduce Motion.
+    static func arrive(reduced: Bool) -> AnyTransition {
+        reduced ? .opacity : .asymmetric(insertion: .offset(y: 12).combined(with: .opacity),
+                                         removal: .offset(y: -12).combined(with: .opacity).animation(Motion.exit))
+    }
+}
 
 /// A rounded pane on the paper background.
 struct PaneBackground: ViewModifier {
@@ -210,10 +260,15 @@ struct TimestampPill: View {
     }
 }
 
-/// Generated placeholder artwork until a feed's image is downloaded: a wave line over a tinted field.
+/// The feed's image when there is one, over generated placeholder artwork (a wave line on a tinted field) that
+/// shows until it loads or when it can't.
 struct ArtworkView: View {
     let hue: Double
+    var url: URL? = nil
     var cornerRadius: CGFloat = 10
+    @Environment(\.artworkCache) private var cache
+    @Environment(\.colorScheme) private var scheme
+    @State private var image: NSImage?
 
     var body: some View {
         ZStack {
@@ -225,9 +280,25 @@ struct ArtworkView: View {
                         style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .padding(.horizontal, cornerRadius * 1.4)
                 .padding(.vertical, cornerRadius)
+            if let image {
+                Image(nsImage: image).resizable().scaledToFill()
+                    .transition(.opacity)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        // Photos get a neutral 1 pt edge so light artwork doesn't bleed into the card.
+        .overlay {
+            if image != nil {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(scheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.1), lineWidth: 1)
+            }
+        }
         .accessibilityHidden(true)
+        .task(id: url) {
+            image = nil
+            guard let url, let cache, let data = await cache.image(for: url) else { return }
+            withAnimation(Motion.fade) { image = NSImage(data: data) }
+        }
     }
 }
 

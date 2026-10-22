@@ -5,7 +5,7 @@
 
 ## Context
 
-Some users already run Scriberr on a home server with a GPU. wavepod can send audio there instead of transcribing
+Some users already run Scriberr on a home server with a GPU. Wavepod can send audio there instead of transcribing
 locally. The audio still never leaves the user's own machines.
 
 ## Decision
@@ -51,11 +51,11 @@ Auth: an API key created in Scriberr, sent as `X-API-Key`, stored in the macOS K
 ### Compatibility
 
 A contract test suite runs against recorded fixtures of the endpoints above, plus an opt-in live test against a
-Scriberr Docker container. On an unknown Scriberr version, wavepod tries the calls and shows "unsupported version"
+Scriberr Docker container. On an unknown Scriberr version, Wavepod tries the calls and shows "unsupported version"
 if the response shape differs.
 
 ## Consequences
 
 - Scriberr's transcript format is converted into ours. Speaker labels from Scriberr are kept, but voice
-  identity (Phase 4) needs embeddings, so wavepod runs its own embedding extractor on the speaker turns locally.
+  identity (Phase 4) needs embeddings, so Wavepod runs its own embedding extractor on the speaker turns locally.
 - No Scriberr code is vendored; we only talk to its HTTP API.

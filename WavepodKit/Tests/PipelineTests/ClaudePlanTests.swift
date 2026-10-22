@@ -47,6 +47,19 @@ final class ClaudePlanTests: XCTestCase {
         XCTAssertEqual(entries[0].method, "EXTERNAL")
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(entries), as: UTF8.self).contains("private transcript"))
     }
+    func testEffortIsPassedOnlyWhereTheModelAcceptsIt() async throws {
+        let executor = ClaudeFixture(), plan = ClaudePlan(root: try temporary(), client: HTTPClient(), executor: executor)
+        _ = try await plan.generate("q", executable: "/usr/bin/true", model: "opus", effort: "xhigh")
+        _ = try await plan.generate("q", executable: "/usr/bin/true", model: "sonnet", effort: "max")
+        _ = try await plan.generate("q", executable: "/usr/bin/true", model: "haiku", effort: "low")
+        let requests = await executor.commands.filter { !$0.input.isEmpty }.map(\.arguments)
+        XCTAssertEqual(requests.count, 3)
+        let opus = try XCTUnwrap(requests[0].firstIndex(of: "--effort"))
+        XCTAssertEqual(requests[0][opus + 1], "xhigh")
+        XCTAssertFalse(requests[1].contains("--effort"), "Sonnet does not take max")
+        XCTAssertFalse(requests[2].contains("--effort"), "Haiku takes no effort")
+        XCTAssertEqual(ClaudePlan.efforts(for: "haiku"), [])
+    }
     func testAPIAccountCannotGenerateAndFailedResultsAreNotAnswers() async throws {
         let executor = ClaudeFixture(method: "api_key"), plan = ClaudePlan(root: try temporary(), client: HTTPClient(), executor: executor)
         do { _ = try await plan.generate("private", executable: "/usr/bin/true", model: "sonnet"); XCTFail("Must require subscription") } catch {}
@@ -58,6 +71,26 @@ final class ClaudePlanTests: XCTestCase {
             XCTAssertThrowsError(try ClaudePlan.answer(.init(data: Data(data.utf8), status: 0)))
         }
         XCTAssertThrowsError(try ClaudePlan.answer(.init(data: Data(#"{"type":"result","subtype":"success","is_error":false,"result":"[]"}"#.utf8), status: 1)))
+    }
+    func testFindsClaudeCodeInsideAppsAndNeverRunsAFolder() throws {
+        let home = try temporary()
+        func binary(_ relative: String) throws -> URL {
+            let url = home.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("#!/bin/sh\n".utf8).write(to: url)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+            return url
+        }
+        let root = "Library/Application Support/Claude/claude-code/"
+        _ = try binary(root + "2.1.9/a1/claude.app/Contents/MacOS/claude")
+        let newest = try binary(root + "2.1.10/b2/claude.app/Contents/MacOS/claude")
+        XCTAssertEqual(ClaudePlan.desktopExecutable(home: home), newest.path)
+        XCTAssertNil(ClaudePlan.desktopExecutable(home: try temporary()))
+        let app = newest.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        XCTAssertFalse(ClaudePlan.isExecutable(app.path))
+        XCTAssertEqual(ClaudePlan.executable(choosing: app), newest.path)
+        XCTAssertEqual(ClaudePlan.executable(choosing: newest), newest.path)
+        XCTAssertNil(ClaudePlan.executable(choosing: home.appendingPathComponent("Other.app")))
     }
     func testSignInAndDisconnectUseOnlyWavepodConfiguration() async throws {
         let executor = ClaudeFixture(), root = try temporary()

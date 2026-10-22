@@ -38,7 +38,7 @@ public final class AppModel {
     }
 
     public enum SettingsPane: String, CaseIterable, Identifiable, Sendable {
-        case general, transcription, ask, queue, models, shows, privacy
+        case general, transcription, ask, queue, privacy
         public var id: String { rawValue }
         public var title: String {
             switch self {
@@ -46,8 +46,6 @@ public final class AppModel {
             case .transcription: "Transcription"
             case .ask: "Ask"
             case .queue: "Queue"
-            case .models: "Models"
-            case .shows: "Podcasts"
             case .privacy: "Data and Privacy"
             }
         }
@@ -57,8 +55,6 @@ public final class AppModel {
             case .transcription: "waveform"
             case .ask: "bubble.left.and.text.bubble.right"
             case .queue: "list.bullet.indent"
-            case .models: "shippingbox"
-            case .shows: "dot.radiowaves.left.and.right"
             case .privacy: "lock.shield"
             }
         }
@@ -66,13 +62,12 @@ public final class AppModel {
 
     /// What the episode view's right-hand pane shows next to the transcript.
     public enum SidePane: String, CaseIterable, Identifiable, Sendable {
-        case transcript, chapters, about
+        case transcript, about
         public var id: String { rawValue }
         public var title: String { rawValue.capitalized }
         public var symbol: String {
             switch self {
             case .transcript: "text.quote"
-            case .chapters: "list.number"
             case .about: "info.circle"
             }
         }
@@ -119,15 +114,24 @@ public final class AppModel {
     public func toggleSidePane(_ pane: SidePane) {
         if showSidePane && sidePane == pane { showSidePane = false } else { sidePane = pane; showSidePane = true }
     }
-    public var appearance: Appearance = .system
-    public var textScale: Double = 1
+    public var appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "") ?? .system {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "appearance") }
+    }
+    public var textScale = UserDefaults.standard.object(forKey: "textScale") as? Double ?? 1 {
+        didSet { UserDefaults.standard.set(textScale, forKey: "textScale") }
+    }
+    public var readingFont = ReadingFont(rawValue: UserDefaults.standard.string(forKey: "readingFont") ?? "") ?? .serif {
+        didSet { UserDefaults.standard.set(readingFont.rawValue, forKey: "readingFont") }
+    }
+    public var readingSize = UserDefaults.standard.object(forKey: "readingSize") as? Double ?? 15.5 {
+        didSet { UserDefaults.standard.set(readingSize, forKey: "readingSize") }
+    }
 
     // Episode in the workspace
     public internal(set) var episode: Episode
     public internal(set) var speakers: [SpeakerID: Speaker]
     public internal(set) var transcript: Transcript
     public internal(set) var paragraphs: [Paragraph]
-    public internal(set) var chapters: [Chapter]
     public internal(set) var summary: EpisodeSummary?
     public internal(set) var chat: [ChatMessage]
     /// The podcast's feed, when the episode came from one; imported files have none.
@@ -149,6 +153,35 @@ public final class AppModel {
 
     // Command field and Ask
     public var commandText = ""
+    /// Where answers run. Stored by raw value in `askProvider`.
+    public enum AskProvider: String, CaseIterable, Identifiable, Sendable {
+        case local, chatgpt, claude
+        public var id: String { rawValue }
+        public var title: String {
+            switch self {
+            case .local: "On this Mac"
+            case .chatgpt: "My ChatGPT plan"
+            case .claude: "My Claude plan"
+            }
+        }
+        public var shortTitle: String {
+            switch self {
+            case .local: "On this Mac"
+            case .chatgpt: "ChatGPT"
+            case .claude: "Claude"
+            }
+        }
+    }
+    /// Whether a summary can be written now: the local model is installed, or a ChatGPT or Claude plan is chosen.
+    var canWriteSummary: Bool { askProvider == "local" ? installedModels.contains("language") : isAskProviderReady }
+    /// Whether the chosen plan has what it needs to answer; false sends the user to Settings → Ask.
+    var isAskProviderReady: Bool {
+        switch AskProvider(rawValue: askProvider) ?? .local {
+        case .local: true
+        case .chatgpt: !chatGPTModelID.isEmpty && chatGPTProfiles.contains { $0.id == chatGPTProfileID && $0.connected }
+        case .claude: !claudeExecutable.isEmpty
+        }
+    }
     public var askProvider = UserDefaults.standard.string(forKey: "askProvider") ?? "local" {
         didSet { UserDefaults.standard.set(askProvider, forKey: "askProvider") }
     }
@@ -156,13 +189,36 @@ public final class AppModel {
         didSet { UserDefaults.standard.set(chatGPTProfileID, forKey: "chatGPTProfile") }
     }
     public var chatGPTModelID = "" {
-        didSet { UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)") }
+        didSet {
+            UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)")
+            chatGPTEffort = UserDefaults.standard.string(forKey: "chatGPTEffort.\(chatGPTModelID)") ?? ""
+        }
     }
-    public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable") ?? ClaudePlan.detectedExecutable {
+    /// The reasoning effort for the chosen ChatGPT model, saved per model. Empty: the model's default.
+    public var chatGPTEffort = "" {
+        didSet { UserDefaults.standard.set(chatGPTEffort, forKey: "chatGPTEffort.\(chatGPTModelID)") }
+    }
+    public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable")
+        .flatMap { ClaudePlan.isExecutable($0) ? $0 : nil } ?? ClaudePlan.detectedExecutable {
         didSet { UserDefaults.standard.set(claudeExecutable, forKey: "claudeExecutable"); claudeStatus = "Connect your Claude plan." }
     }
     public var claudeModel = UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet" {
-        didSet { UserDefaults.standard.set(claudeModel, forKey: "claudeModel") }
+        didSet {
+            UserDefaults.standard.set(claudeModel, forKey: "claudeModel")
+            if !ClaudePlan.efforts(for: claudeModel).contains(claudeEffort) { claudeEffort = "" }
+        }
+    }
+    /// One of `ClaudePlan.efforts(for: claudeModel)`, or empty for Claude Code's default.
+    public var claudeEffort = UserDefaults.standard.string(forKey: "claudeEffort") ?? "" {
+        didSet { UserDefaults.standard.set(claudeEffort, forKey: "claudeEffort") }
+    }
+    /// How an effort level reads in Settings.
+    public static func effortTitle(_ effort: String) -> String {
+        switch effort {
+        case "xhigh": "Extra high"
+        case "max": "Maximum"
+        default: effort.capitalized
+        }
     }
     public var claudeStatus = "Connect your Claude plan."
     public var isConnectingClaude = false
@@ -204,7 +260,7 @@ public final class AppModel {
     public var isIndexing = false
     public var isGenerating = false
     public var isInstalling = false
-    public var modelStatus = "Models are downloaded once and run on this Mac."
+    public var modelStatus = "You download each model once. It runs on this Mac."
     public var networkEntries: [NetworkEntry] = []
     public var engineChoice = UserDefaults.standard.string(forKey: "engine") ?? "native"
     public var scriberrURL = UserDefaults.standard.string(forKey: "scriberrURL") ?? "http://localhost:8080"
@@ -232,17 +288,16 @@ public final class AppModel {
         speakers = SampleData.speakers
         transcript = SampleData.transcript
         paragraphs = SampleData.transcript.paragraphs(merge: true)
-        chapters = SampleData.chapters
         summary = SampleData.summary
         chat = SampleData.chat
         if !persistent, player.episode == nil { player.load(episode) }
         isPersistent = persistent
         if persistent {
             showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
-            episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
+            episode = Episode(id: "", showName: "Wavepod", title: "Open an episode", pubDate: .now, duration: 0,
                               descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
-            paragraphs = []; chapters = []; summary = nil; chat = []
+            paragraphs = []; summary = nil; chat = []
             if player.episode == nil { player.load(episode) }
             do {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
@@ -274,11 +329,12 @@ public final class AppModel {
         cancelAnswer()
         episode = record.episode; transcript = record.transcript; speakers = record.speakers
         speakerEvidence = record.speakerEvidence
-        paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
+        paragraphs = transcript.paragraphs(merge: mergeLines)
         summary = record.summary; chat = record.chat; feedURL = record.feedURL
         if speakers.values.contains(where: \.isConfirmed) { hasNamedSpeaker = true }
         episodeAudioURL = record.audioURL
         transcriptLocation = nil
+        backfillArtwork()
     }
 
     func refreshWorkspace() async {
@@ -365,9 +421,6 @@ public final class AppModel {
     public var isViewedEpisodePlaying: Bool { isViewingLoadedEpisode && player.isPlaying }
     public var currentParagraphIndex: Int? { isViewingLoadedEpisode ? paragraphs.index(at: player.currentTime) : nil }
 
-    public var currentChapterIndex: Int? {
-        isViewingLoadedEpisode ? chapters.lastIndex { $0.start <= player.currentTime } : nil
-    }
 
     public func toggleEpisodePlayback() {
         if isViewedEpisodePlaying { player.pause() }
@@ -481,7 +534,8 @@ public final class AppModel {
         let id = episode.id, source = transcript, language = "Auto", history = Array(chat.dropLast())
         let provider = askProvider, account = chatGPTProfileID
         let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
-        let claudePath = claudeExecutable, claudeChoice = claudeModel
+        let claudePath = claudeExecutable, claudeChoice = claudeModel, claudeLevel = claudeEffort
+        let chatGPTLevel = UserDefaults.standard.string(forKey: "chatGPTEffort.\(model)") ?? ""
         askProgress = "Preparing transcript…"
         answerTask = Task { [self] in
             defer { isAnswering = false; askProgress = ""; answerTask = nil }
@@ -491,10 +545,10 @@ public final class AppModel {
                 }
                 let claims: [CitedClaim]
                 if provider == "chatgpt" {
-                    claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model), contextLimit: 40_000)
+                    claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model, effort: chatGPTLevel), contextLimit: 40_000)
                         .answer(question: q, language: language, history: history, transcript: source, progress: progress)
                 } else if provider == "claude" {
-                    claims = try await EpisodeAnswers(generator: ClaudeGenerator(plan: services.claude, executable: claudePath, model: claudeChoice), contextLimit: 40_000)
+                    claims = try await EpisodeAnswers(generator: ClaudeGenerator(plan: services.claude, executable: claudePath, model: claudeChoice, effort: claudeLevel), contextLimit: 40_000)
                         .answer(question: q, language: language, history: history, transcript: source, progress: progress)
                 } else {
                     claims = try await services.generator.withSession { generator in
@@ -502,7 +556,7 @@ public final class AppModel {
                     }
                 }
                 try Task.checkCancellation()
-                saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now), episodeID: id)
+                saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now, sections: EpisodeAnswers.sections(from: claims)), episodeID: id)
             } catch is CancellationError {
                 saveAskMessage(ChatMessage(role: .assistant, text: "Stopped before completing the answer.", date: .now), episodeID: id)
             } catch {

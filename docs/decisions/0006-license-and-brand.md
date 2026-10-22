@@ -35,7 +35,7 @@ entry. Initial list:
 
 Each model license is re-checked against the model card at the pinned revision during the audit.
 
-## Brand: "wavepod", calm editorial
+## Brand: "Wavepod", calm editorial
 
 The layout follows SpotScribe's three panes; nothing else does. No SpotScribe name, icon, colors, wording or
 screenshots are used.

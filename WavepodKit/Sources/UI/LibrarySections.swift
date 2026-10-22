@@ -48,7 +48,7 @@ struct ShowsSection: View {
             }
             .padding(.horizontal, 40)
             .padding(.vertical, 34)
-            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: 1180, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
@@ -95,7 +95,7 @@ struct ShowsSection: View {
             Image(systemName: "dot.radiowaves.left.and.right").font(.system(size: 22)).foregroundStyle(Palette.inkMuted)
                 .accessibilityHidden(true)
             Text("No podcasts yet").font(type.body.weight(.medium)).foregroundStyle(Palette.ink)
-            Text("Paste a podcast's link with ⌘K, then Follow it to see its newest episodes here.")
+            Text("Paste a podcast link with ⌘K. Then follow the podcast to see its newest episodes here.")
                 .font(type.callout).foregroundStyle(Palette.inkMuted)
         }
         .padding(28)
@@ -149,7 +149,7 @@ struct PodcastFeedCard: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            ArtworkView(hue: hue, cornerRadius: 9).frame(width: 48, height: 48)
+            ArtworkView(hue: hue, url: episodes?.lazy.compactMap(\.artwork).first, cornerRadius: 9).frame(width: 48, height: 48)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(type.episodeTitle).foregroundStyle(Palette.ink).lineLimit(1)
                 Text(subtitle).font(type.callout).foregroundStyle(Palette.inkMuted).lineLimit(1)
@@ -161,11 +161,11 @@ struct PodcastFeedCard: View {
                     .toggleStyle(.switch).controlSize(.mini).tint(Palette.accent)
                     .font(type.callout).foregroundStyle(Palette.inkMuted)
                     .fixedSize()
-                    .help("Transcribe new episodes as soon as they come out")
+                    .help("Transcribe each new episode when the podcast publishes it")
                 Menu {
                     Toggle("Download for Offline Playback", isOn: Binding(get: { subscription.autoDownload },
                                                                           set: { model.updateSubscription(subscription, download: $0) }))
-                    Toggle("Summarize and Create Chapters", isOn: Binding(get: { subscription.autoSummarize },
+                    Toggle("Summarize New Episodes", isOn: Binding(get: { subscription.autoSummarize },
                                                                           set: { model.updateSubscription(subscription, summarize: $0) }))
                     Picker("Keep Downloaded Episodes", selection: Binding(get: { subscription.keepLatest ?? 0 },
                                                                          set: { model.updateSubscription(subscription, keepLatest: $0 == 0 ? nil : $0, setRetention: true) })) {

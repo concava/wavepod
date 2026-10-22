@@ -7,17 +7,17 @@ import Resolver
 import XCTest
 
 actor NotesCalls {
-    var chapters: [Bool] = []
-    func append(_ value: Bool) { chapters.append(value) }
+    var count = 0
+    func record() { count += 1 }
 }
 struct FakeNotes: NotesGenerating {
     let isAvailable: Bool
     let calls: NotesCalls
     var fails = false
-    func notes(_ transcript: Transcript, chapters: Bool) async throws -> [CitedClaim] {
-        await calls.append(chapters)
+    func notes(_ transcript: Transcript) async throws -> [CitedClaim] {
+        await calls.record()
         if fails { throw CocoaError(.fileReadCorruptFile) }
-        return [CitedClaim(claim: chapters ? "Chapter" : "Summary", quote: "hello", start: 1)]
+        return [CitedClaim(claim: "Summary", quote: "hello", start: 1)]
     }
 }
 
@@ -98,7 +98,7 @@ final class AutomationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: checkpoint.appendingPathComponent("words.json").path))
         XCTAssertEqual(try store.episode(item.id)?.transcript.segments.count, 1)
     }
-    func testPendingNotesSkipMissingModelThenGenerateBothOnce() async throws {
+    func testPendingNotesSkipMissingModelThenGenerateOnce() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = try LibraryStore(url: folder.appendingPathComponent("library.sqlite"))
@@ -107,16 +107,15 @@ final class AutomationTests: XCTestCase {
         try store.save(item)
         let calls = NotesCalls()
         try await EpisodeNotesService(store: store, generator: FakeNotes(isAvailable: false, calls: calls)).completePending(item.id)
-        let skipped = await calls.chapters
-        XCTAssertEqual(skipped, [])
+        let skipped = await calls.count
+        XCTAssertEqual(skipped, 0)
         XCTAssertEqual(try store.episode(item.id)?.notesPending, true)
         let service = EpisodeNotesService(store: store, generator: FakeNotes(isAvailable: true, calls: calls))
         try await service.completePending(item.id)
         try await service.completePending(item.id)
-        let generated = await calls.chapters
-        XCTAssertEqual(generated, [false, true])
+        let generated = await calls.count
+        XCTAssertEqual(generated, 1)
         XCTAssertEqual(try store.episode(item.id)?.summary?.points.first?.text, "Summary")
-        XCTAssertEqual(try store.episode(item.id)?.chapters.first?.title, "Chapter")
         XCTAssertEqual(try store.episode(item.id)?.notesPending, false)
     }
     func testQueueRetriesDurablePendingNotesOnlyForOptedInShows() async throws {
@@ -138,8 +137,8 @@ final class AutomationTests: XCTestCase {
         await queue.retryPendingSummaries()
         XCTAssertEqual(try store.episode("true")?.notesPending, false)
         XCTAssertEqual(try store.episode("false")?.notesPending, true)
-        let generated = await calls.chapters
-        XCTAssertEqual(generated, [false, true])
+        let generated = await calls.count
+        XCTAssertEqual(generated, 1)
         await queue.shutdown()
     }
     func testNotesFailureRemainsPending() async throws {
