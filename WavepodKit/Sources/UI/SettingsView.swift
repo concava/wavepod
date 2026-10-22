@@ -147,7 +147,7 @@ struct SettingsView: View {
             }
             SettingsGroup(title: "Transcriptions") {
                 if model.jobs.isEmpty {
-                    Text("The queue is empty. Paste a podcast link or open an audio file.")
+                    Text("The queue is empty. Paste a podcast link or add an audio file.")
                         .font(type.callout).foregroundStyle(Palette.inkMuted).padding(18)
                 }
                 ForEach(model.jobs) { job in
@@ -156,7 +156,7 @@ struct SettingsView: View {
             }
             HStack {
                 Spacer()
-                Button("Open Audio…", action: model.chooseFile).buttonStyle(SecondaryButtonStyle())
+                Button("Add Audio File…", action: model.chooseFile).buttonStyle(SecondaryButtonStyle())
             }
         }
     }
@@ -170,7 +170,7 @@ struct SettingsView: View {
                 if model.networkEntries.isEmpty {
                     Text("No requests yet.").font(type.callout).foregroundStyle(Palette.inkMuted).padding(16)
                 }
-                ForEach(model.networkEntries.suffix(80).reversed()) { entry in
+                ForEach(model.networkEntries.suffix(AppModel.shownNetworkEntries).reversed()) { entry in
                     HStack(spacing: 12) {
                         Text(entry.date, style: .time).monospacedDigit().foregroundStyle(Palette.inkMuted)
                         Text(entry.method).font(type.timestamp)
@@ -181,6 +181,18 @@ struct SettingsView: View {
                     }
                     .font(type.callout)
                     .padding(.horizontal, 16).padding(.vertical, 7)
+                }
+            }
+            if !model.networkEntries.isEmpty {
+                HStack {
+                    Text(model.networkEntries.count > AppModel.shownNetworkEntries
+                         ? "The list shows the last \(AppModel.shownNetworkEntries) of \(model.networkEntries.count) requests."
+                         : "The list shows all \(model.networkEntries.count) requests.")
+                        .font(type.callout).foregroundStyle(Palette.inkMuted)
+                    Spacer()
+                    Button("Download All…", systemImage: "arrow.down.circle", action: model.exportNetworkLog)
+                        .buttonStyle(SecondaryButtonStyle())
+                        .help("Save every request as a CSV file")
                 }
             }
         }

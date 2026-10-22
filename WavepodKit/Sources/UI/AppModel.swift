@@ -295,10 +295,11 @@ public final class AppModel {
         if persistent {
             showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
             episode = Episode(id: "", showName: "Wavepod", title: "Open an episode", pubDate: .now, duration: 0,
-                              descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
+                              descriptionHTML: "Paste a podcast link above or add an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
             paragraphs = []; summary = nil; chat = []
             if player.episode == nil { player.load(episode) }
+            player.enableSystemMediaControls()
             do {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
                 savedEpisodes = try services!.store.items()
@@ -470,6 +471,29 @@ public final class AppModel {
         do {
             try data.write(to: url, options: .atomic)
             show("Exported \(url.lastPathComponent)")
+        } catch {
+            show("Could not save: \(error.localizedDescription)")
+        }
+    }
+
+    /// Settings → Data and Privacy lists only the newest requests. Download All saves every one.
+    static let shownNetworkEntries = 50
+
+    /// Saves the whole network log as CSV: date, method, host, purpose, status.
+    public func exportNetworkLog() {
+        func field(_ text: String) -> String { "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
+        let dates = ISO8601DateFormatter()
+        let rows = networkEntries.map {
+            [dates.string(from: $0.date), $0.method, $0.host, $0.purpose, $0.status.map(String.init) ?? ""].map(field).joined(separator: ",")
+        }
+        let csv = (["date,method,host,purpose,status"] + rows).joined(separator: "\n") + "\n"
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "Wavepod network log.csv"
+        panel.allowedContentTypes = [.commaSeparatedText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try Data(csv.utf8).write(to: url, options: .atomic)
+            show("Saved \(url.lastPathComponent)")
         } catch {
             show("Could not save: \(error.localizedDescription)")
         }

@@ -4,6 +4,8 @@ import SwiftUI
 
 struct PlayerBar: View {
     @Bindable var player: PlayerModel
+    /// Opens the episode. A click on the title, the artwork or empty space calls it, never a click on a control.
+    var onOpen: () -> Void = {}
     @State private var showVolume = false
     @Environment(\.typography) private var type
 
@@ -24,6 +26,8 @@ struct PlayerBar: View {
                     .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpen)
                 .accessibilityElement(children: .combine)
 
                 HStack(spacing: 14) {
@@ -95,10 +99,18 @@ struct PlayerBar: View {
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(Palette.surface)
+        // The tap lives on a layer behind the content, so the buttons and sliders take their own clicks first and
+        // only the title, artwork and empty space open the episode.
+        .background {
+            Palette.surface
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpen)
+                .help("Open this episode")
+        }
         .overlay(alignment: .top) { Divider().overlay(Palette.rule) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Player")
+        .accessibilityAction(named: "Open episode", onOpen)
     }
 
     private var rateLabel: String {

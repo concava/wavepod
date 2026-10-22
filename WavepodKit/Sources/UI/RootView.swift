@@ -31,7 +31,7 @@ public struct RootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if showsPlayer {
-                    PlayerBar(player: model.player)
+                    PlayerBar(player: model.player, onOpen: model.openPlayingEpisode)
                         .elevated(cornerRadius: 14)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { playerHeight = $0 }
                 }
