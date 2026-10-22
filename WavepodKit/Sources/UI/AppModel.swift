@@ -38,7 +38,7 @@ public final class AppModel {
     }
 
     public enum SettingsPane: String, CaseIterable, Identifiable, Sendable {
-        case general, transcription, ask, queue, models, shows, privacy
+        case general, transcription, ask, queue, privacy
         public var id: String { rawValue }
         public var title: String {
             switch self {
@@ -46,8 +46,6 @@ public final class AppModel {
             case .transcription: "Transcription"
             case .ask: "Ask"
             case .queue: "Queue"
-            case .models: "Models"
-            case .shows: "Podcasts"
             case .privacy: "Data and Privacy"
             }
         }
@@ -57,8 +55,6 @@ public final class AppModel {
             case .transcription: "waveform"
             case .ask: "bubble.left.and.text.bubble.right"
             case .queue: "list.bullet.indent"
-            case .models: "shippingbox"
-            case .shows: "dot.radiowaves.left.and.right"
             case .privacy: "lock.shield"
             }
         }
@@ -66,13 +62,12 @@ public final class AppModel {
 
     /// What the episode view's right-hand pane shows next to the transcript.
     public enum SidePane: String, CaseIterable, Identifiable, Sendable {
-        case transcript, chapters, about
+        case transcript, about
         public var id: String { rawValue }
         public var title: String { rawValue.capitalized }
         public var symbol: String {
             switch self {
             case .transcript: "text.quote"
-            case .chapters: "list.number"
             case .about: "info.circle"
             }
         }
@@ -127,7 +122,6 @@ public final class AppModel {
     public internal(set) var speakers: [SpeakerID: Speaker]
     public internal(set) var transcript: Transcript
     public internal(set) var paragraphs: [Paragraph]
-    public internal(set) var chapters: [Chapter]
     public internal(set) var summary: EpisodeSummary?
     public internal(set) var chat: [ChatMessage]
     /// The podcast's feed, when the episode came from one; imported files have none.
@@ -168,6 +162,8 @@ public final class AppModel {
             }
         }
     }
+    /// Whether a summary can be written now: the local model is installed, or a ChatGPT or Claude plan is chosen.
+    var canWriteSummary: Bool { askProvider == "local" ? installedModels.contains("language") : isAskProviderReady }
     /// Whether the chosen plan has what it needs to answer; false sends the user to Settings → Ask.
     var isAskProviderReady: Bool {
         switch AskProvider(rawValue: askProvider) ?? .local {
@@ -260,7 +256,6 @@ public final class AppModel {
         speakers = SampleData.speakers
         transcript = SampleData.transcript
         paragraphs = SampleData.transcript.paragraphs(merge: true)
-        chapters = SampleData.chapters
         summary = SampleData.summary
         chat = SampleData.chat
         if !persistent, player.episode == nil { player.load(episode) }
@@ -270,7 +265,7 @@ public final class AppModel {
             episode = Episode(id: "", showName: "wavepod", title: "Open an episode", pubDate: .now, duration: 0,
                               descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
-            paragraphs = []; chapters = []; summary = nil; chat = []
+            paragraphs = []; summary = nil; chat = []
             if player.episode == nil { player.load(episode) }
             do {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
@@ -302,7 +297,7 @@ public final class AppModel {
         cancelAnswer()
         episode = record.episode; transcript = record.transcript; speakers = record.speakers
         speakerEvidence = record.speakerEvidence
-        paragraphs = transcript.paragraphs(merge: mergeLines); chapters = record.chapters
+        paragraphs = transcript.paragraphs(merge: mergeLines)
         summary = record.summary; chat = record.chat; feedURL = record.feedURL
         if speakers.values.contains(where: \.isConfirmed) { hasNamedSpeaker = true }
         episodeAudioURL = record.audioURL
@@ -394,9 +389,6 @@ public final class AppModel {
     public var isViewedEpisodePlaying: Bool { isViewingLoadedEpisode && player.isPlaying }
     public var currentParagraphIndex: Int? { isViewingLoadedEpisode ? paragraphs.index(at: player.currentTime) : nil }
 
-    public var currentChapterIndex: Int? {
-        isViewingLoadedEpisode ? chapters.lastIndex { $0.start <= player.currentTime } : nil
-    }
 
     public func toggleEpisodePlayback() {
         if isViewedEpisodePlaying { player.pause() }

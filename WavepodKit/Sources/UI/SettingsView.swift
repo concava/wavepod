@@ -56,13 +56,11 @@ struct SettingsView: View {
         case .transcription: transcription
         case .ask: AskSettings(model: model)
         case .queue: queue
-        case .models: models
-        case .shows: shows
         case .privacy: privacy
         }
     }
 
-    private var general: some View {
+    @ViewBuilder private var general: some View {
         SettingsGroup(title: "Appearance") {
             SettingRow(title: "Theme", detail: "Follow the system, or always use light or dark.") {
                 Picker("Theme", selection: $model.appearance) {
@@ -77,6 +75,14 @@ struct SettingsView: View {
                     ForEach(Typography.scales, id: \.self) { Text("\(Int($0 * 100)) %").tag($0) }
                 }
                 .labelsHidden().fixedSize()
+            }
+        }
+        SettingsGroup(title: "Podcasts") {
+            SettingRow(title: "Check podcasts in the background",
+                       detail: "Checks hourly, also while wavepod is closed. New episodes are transcribed only for podcasts where you turn it on.",
+                       last: true) {
+                Toggle("Check podcasts in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
+                    .labelsHidden().toggleStyle(.switch)
             }
         }
     }
@@ -99,6 +105,9 @@ struct SettingsView: View {
                         SecureField("API key", text: $model.scriberrKey).frame(width: 260)
                     }
                 }
+            } else {
+                ModelRow(model: model, title: "Transcription and speakers", detail: "Parakeet, Whisper for Catalan and other languages, voice activity and speaker detection.",
+                         kind: "native", folder: "parakeet", last: true)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 14) {
@@ -133,40 +142,9 @@ struct SettingsView: View {
         }
     }
 
-    private var models: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SettingsGroup(title: "Models on this Mac") {
-                ModelRow(model: model, title: "Transcription and speakers", detail: "Parakeet, Whisper for Catalan and other languages, voice activity and speaker detection.",
-                         kind: "native", folder: "parakeet")
-                ModelRow(model: model, title: "Ask, summaries and chapters", detail: "A 4-billion-parameter language model, about 2.3 GB. Uses about 3.6 GB of memory while answering.",
-                         kind: "language", folder: "language")
-                ModelRow(model: model, title: "Search by meaning", detail: "Finds passages that say the same thing in other words or languages.",
-                         kind: "embeddings", folder: "embeddings", last: true)
-            }
-            HStack {
-                Text(model.modelStatus).font(type.callout).foregroundStyle(Palette.inkMuted).textSelection(.enabled)
-                Spacer()
-                Button(model.isIndexing ? "Indexing…" : "Rebuild Search Index", action: model.indexLibrary)
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(model.isIndexing)
-            }
-        }
-    }
-
-    private var shows: some View {
-        SettingsGroup(title: "Followed podcasts") {
-            SettingRow(title: "Check podcasts in the background",
-                       detail: "Checks hourly, also while wavepod is closed. New episodes are transcribed only for podcasts where you turn it on.",
-                       last: true) {
-                Toggle("Check podcasts in the background", isOn: Binding(get: { model.backgroundChecks }, set: model.setBackgroundChecks))
-                    .labelsHidden().toggleStyle(.switch)
-            }
-        }
-    }
-
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Audio, transcripts and answers stay on this Mac unless you choose your own Scriberr server. These are the requests wavepod made: model downloads, feeds and link lookups.")
+            Text("Audio and transcripts stay on this Mac unless you choose your own Scriberr server, and answers stay on it unless you choose a ChatGPT or Claude plan. These are the requests wavepod made: model downloads, feeds, artwork, link lookups and answers.")
                 .font(type.body).foregroundStyle(Palette.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
             SettingsGroup(title: "Network log") {

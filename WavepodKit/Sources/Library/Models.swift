@@ -124,19 +124,6 @@ extension Array where Element == Paragraph {
     }
 }
 
-public struct Chapter: Identifiable, Hashable, Sendable, Codable {
-    public var id: Seconds { start }
-    public var title: String
-    public var start: Seconds
-    public var summary: String
-
-    public init(title: String, start: Seconds, summary: String) {
-        self.title = title
-        self.start = start
-        self.summary = summary
-    }
-}
-
 /// A claim that points into the transcript. `quote` must match the words at `start` (validated in the LLM module).
 public struct Citation: Hashable, Sendable, Codable {
     public var start: Seconds

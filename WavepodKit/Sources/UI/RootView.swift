@@ -77,6 +77,7 @@ public struct RootView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .shadow(color: .black.opacity(0.18), radius: 30, y: 12)
                         .accessibilityAddTraits(.isModal)
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.98).combined(with: .opacity))
                 }
                 .transition(.opacity)
             }
@@ -91,7 +92,7 @@ public struct RootView: View {
                 .transition(.opacity)
             }
         }
-        .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showSettings)
+        .animation(model.showSettings ? Motion.enter : Motion.exit, value: model.showSettings)
         .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showOnboarding)
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {

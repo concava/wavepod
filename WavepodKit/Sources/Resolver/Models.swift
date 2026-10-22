@@ -63,13 +63,12 @@ public struct ResolvedEpisode: Sendable, Hashable, Codable {
     public var language: String?
     public var persons: [Person]
     public var transcripts: [TranscriptLink]
-    public var chaptersURL: URL?
     public var source: Source
 
     public init(title: String, feedURL: URL? = nil, enclosureURL: URL? = nil, showTitle: String? = nil,
                 pubDate: Date? = nil, duration: TimeInterval? = nil, guid: String? = nil, artwork: URL? = nil,
                 descriptionHTML: String? = nil, language: String? = nil, persons: [Person] = [],
-                transcripts: [TranscriptLink] = [], chaptersURL: URL? = nil, source: Source = .rss) {
+                transcripts: [TranscriptLink] = [], source: Source = .rss) {
         self.title = title
         self.feedURL = feedURL
         self.enclosureURL = enclosureURL
@@ -82,7 +81,6 @@ public struct ResolvedEpisode: Sendable, Hashable, Codable {
         self.language = language
         self.persons = persons
         self.transcripts = transcripts
-        self.chaptersURL = chaptersURL
         self.source = source
     }
 }

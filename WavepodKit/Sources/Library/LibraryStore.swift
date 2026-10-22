@@ -16,7 +16,6 @@ public struct EpisodeRecord: Codable, Sendable, Identifiable {
     public var episode: Episode
     public var transcript: Transcript
     public var speakers: [SpeakerID: Speaker]
-    public var chapters: [Chapter]
     public var summary: EpisodeSummary?
     public var chat: [ChatMessage]
     public var notesPending: Bool?
@@ -26,10 +25,10 @@ public struct EpisodeRecord: Codable, Sendable, Identifiable {
     public var embeddings: [String: [Float]]
 
     public init(episode: Episode, transcript: Transcript, speakers: [SpeakerID: Speaker] = [:],
-                chapters: [Chapter] = [], summary: EpisodeSummary? = nil, chat: [ChatMessage] = [],
+                summary: EpisodeSummary? = nil, chat: [ChatMessage] = [],
                 audioURL: URL? = nil, feedURL: URL? = nil, embeddings: [String: [Float]] = [:], speakerEvidence: [SpeakerID: [SpeakerEvidence]] = [:]) {
         self.episode = episode; self.transcript = transcript; self.speakers = speakers
-        self.chapters = chapters; self.summary = summary; self.chat = chat
+        self.summary = summary; self.chat = chat
         self.audioURL = audioURL; self.feedURL = feedURL; self.embeddings = embeddings; self.speakerEvidence = speakerEvidence
     }
 }

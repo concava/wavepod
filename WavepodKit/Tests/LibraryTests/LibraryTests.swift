@@ -45,9 +45,9 @@ final class TranscriptTests: XCTestCase {
             XCTAssertLessThan(x.start, x.end)
             XCTAssertLessThanOrEqual(x.end, y.start)
         }
-        // Every summary and chapter timestamp points at the start of a real segment.
+        // Every summary timestamp points at the start of a real segment.
         let starts = Set(SampleData.transcript.segments.map(\.start))
-        for t in SampleData.chapters.map(\.start) + SampleData.summary.points.map(\.citation.start) {
+        for t in SampleData.summary.points.map(\.citation.start) {
             XCTAssertTrue(t == 0 || starts.contains(t), "\(t) is not a segment start")
         }
     }

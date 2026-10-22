@@ -178,7 +178,7 @@ struct SetupCard: View {
     var steps: [Step] {
         [
             Step(id: "models", title: "Install transcription models", done: model.installedModels.contains("parakeet")) {
-                model.openSettings(.models)
+                model.openSettings(.transcription)
             },
             Step(id: "episode", title: "Transcribe a first episode", done: !model.savedEpisodes.isEmpty) {
                 model.focusRequest = .command
@@ -192,8 +192,8 @@ struct SetupCard: View {
             Step(id: "show", title: "Follow a podcast", done: !model.subscriptions.isEmpty) {
                 model.section = .shows
             },
-            Step(id: "ask", title: "Install the Ask model", done: model.installedModels.contains("language")) {
-                model.openSettings(.models)
+            Step(id: "ask", title: "Set up answers", done: model.canWriteSummary) {
+                model.openSettings(.ask)
             },
         ]
     }

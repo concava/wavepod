@@ -165,7 +165,7 @@ struct PodcastFeedCard: View {
                 Menu {
                     Toggle("Download for Offline Playback", isOn: Binding(get: { subscription.autoDownload },
                                                                           set: { model.updateSubscription(subscription, download: $0) }))
-                    Toggle("Summarize and Create Chapters", isOn: Binding(get: { subscription.autoSummarize },
+                    Toggle("Summarize New Episodes", isOn: Binding(get: { subscription.autoSummarize },
                                                                           set: { model.updateSubscription(subscription, summarize: $0) }))
                     Picker("Keep Downloaded Episodes", selection: Binding(get: { subscription.keepLatest ?? 0 },
                                                                          set: { model.updateSubscription(subscription, keepLatest: $0 == 0 ? nil : $0, setRetention: true) })) {

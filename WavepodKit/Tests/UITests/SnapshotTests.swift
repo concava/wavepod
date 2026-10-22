@@ -84,11 +84,6 @@ final class SnapshotTests: XCTestCase {
         check("summary", size: CGSize(width: 620, height: 700)) { SummaryCardSnapshot(model: model) }
     }
 
-    func testChapters() {
-        let model = makeModel()
-        model.sidePane = .chapters
-        check("chapters", size: CGSize(width: 420, height: 500)) { DetailSnapshot(model: model) }
-    }
 
     func testTranscriptCard() {
         let model = makeModel()
@@ -96,10 +91,6 @@ final class SnapshotTests: XCTestCase {
         check("transcript-card", size: CGSize(width: 420, height: 700)) { DetailSnapshot(model: model) }
     }
 
-    func testPodcastCard() {
-        let model = makeModel()
-        check("podcast", size: CGSize(width: 250, height: 500)) { PodcastCard(model: model).background(Palette.surface) }
-    }
 
     /// A followed podcast with eight episodes shows only the newest five.
     func testPodcastFeedCard() {
@@ -181,7 +172,7 @@ final class AppModelTests: XCTestCase {
     private func anotherEpisode() -> EpisodeRecord {
         var episode = SampleData.episode
         episode.id = "another-episode"; episode.title = "Another episode"
-        return EpisodeRecord(episode: episode, transcript: SampleData.transcript, chapters: SampleData.chapters)
+        return EpisodeRecord(episode: episode, transcript: SampleData.transcript)
     }
 
     func testBrowsingAndRefreshingDoNotReplaceOrPausePlayback() {
@@ -204,7 +195,6 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.player.volume, 0.4)
         XCTAssertFalse(model.isViewedEpisodePlaying)
         XCTAssertNil(model.currentParagraphIndex)
-        XCTAssertNil(model.currentChapterIndex)
     }
 
     func testExplicitPlaySwitchesEpisodeAndSameEpisodeResumes() {

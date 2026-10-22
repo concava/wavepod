@@ -80,18 +80,6 @@ public enum SampleData {
 
     public static func start(ofSegment index: Int) -> Seconds { transcript.segments[index].start }
 
-    public static let chapters: [Chapter] = [
-        Chapter(title: "Cold open", start: 0, summary: "Marta introduces the show and the lighthouse."),
-        Chapter(title: "The logbook as an audit", start: start(ofSegment: 4),
-                summary: "What keepers recorded and why the oil numbers mattered."),
-        Chapter(title: "A poem in the margin", start: start(ofSegment: 9),
-                summary: "A 1931 entry by keeper Pere Bosch, read from the Palamós archive."),
-        Chapter(title: "Sound in the fog", start: start(ofSegment: 13),
-                summary: "Fog horn patterns let captains locate themselves by ear."),
-        Chapter(title: "Automation, 1988", start: start(ofSegment: 18),
-                summary: "Sensors and timers replace the last keeper."),
-    ]
-
     public static let summary = EpisodeSummary(
         overview: "Historian Jordi Serra explains how lighthouse keepers on the Costa Brava worked until automation in 1988: their logbooks were audits rather than diaries, fog horns mattered more than lamps in bad weather, and the last keeper found the silence after automation the hardest part.",
         points: [

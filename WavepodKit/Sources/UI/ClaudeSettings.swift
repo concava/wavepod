@@ -38,37 +38,53 @@ extension AppModel {
 struct ClaudeSettings: View {
     @Bindable var model: AppModel
     @Environment(\.typography) private var type
+
+    private var executableLabel: String {
+        if model.claudeExecutable.isEmpty { return "Not found. Install Claude Code or the Claude app." }
+        if model.claudeExecutable.contains("/Application Support/Claude/claude-code/") { return "From the Claude app" }
+        return model.claudeExecutable
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Questions, recent conversation and transcript text are sent to Anthropic through Claude Code. Audio is not sent. Your Claude subscription limits apply. This does not read your Claude Desktop conversations.")
-                .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
-            Text("Requires a current Claude Code installation. Wavepod uses a separate sign-in; your other Claude Code sessions are unchanged.")
-                .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Text(model.claudeExecutable.isEmpty ? "Claude Code not found"
-                     : model.claudeExecutable.contains("/Application Support/Claude/claude-code/") ? "Claude Code from the Claude app" : model.claudeExecutable)
-                    .help(model.claudeExecutable)
-                    .font(type.callout).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
-                Button("Choose executable", action: model.chooseClaudeExecutable)
-                Link("Install Claude Code", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
-            }.disabled(model.isConnectingClaude)
-            HStack {
-                Button("Continue with Claude") { model.connectClaude(action: "login") }.buttonStyle(PrimaryButtonStyle())
-                Button("Check connection") { model.connectClaude(action: "status") }
-                Button("Disconnect") { model.connectClaude(action: "logout") }
-            }.disabled(model.claudeExecutable.isEmpty || model.isConnectingClaude)
-            if model.isConnectingClaude {
-                HStack { ProgressView().controlSize(.small); Button("Cancel") { model.claudeConnectionTask?.cancel() } }
+        SettingsGroup(title: "Claude") {
+            SettingRow(title: "Claude Code", detail: executableLabel) {
+                HStack(spacing: 8) {
+                    if model.claudeExecutable.isEmpty {
+                        Link("Install", destination: URL(string: "https://code.claude.com/docs/en/setup")!).font(type.callout)
+                    }
+                    Button("Choose…", action: model.chooseClaudeExecutable).buttonStyle(SecondaryButtonStyle())
+                }
+                .help(model.claudeExecutable)
+                .disabled(model.isConnectingClaude)
             }
-            Picker("Claude model", selection: $model.claudeModel) {
-                Text("Sonnet").tag("sonnet")
-                Text("Opus").tag("opus")
-                Text("Haiku").tag("haiku")
-            }.disabled(model.isConnectingClaude)
-            Text(model.claudeStatus).font(type.callout).foregroundStyle(Palette.inkMuted).textSelection(.enabled)
-            Text("Claude Code manages this connection and its network requests. Wavepod records each answer request in the network log; its HTTP allow-list does not control Claude Code’s traffic.")
-                .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
-            Link("Manage Claude usage", destination: URL(string: "https://claude.ai/settings/usage")!)
+            SettingRow(title: "Account", detail: model.claudeStatus) {
+                if model.isConnectingClaude {
+                    HStack { ProgressView().controlSize(.small); Button("Cancel") { model.claudeConnectionTask?.cancel() } }
+                } else {
+                    HStack(spacing: 8) {
+                        Button("Continue with Claude") { model.connectClaude(action: "login") }.buttonStyle(PrimaryButtonStyle())
+                        Menu {
+                            Button("Check Connection") { model.connectClaude(action: "status") }
+                            Divider()
+                            Button("Disconnect", role: .destructive) { model.connectClaude(action: "logout") }
+                        } label: { Image(systemName: "ellipsis") }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .accessibilityLabel("More account actions")
+                    }
+                    .disabled(model.claudeExecutable.isEmpty)
+                }
+            }
+            SettingRow(title: "Model", detail: "Sonnet is fast; Opus is the most capable.", last: true) {
+                Picker("Claude model", selection: $model.claudeModel) {
+                    Text("Sonnet").tag("sonnet")
+                    Text("Opus").tag("opus")
+                    Text("Haiku").tag("haiku")
+                }
+                .labelsHidden().fixedSize()
+                .disabled(model.isConnectingClaude)
+            }
         }
+        PlanFootnote(text: "Questions, recent conversation and transcript text go to Anthropic through Claude Code, which wavepod signs in separately; your other Claude sessions are unchanged. Audio is not sent. Plan limits apply.",
+                     link: ("Manage usage", URL(string: "https://claude.ai/settings/usage")!))
     }
 }

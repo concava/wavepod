@@ -12,13 +12,6 @@ public struct ImportedTranscript: Sendable, Hashable, Codable {
     public var hasTimings: Bool
 }
 
-public struct ImportedChapter: Sendable, Hashable, Codable {
-    public var start: TimeInterval
-    public var title: String
-    public var url: URL?
-    public var img: URL?
-}
-
 public enum PublishedContentParser {
     public static func transcript(_ data: Data, type: String) throws -> ImportedTranscript {
         let type = type.lowercased()
@@ -55,13 +48,6 @@ public enum PublishedContentParser {
                                                      text: type.contains("html") ? MetadataHTML.plain(text) : text)], hasTimings: false)
     }
 
-    public static func chapters(_ data: Data) throws -> [ImportedChapter] {
-        try decodeResponse(JSONChapters.self, from: data).chapters.compactMap {
-            guard $0.toc != false, $0.startTime.isFinite, $0.startTime >= 0 else { return nil }
-            return ImportedChapter(start: $0.startTime, title: $0.title, url: $0.url, img: $0.img)
-        }.sorted { $0.start < $1.start }
-    }
-
     static func timestamp(_ text: String) -> Double? {
         guard let token = text.split(whereSeparator: \.isWhitespace).first else { return nil }
         return FeedValueParser.duration(token.replacingOccurrences(of: ",", with: "."))
@@ -77,15 +63,5 @@ public enum PublishedContentParser {
             var body: String
         }
         var segments: [Segment]
-    }
-    private struct JSONChapters: Decodable {
-        struct Chapter: Decodable {
-            var startTime: Double
-            var title: String
-            var url: URL?
-            var img: URL?
-            var toc: Bool?
-        }
-        var chapters: [Chapter]
     }
 }

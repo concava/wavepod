@@ -156,8 +156,8 @@ final class NetworkTests: XCTestCase {
             XCTAssertEqual(saved.notesPending, !available)
             XCTAssertEqual(saved.summary != nil, available)
             XCTAssertEqual(try String(contentsOf: XCTUnwrap(saved.audioURL), encoding: .utf8), "audio")
-            let generated = await calls.chapters
-            XCTAssertEqual(generated, available ? [false, true] : [])
+            let generated = await calls.count
+            XCTAssertEqual(generated, available ? 1 : 0)
             await queue.shutdown()
             try FileManager.default.removeItem(at: folder)
         }
@@ -185,8 +185,8 @@ final class NetworkTests: XCTestCase {
         let saved = try XCTUnwrap(store.episode(JobQueue.episodeID(episode)))
         XCTAssertTrue(saved.transcript.segments.isEmpty)
         XCTAssertNotNil(saved.audioURL)
-        let generated = await calls.chapters
-        XCTAssertEqual(generated, [])
+        let generated = await calls.count
+        XCTAssertEqual(generated, 0)
         let upgradeID = try await queue.enqueue(episode)
         for _ in 0..<200 {
             if await queue.snapshot().first(where: { $0.id == upgradeID })?.state == .completed { break }
@@ -227,8 +227,8 @@ final class NetworkTests: XCTestCase {
         let saved = try XCTUnwrap(store.episode(JobQueue.episodeID(episode)))
         XCTAssertFalse(saved.transcript.segments.isEmpty)
         XCTAssertEqual(saved.notesPending, true)
-        let generated = await calls.chapters
-        XCTAssertEqual(generated, [])
+        let generated = await calls.count
+        XCTAssertEqual(generated, 0)
         await queue.shutdown()
     }
     func testModelInstallerIncludesExternalChatTemplate() async throws {

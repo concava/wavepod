@@ -2,18 +2,8 @@ import Foundation
 import Library
 
 extension LocalGenerator {
-    public func notes(_ transcript: Transcript, chapters: Bool) async throws -> [CitedClaim] {
-        try await withSession { session in
-            let grounded = GroundedAnswers(generator: session)
-            var claims: [CitedClaim] = []
-            for chunk in ContextChunks.make(transcript, limit: chapters ? 9000 : 4000) {
-                try Task.checkCancellation()
-                claims += try await grounded.answer(
-                    instruction: chapters ? "Identify the topics in this section as brief chapter titles." : EpisodeSummaryStyle.instruction(language: transcript.language),
-                    context: chunk, transcript: transcript)
-            }
-            return claims
-        }
+    public func notes(_ transcript: Transcript) async throws -> [CitedClaim] {
+        try await withSession { session in try await EpisodeSummaryStyle.notes(transcript, generator: session, contextLimit: 4000) }
     }
     public func translation(_ transcript: Transcript, language: String) async throws -> String {
         try await withSession { session in
@@ -105,6 +95,19 @@ public enum EpisodeSummaryStyle {
     """
     }
 
+    /// Reads the whole transcript in sections no larger than `contextLimit` characters and returns its cited notes.
+    public static func notes(_ transcript: Transcript, generator: any TextGenerating, contextLimit: Int) async throws -> [CitedClaim] {
+        let grounded = GroundedAnswers(generator: generator)
+        let index = CitationValidator.Index(transcript)
+        var claims: [CitedClaim] = []
+        for chunk in ContextChunks.make(transcript, limit: contextLimit) {
+            try Task.checkCancellation()
+            claims += try await grounded.answer(instruction: instruction(language: transcript.language), context: chunk,
+                                                transcript: transcript, index: index)
+        }
+        return claims
+    }
+
     public static func summary(from claims: [CitedClaim], language: String = "en") -> EpisodeSummary {
         let ordered = claims.sorted { $0.start < $1.start }
         let shown = headings(language: language)
@@ -121,7 +124,18 @@ public enum EpisodeSummaryStyle {
 
 public protocol NotesGenerating: Sendable {
     var isAvailable: Bool { get }
-    func notes(_ transcript: Transcript, chapters: Bool) async throws -> [CitedClaim]
+    func notes(_ transcript: Transcript) async throws -> [CitedClaim]
+}
+
+/// Notes from a cloud plan (ChatGPT or Claude): the same instruction and citation checks as the local model, in
+/// larger sections, so a long episode takes a few requests instead of dozens of local passes.
+public struct PlanNotes: NotesGenerating {
+    public let generator: any TextGenerating
+    public let isAvailable: Bool
+    public init(generator: any TextGenerating, isAvailable: Bool) { self.generator = generator; self.isAvailable = isAvailable }
+    public func notes(_ transcript: Transcript) async throws -> [CitedClaim] {
+        try await EpisodeSummaryStyle.notes(transcript, generator: generator, contextLimit: 40_000)
+    }
 }
 
 extension LocalGenerator: NotesGenerating {
@@ -132,23 +146,18 @@ public struct EpisodeNotesService: Sendable {
     public let store: LibraryStore
     public let generator: any NotesGenerating
     public init(store: LibraryStore, generator: any NotesGenerating) { self.store = store; self.generator = generator }
-    @discardableResult public func generate(_ id: String, chapters: Bool) async throws -> [CitedClaim] {
+    @discardableResult public func generate(_ id: String) async throws -> [CitedClaim] {
         guard let source = try store.episode(id), !source.transcript.segments.isEmpty else { return [] }
-        let claims = try await generator.notes(source.transcript, chapters: chapters)
+        let claims = try await generator.notes(source.transcript)
         guard var record = try store.episode(id) else { return claims }
-        if chapters {
-            record.chapters = claims.sorted { $0.start < $1.start }.map { Chapter(title: $0.claim, start: $0.start, summary: $0.quote) }
-        } else {
-            record.summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
-        }
+        record.summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
         try store.save(record)
         return claims
     }
     public func completePending(_ id: String) async throws {
         guard let record = try store.episode(id), record.notesPending == true,
               !record.transcript.segments.isEmpty, generator.isAvailable else { return }
-        try await generate(id, chapters: false)
-        try await generate(id, chapters: true)
+        try await generate(id)
         guard var latest = try store.episode(id) else { return }
         latest.notesPending = false
         try store.save(latest)

@@ -127,7 +127,6 @@ private final class FeedDelegate: NSObject, XMLParserDelegate {
                     value.transcripts.append(TranscriptLink(url: url, type: element.attributes["type"] ?? "text/plain",
                                                            language: element.attributes["language"], rel: element.attributes["rel"]))
                 }
-            case (Self.podcast, "chapters"): value.chaptersURL = link(element.attributes["url"])
             case (Self.podcast, "person"):
                 value.persons.append(Person(name: text, role: element.attributes["role"], group: element.attributes["group"],
                                             img: link(element.attributes["img"]), href: link(element.attributes["href"])))

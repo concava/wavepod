@@ -1,32 +1,31 @@
 import Library
 import SwiftUI
 
-/// One episode as a row of cards: the podcast and its episodes, the summary with an Ask field, and a card on the
-/// right that shows the transcript, answers, chapters or details, or closes to leave two cards.
+/// One episode as two cards: the episode (its podcast, the Ask field, answers and summary) and a card on the right
+/// with the transcript or the episode's details, which closes to leave the episode alone.
 struct Workspace: View {
     @Bindable var model: AppModel
     var focus: FocusState<AppModel.FocusTarget?>.Binding
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 8) {
-            PodcastCard(model: model)
-                .frame(width: 250)
-                .elevated(cornerRadius: 14)
             SummaryCard(model: model, focus: focus)
-                .frame(minWidth: 380, maxWidth: .infinity)
+                .frame(minWidth: 420, maxWidth: .infinity)
                 .elevated(cornerRadius: 14)
             if model.showSidePane {
                 DetailCard(model: model, focus: focus)
-                    .frame(minWidth: 340, idealWidth: 420, maxWidth: 520)
+                    .frame(minWidth: 340, idealWidth: 460, maxWidth: 560)
                     .elevated(cornerRadius: 14)
+                    .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
             }
         }
+        .animation(reduceMotion ? Motion.fade : Motion.standard, value: model.showSidePane)
     }
 }
 
-// MARK: - Left: the podcast
-
-struct PodcastCard: View {
+/// The podcast's name, opening a menu of its other episodes in the library and its page.
+struct PodcastMenu: View {
     let model: AppModel
     @Environment(\.typography) private var type
 
@@ -39,62 +38,32 @@ struct PodcastCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                ArtworkView(hue: model.episode.artworkHue, url: model.episode.artworkURL, cornerRadius: 10)
-                    .frame(width: 64, height: 64)
-                Text(model.episode.showName)
-                    .font(type.episodeTitle)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(2)
-                    .accessibilityAddTraits(.isHeader)
-                Text(episodes.count == 1 ? "1 episode in your library" : "\(episodes.count) episodes in your library")
-                    .font(type.caption)
-                    .foregroundStyle(Palette.inkMuted)
-                if model.feedURL != nil {
-                    HStack(spacing: 6) {
-                        if isFollowing {
-                            Label("Following", systemImage: "checkmark")
-                                .font(type.label)
-                                .foregroundStyle(Palette.accent)
-                        }
-                        Button(isFollowing ? "All Episodes" : "All Episodes and Follow", action: model.openPodcast)
-                            .buttonStyle(SecondaryButtonStyle())
-                            .disabled(model.isResolving)
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            .padding(16)
-            Divider().overlay(Palette.rule)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
+        Menu {
+            if episodes.count > 1 {
+                Section("In your library") {
                     ForEach(episodes) { item in
-                        let current = item.id == model.episode.id
                         Button { model.open(item) } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.episode.title)
-                                    .font(type.callout.weight(current ? .semibold : .regular))
-                                    .foregroundStyle(Palette.ink)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                                Text("\(item.episode.pubDate.formatted(date: .abbreviated, time: .omitted)) · \(Timecode.format(item.episode.duration))")
-                                    .font(type.caption)
-                                    .foregroundStyle(Palette.inkMuted)
-                            }
-                            .padding(.horizontal, 10).padding(.vertical, 7)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(current ? Palette.selection : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .contentShape(Rectangle())
+                            if item.id == model.episode.id { Label(item.episode.title, systemImage: "checkmark") } else { Text(item.episode.title) }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(current ? .isSelected : [])
                     }
                 }
-                .padding(8)
             }
+            if model.feedURL != nil {
+                Button(isFollowing ? "All Episodes" : "All Episodes and Follow", action: model.openPodcast)
+                    .disabled(model.isResolving)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(model.episode.showName)
+                if isFollowing { Image(systemName: "checkmark.circle.fill").imageScale(.small).accessibilityLabel("Following") }
+            }
+            .font(type.label)
         }
-        .frame(maxHeight: .infinity, alignment: .top)
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .foregroundStyle(Palette.accent)
+        .disabled(episodes.count <= 1 && model.feedURL == nil)
+        .help("Episodes of this podcast")
     }
 }
 
@@ -109,8 +78,11 @@ struct SummaryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                ArtworkView(hue: episode.artworkHue, url: episode.artworkURL, cornerRadius: 10)
+                    .frame(width: 72, height: 72)
                 VStack(alignment: .leading, spacing: 4) {
+                    PodcastMenu(model: model)
                     Text(episode.title)
                         .font(type.readingTitle)
                         .foregroundStyle(Palette.ink)
@@ -248,7 +220,7 @@ struct AskProviderMenu: View {
     }
 }
 
-// MARK: - Right: transcript, answers, chapters or details
+// MARK: - Right: transcript or details
 
 struct DetailCard: View {
     @Bindable var model: AppModel
@@ -295,21 +267,6 @@ struct DetailCard: View {
                                 .padding(.bottom, 10)
                             }
                         }
-                case .chapters:
-                    if model.chapters.isEmpty {
-                        ContentUnavailableView {
-                            Label(model.isGenerating ? "Writing chapters…" : "No chapters yet", systemImage: "list.number")
-                        } description: {
-                            Text("Chapters are written on this Mac by the local model.")
-                        } actions: {
-                            if model.isPersistent && !model.isGenerating && model.installedModels.contains("language") {
-                                Button("Write Chapters") { model.generateNotes(chaptersOnly: true) }
-                                    .buttonStyle(PrimaryButtonStyle())
-                            }
-                        }
-                    } else {
-                        ChaptersView(model: model)
-                    }
                 case .about: EpisodeAbout(model: model)
                 }
             }

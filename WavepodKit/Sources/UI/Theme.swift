@@ -128,6 +128,26 @@ extension View {
 /// An animation that becomes none under Reduce Motion.
 func motion(_ animation: Animation, reduced: Bool) -> Animation? { reduced ? nil : animation }
 
+/// The app's motion language: one decisive curve for things that move, short fades for the rest. Under Reduce
+/// Motion, views swap movement for `fade`, a plain cross-fade, instead of appearing abruptly.
+enum Motion {
+    /// Cards and panels moving into place.
+    static let standard = Animation.timingCurve(0.2, 0, 0, 1, duration: 0.25)
+    /// Infrequent content arriving: an answer, a summary, an overlay.
+    static let enter = Animation.easeOut(duration: 0.3)
+    /// Leaving is shorter than arriving.
+    static let exit = Animation.easeOut(duration: 0.15)
+    static let fade = Animation.easeOut(duration: 0.2)
+}
+
+extension AnyTransition {
+    /// Content rising 12 pt into place, for infrequent arrivals. A cross-fade under Reduce Motion.
+    static func arrive(reduced: Bool) -> AnyTransition {
+        reduced ? .opacity : .asymmetric(insertion: .offset(y: 12).combined(with: .opacity),
+                                         removal: .offset(y: -12).combined(with: .opacity).animation(Motion.exit))
+    }
+}
+
 /// A rounded pane on the paper background.
 struct PaneBackground: ViewModifier {
     func body(content: Content) -> some View {
@@ -217,6 +237,7 @@ struct ArtworkView: View {
     var url: URL? = nil
     var cornerRadius: CGFloat = 10
     @Environment(\.artworkCache) private var cache
+    @Environment(\.colorScheme) private var scheme
     @State private var image: NSImage?
 
     var body: some View {
@@ -231,14 +252,22 @@ struct ArtworkView: View {
                 .padding(.vertical, cornerRadius)
             if let image {
                 Image(nsImage: image).resizable().scaledToFill()
+                    .transition(.opacity)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        // Photos get a neutral 1 pt edge so light artwork doesn't bleed into the card.
+        .overlay {
+            if image != nil {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(scheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.1), lineWidth: 1)
+            }
+        }
         .accessibilityHidden(true)
         .task(id: url) {
             image = nil
             guard let url, let cache, let data = await cache.image(for: url) else { return }
-            image = NSImage(data: data)
+            withAnimation(Motion.fade) { image = NSImage(data: data) }
         }
     }
 }
