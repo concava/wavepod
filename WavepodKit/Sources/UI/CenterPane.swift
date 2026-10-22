@@ -292,9 +292,9 @@ struct AnswersSection: View {
                     }
                 }
                 ForEach(exchanges, id: \.question.id) { exchange in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text(exchange.question.text)
-                            .font(type.body.weight(.semibold))
+                            .font(type.episodeTitle)
                             .foregroundStyle(Palette.ink)
                             .textSelection(.enabled)
                             .accessibilityLabel("You asked: \(exchange.question.text)")

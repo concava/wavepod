@@ -23,23 +23,18 @@ struct MessageView: View {
             .accessibilityLabel("You asked: \(message.text)")
         case .assistant:
             if let sections = message.sections {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 18) {
                     ForEach(sections) { section in
                         VStack(alignment: .leading, spacing: 8) {
-                            if !section.title.isEmpty {
-                                Text(section.title)
-                                    .font(type.body.weight(.semibold))
-                                    .foregroundStyle(Palette.ink)
-                                    .accessibilityAddTraits(.isHeader)
-                            }
+                            if !section.title.isEmpty { SectionHeading(section.title) }
                             ForEach(section.points) { point in
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
                                     TimestampPill(time: point.citation.start) { onSeek(point.citation.start) }
                                         .help("“\(point.citation.quote)”")
                                     Text(.init(point.text))
-                                        .font(type.body)
+                                        .font(type.reading)
                                         .foregroundStyle(Palette.ink)
-                                        .lineSpacing(3)
+                                        .lineSpacing(5)
                                         .textSelection(.enabled)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
@@ -47,9 +42,7 @@ struct MessageView: View {
                         }
                     }
                 }
-                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityElement(children: .contain)
             } else {
                 plain
@@ -60,24 +53,22 @@ struct MessageView: View {
     private var plain: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(.init(message.text))
-                .font(type.body)
+                .font(type.reading)
                 .foregroundStyle(Palette.ink)
-                .lineSpacing(3)
+                .lineSpacing(5)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(message.citations, id: \.self) { citation in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     TimestampPill(time: citation.start) { onSeek(citation.start) }
                     Text("“\(citation.quote)”")
-                        .font(type.callout.italic())
+                        .font(type.reading.italic())
                         .foregroundStyle(Palette.inkMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .contain)
     }
 }
