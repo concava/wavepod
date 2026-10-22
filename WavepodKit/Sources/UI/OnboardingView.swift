@@ -157,7 +157,7 @@ struct OnboardingView: View {
                 Button {
                     model.finishOnboarding()
                     model.chooseFile()
-                } label: { Label("Open an Audio File", systemImage: "waveform") }
+                } label: { Label("Add an Audio File", systemImage: "waveform") }
                     .buttonStyle(SecondaryButtonStyle())
             }
             if !model.installedModels.contains("parakeet") {

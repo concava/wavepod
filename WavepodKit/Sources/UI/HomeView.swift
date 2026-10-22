@@ -125,7 +125,7 @@ struct StartCard: View {
                 HStack(spacing: 10) {
                     Button { model.focusRequest = .command } label: { Label("Paste a Link", systemImage: "link") }
                         .buttonStyle(LightButtonStyle())
-                    Button(action: model.chooseFile) { Label("Open Audio File", systemImage: "waveform") }
+                    Button(action: model.chooseFile) { Label("Add Audio File", systemImage: "waveform") }
                         .buttonStyle(LightButtonStyle(subtle: true))
                 }
                 .padding(.top, 8)
