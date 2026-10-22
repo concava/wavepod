@@ -20,20 +20,16 @@ struct EpisodeAbout: View {
                     .background(Palette.accentSoft, in: Capsule())
                     .accessibilityLabel("Podcast: \(episode.showName)")
 
-                HStack(spacing: 14) {
-                    Group {
-                        Label(episode.pubDate.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
-                        Label(Timecode.format(episode.duration), systemImage: "clock")
-                            .accessibilityLabel("Duration \(Timecode.spoken(episode.duration))")
+                // In a narrow pane the Download button moves under the date and length instead of wrapping its label.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 14) {
+                        facts
+                        downloadButton
                     }
-                    .font(type.callout)
-                    .foregroundStyle(Palette.inkMuted)
-                    .labelStyle(.titleAndIcon)
-                    Button(action: model.downloadAudio) {
-                        Label("Download", systemImage: "arrow.down")
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 14) { facts }
+                        downloadButton
                     }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityLabel("Download audio")
                 }
 
                 Text(description)
@@ -58,5 +54,28 @@ struct EpisodeAbout: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("About this episode")
+    }
+
+    private var facts: some View {
+        Group {
+            Label(episode.pubDate.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+            Label(Timecode.format(episode.duration), systemImage: "clock")
+                .accessibilityLabel("Duration \(Timecode.spoken(episode.duration))")
+        }
+        .font(type.callout)
+        .foregroundStyle(Palette.inkMuted)
+        .labelStyle(.titleAndIcon)
+        .lineLimit(1)
+        .fixedSize()
+    }
+
+    private var downloadButton: some View {
+        Button(action: model.downloadAudio) {
+            Label("Download", systemImage: "arrow.down")
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .accessibilityLabel("Download audio")
     }
 }
