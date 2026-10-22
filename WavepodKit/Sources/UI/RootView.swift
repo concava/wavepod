@@ -12,10 +12,11 @@ public struct RootView: View {
 
     public init(model: AppModel) { self.model = model }
 
-    /// The player shows once something is loaded in it, or on an opened episode. Never as an empty bar.
-    private var showsPlayer: Bool {
-        model.player.episode != nil || (model.section == .library && !model.episode.id.isEmpty)
-    }
+    /// The player shows only after an episode is played. Before that it holds a blank placeholder with an empty id.
+    private var showsPlayer: Bool { !(model.player.episode?.id.isEmpty ?? true) }
+    /// Settings and the welcome float over a dimmed window. SwiftUI cannot draw over the title bar, so the title
+    /// bar dims itself by the same amount.
+    private var isDimmed: Bool { model.showSettings || model.showOnboarding }
 
     public var body: some View {
         HStack(spacing: 0) {
@@ -45,7 +46,7 @@ public struct RootView: View {
         }
         .background(Palette.paper.ignoresSafeArea())
         // The title bar takes the paper colour too, so the window is one surface in both themes.
-        .toolbarBackground(Palette.paper, for: .windowToolbar)
+        .toolbarBackground(isDimmed ? Palette.paper.mix(with: .black, by: 0.28) : Palette.paper, for: .windowToolbar)
         .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
         .toolbar {
@@ -57,16 +58,20 @@ public struct RootView: View {
                 }
                 .help(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
                 .accessibilityLabel(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
+                .dimmed(isDimmed)
             }
             ToolbarItem(placement: .principal) {
                 CommandField(model: model)
+                .dimmed(isDimmed)
             }
             ToolbarItem(placement: .primaryAction) {
                 AppearanceButton(model: model)
+                .dimmed(isDimmed)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button("Settings", systemImage: "gearshape") { model.openSettings() }
                     .help("Settings (⌘,)")
+                    .dimmed(isDimmed)
             }
         }
         .dropDestination(for: URL.self) { urls, _ in
@@ -252,4 +257,9 @@ struct NoticeBar: View {
             )
             .accessibilityAddTraits(.updatesFrequently)
     }
+}
+
+private extension View {
+    /// Fades and disables a title bar control while a dimmed overlay covers the window.
+    func dimmed(_ on: Bool) -> some View { opacity(on ? 0.45 : 1).disabled(on).allowsHitTesting(!on) }
 }
