@@ -65,11 +65,10 @@ struct ClaudeSettings: View {
                     HStack(spacing: 8) {
                         Button("Continue with Claude") { model.connectClaude(action: .signIn) }.buttonStyle(PrimaryButtonStyle())
                         Menu {
-                            Button("Check Connection") { model.connectClaude(action: .checkStatus) }
-                            Divider()
-                            Button("Disconnect", role: .destructive) { model.connectClaude(action: .disconnect) }
+                            Section { Button("Check Connection") { model.connectClaude(action: .checkStatus) } }
+                            Section { Button("Disconnect", role: .destructive) { model.connectClaude(action: .disconnect) } }
                         } label: { Image(systemName: "ellipsis") }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(IconButtonStyle()).fixedSize()
                         .accessibilityLabel("More account actions")
                     }
                     .disabled(model.claudeExecutable.isEmpty)
