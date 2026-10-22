@@ -85,7 +85,7 @@ On battery, the queue pauses below 20 % and resumes at 25 % or when you plug in.
 | --- | --- |
 | ⌘K | Search, or paste a link |
 | ⌘J | Ask this episode |
-| ⌘O | Open an audio or video file |
+| ⌘O | Add an audio or video file |
 | ⌘1 / ⌘2 | Transcript / About |
 | ⌘↩ | Play or pause |
 | ⌘← / ⌘→ | Back or forward 15 seconds |

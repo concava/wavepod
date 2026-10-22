@@ -295,7 +295,7 @@ public final class AppModel {
         if persistent {
             showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
             episode = Episode(id: "", showName: "Wavepod", title: "Open an episode", pubDate: .now, duration: 0,
-                              descriptionHTML: "Paste a podcast link above or open an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
+                              descriptionHTML: "Paste a podcast link above or add an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
             speakers = [:]; transcript = Transcript(language: "und", segments: [])
             paragraphs = []; summary = nil; chat = []
             if player.episode == nil { player.load(episode) }

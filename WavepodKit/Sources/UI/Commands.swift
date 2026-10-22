@@ -15,7 +15,7 @@ public struct WavepodCommands: Commands {
             Button("Settings…") { model.openSettings() }.keyboardShortcut(",")
         }
         CommandGroup(replacing: .newItem) {
-            Button("Open Audio or Video…", action: model.chooseFile).keyboardShortcut("o")
+            Button("Add Audio or Video File…", action: model.chooseFile).keyboardShortcut("o")
         }
         CommandGroup(after: .textEditing) {
             Button("Search or Open Link…") { model.focusRequest = .command }
