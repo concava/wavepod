@@ -94,9 +94,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${NOTARIZED:-}" = true ]; then
-            gh release create "$TAG" "$DMG" --title "Wavepod $VERSION" --generate-notes
+            gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION" --generate-notes
           else
-            gh release create "$TAG" "$DMG" --title "Wavepod $VERSION (test build)" --prerelease \
+            gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION (test build)" --prerelease \
               --notes "Ad-hoc signed and not notarized: for testing only. macOS will refuse to open it until you allow it in System Settings → Privacy & Security."
           fi
 
