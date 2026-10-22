@@ -10,14 +10,21 @@ enum DataEraser {
     /// Keychain services that hold sign-ins: ChatGPT accounts and Scriberr keys.
     static let keychainServices = ["app.wavepod.chatgpt", "app.wavepod.scriberr"]
 
-    /// Deletes every item in `root` except the names in `keeping`. The folder itself stays.
-    static func removeContents(of root: URL, keeping: Set<String> = []) throws {
+    /// Deletes every item in `root` except the names in `keeping`. The folder itself stays. An item that can't be
+    /// deleted doesn't stop the rest. The result names the items that are left.
+    @discardableResult
+    static func removeContents(of root: URL, keeping: Set<String> = []) -> [String] {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: root.path) else { return }
-        for item in try fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) where !keeping.contains(item.lastPathComponent) {
-            try fm.removeItem(at: item)
+        guard let items = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return [] }
+        var left: [String] = []
+        for item in items where !keeping.contains(item.lastPathComponent) {
+            do { try fm.removeItem(at: item) } catch { left.append(item.lastPathComponent) }
         }
+        return left
     }
+
+    /// Set after an erase that left files behind, read once by the next launch.
+    static let leftoversKey = "eraseLeftovers"
 
     static func removeKeychainItems() {
         for service in keychainServices {
@@ -61,16 +68,21 @@ extension AppModel {
                 group.cancelAll()
             }
         }
+        // From here on the erase always finishes and restarts: the sign-ins are already gone, so stopping halfway
+        // would leave a signed-out app with its library. Files that can't be deleted are named after the restart.
         try? await SMAppService.agent(plistName: "app.wavepod.feeds.plist").unregister()
         DataEraser.removeKeychainItems()
-        do {
-            try DataEraser.removeContents(of: WorkspaceServices.defaultRoot, keeping: keepModels ? ["models"] : [])
-        } catch {
-            show("Wavepod could not erase all files: \(error.localizedDescription)")
-            return
-        }
+        let left = DataEraser.removeContents(of: WorkspaceServices.defaultRoot, keeping: keepModels ? ["models"] : [])
         if let domain = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: domain) }
+        if !left.isEmpty { UserDefaults.standard.set(left, forKey: DataEraser.leftoversKey) }
         Self.relaunch()
+    }
+
+    /// After a restart from an erase that left files behind, says which, once.
+    func reportEraseLeftovers() {
+        guard let left = UserDefaults.standard.stringArray(forKey: DataEraser.leftoversKey), !left.isEmpty else { return }
+        UserDefaults.standard.removeObject(forKey: DataEraser.leftoversKey)
+        show("Wavepod erased its data but could not delete: \(left.joined(separator: ", ")). They are in ~/Library/Application Support/wavepod.")
     }
 
     /// Opens a new copy of the app one second after this one quits.

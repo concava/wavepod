@@ -297,6 +297,7 @@ public final class AppModel {
             showEmptyEpisode()
             if player.episode == nil { player.load(episode) }
             player.enableSystemMediaControls()
+            reportEraseLeftovers()
             do {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
                 savedEpisodes = try services!.store.items()
@@ -336,6 +337,15 @@ public final class AppModel {
     public func deleteEpisode() {
         guard let services, !episode.id.isEmpty else { return }
         let id = episode.id
+        Task { await deleteEpisode(id, services: services) }
+    }
+
+    private func deleteEpisode(_ id: String, services: WorkspaceServices) async {
+        // A job still working on the episode would save it again when it finishes, so it stops first.
+        for job in await services.queue.snapshot()
+        where JobQueue.episodeID(job.episode) == id && ![.completed, .cancelled].contains(job.state) {
+            try? await services.queue.cancel(job.id)
+        }
         do {
             let record = try services.store.episode(id)
             cancelAnswer()
