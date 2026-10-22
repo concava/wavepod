@@ -10,6 +10,11 @@ answers with quotes you can click to hear.
 Paste a Spotify, Apple Podcasts or YouTube link, and Wavepod does the rest on your Mac. A four-hour episode is
 transcribed in about five minutes on an M3. Your audio never leaves your computer.
 
+[![Watch the 20-second Wavepod film: paste a link, read the summary, ask a question, read along with the
+transcript.](docs/marketing/launch/wavepod-launch-poster.jpg)](docs/marketing/launch/wavepod-launch-20s.mp4)
+
+▶ [Watch the 20-second film](docs/marketing/launch/wavepod-launch-20s.mp4) (with sound).
+
 ![Wavepod with an episode open. On the left, the episode with an answer and its quotes, then the summary and its
 key points, each with a timestamp. On the right, the transcript with each speaker named. The player is at the
 bottom.](docs/images/wavepod.png)
