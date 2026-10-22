@@ -162,7 +162,10 @@ public final class AppModel {
     var answerReadiness: AnswerReadiness {
         let answers = services?.answers ?? AnswerModel(local: LocalGenerator(directory: WorkspaceServices.defaultRoot.appendingPathComponent("models/language")),
                                                        chatGPT: .shared, claude: ClaudePlan(root: WorkspaceServices.defaultRoot.appendingPathComponent("claude"), client: .shared))
-        return answers.readiness(answerChoice, connectedChatGPTAccounts: Set(chatGPTProfiles.filter(\.connected).map(\.id)))
+        // Before the accounts are read (they are in the Keychain), a chosen account counts; the sign-in is checked
+        // when the model runs.
+        let connected = chatGPTProfilesLoaded ? Set(chatGPTProfiles.filter(\.connected).map(\.id)) : nil
+        return answers.readiness(answerChoice, connectedChatGPTAccounts: connected)
     }
     public var answerProvider: AnswerProvider {
         get { answerChoice.provider }
@@ -205,7 +208,9 @@ public final class AppModel {
     public var claudeStatus = "Connect your Claude plan."
     public var isConnectingClaude = false
     @ObservationIgnored var claudeConnectionTask: Task<Void, Never>?
-    public var chatGPTProfiles: [ChatGPTProfile] = []
+    public var chatGPTProfiles: [ChatGPTProfile] = [] { didSet { chatGPTProfilesLoaded = true } }
+    /// Whether `chatGPTProfiles` has been read from the Keychain yet.
+    var chatGPTProfilesLoaded = false
     public var chatGPTModels: [ChatGPTModel] = []
     public var chatGPTStatus = "Connect an eligible ChatGPT account to use your plan."
     public var isConnectingChatGPT = false
