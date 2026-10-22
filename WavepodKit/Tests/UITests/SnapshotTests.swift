@@ -148,6 +148,15 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// Settings › Data and Privacy's Danger zone, and the typed confirmation it opens.
+    func testEraseAllData() {
+        let model = makeModel()
+        check("danger-zone", size: CGSize(width: 640, height: 130)) { DangerZone(model: model).padding(16) }
+        check("erase-confirmation", size: CGSize(width: 480, height: 470)) {
+            EraseConfirmation(model: model, modelsFolder: URL(fileURLWithPath: "/nonexistent-models"))
+        }
+    }
+
     func testPlayerBar() {
         let model = makeModel()
         check("player", size: CGSize(width: 1100, height: 80)) { PlayerBar(player: model.player) }

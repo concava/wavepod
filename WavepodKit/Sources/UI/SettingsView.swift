@@ -195,6 +195,7 @@ struct SettingsView: View {
                         .help("Save every request as a CSV file")
                 }
             }
+            DangerZone(model: model).padding(.top, 12)
         }
     }
 }

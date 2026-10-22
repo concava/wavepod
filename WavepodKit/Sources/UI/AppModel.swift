@@ -294,12 +294,10 @@ public final class AppModel {
         isPersistent = persistent
         if persistent {
             showOnboarding = !UserDefaults.standard.bool(forKey: "onboarded")
-            episode = Episode(id: "", showName: "Wavepod", title: "Open an episode", pubDate: .now, duration: 0,
-                              descriptionHTML: "Paste a podcast link above or add an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
-            speakers = [:]; transcript = Transcript(language: "und", segments: [])
-            paragraphs = []; summary = nil; chat = []
+            showEmptyEpisode()
             if player.episode == nil { player.load(episode) }
             player.enableSystemMediaControls()
+            reportEraseLeftovers()
             do {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
                 savedEpisodes = try services!.store.items()
@@ -324,6 +322,48 @@ public final class AppModel {
                 refreshShows()
             } catch { show("Could not open the library: \(error.localizedDescription)") }
         }
+    }
+
+    /// The blank episode the workspace shows before any episode opens, and after the open one is deleted.
+    func showEmptyEpisode() {
+        episode = Episode(id: "", showName: "Wavepod", title: "Open an episode", pubDate: .now, duration: 0,
+                          descriptionHTML: "Paste a podcast link above or add an audio file to begin.", sourceName: "Source", sourceURL: nil, enclosureURL: nil, artworkHue: 0.15)
+        speakers = [:]; transcript = Transcript(language: "und", segments: [])
+        paragraphs = []; summary = nil; chat = []
+    }
+
+    /// Deletes the open episode: its transcript, summary, answers, search index and the audio Wavepod downloaded.
+    /// Named voices stay, because other episodes use them. The podcast stays followed.
+    public func deleteEpisode() {
+        guard let services, !episode.id.isEmpty else { return }
+        let id = episode.id
+        Task { await deleteEpisode(id, services: services) }
+    }
+
+    private func deleteEpisode(_ id: String, services: WorkspaceServices) async {
+        // A job still working on the episode would save it again when it finishes, so it stops first.
+        for job in await services.queue.snapshot()
+        where JobQueue.episodeID(job.episode) == id && ![.completed, .cancelled].contains(job.state) {
+            try? await services.queue.cancel(job.id)
+        }
+        do {
+            let record = try services.store.episode(id)
+            cancelAnswer()
+            if player.episode?.id == id {
+                player.pause()
+                showEmptyEpisode()
+                player.load(episode)
+            }
+            try services.store.delete(id)
+            // Only a copy inside Wavepod's folder. An imported file stays where the person keeps it.
+            if let audio = record?.audioURL, audio.standardizedFileURL.path.hasPrefix(services.root.standardizedFileURL.path + "/") {
+                try? FileManager.default.removeItem(at: audio)
+            }
+            savedEpisodes = try services.store.items()
+            showEmptyEpisode()
+            section = .home
+            show("Episode deleted")
+        } catch { show("Could not delete the episode: \(error.localizedDescription)") }
     }
 
     func install(_ record: EpisodeRecord) {

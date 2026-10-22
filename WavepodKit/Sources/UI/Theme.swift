@@ -17,6 +17,9 @@ public enum Palette {
     /// Selected and hovered sidebar rows.
     public static let selection = dynamic(0xEAE5DC, 0x2A2E31)
     public static let accent = dynamic(0x0F5E63, 0x5FB3B3)
+    /// Actions that destroy data, such as Erase All Data.
+    public static let danger = dynamic(0xB3261E, 0xF2B8B5)
+    public static let onDanger = dynamic(0xFFFFFF, 0x410E0B)
     public static let onAccent = dynamic(0xFFFFFF, 0x0E1A1B)
     public static let accentSoft = dynamic(0xE3EEEC, 0x1F3536)
     public static let highlight = dynamic(0xE6F0EE, 0x203A3B)
