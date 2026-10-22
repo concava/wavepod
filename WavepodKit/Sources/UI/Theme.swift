@@ -171,9 +171,33 @@ enum Motion {
     /// Leaving is shorter than arriving.
     static let exit = Animation.easeOut(duration: 0.15)
     static let fade = Animation.easeOut(duration: 0.2)
+
+    /// An overlay (Settings, the welcome, a notice) arriving or leaving. Under Reduce Motion a cross-fade, never a
+    /// jump: the transitions there are opacity only, and they still need an animation to fade.
+    static func overlay(showing: Bool, reduced: Bool) -> Animation {
+        reduced ? fade : (showing ? enter : exit)
+    }
 }
 
 extension AnyTransition {
+    /// A notice dropping 8 pt from the top edge it comes from. It leaves by fading.
+    static func drop(reduced: Bool) -> AnyTransition {
+        reduced ? .opacity : .asymmetric(insertion: .offset(y: -8).combined(with: .opacity), removal: .opacity)
+    }
+
+    /// The player bar rising 16 pt from the bottom edge, and sinking back when it goes.
+    static func rise(reduced: Bool) -> AnyTransition {
+        reduced ? .opacity : .offset(y: 16).combined(with: .opacity)
+    }
+
+    /// A step of a sequence: forward comes in from the trailing side, back from the leading side.
+    static func step(forward: Bool, reduced: Bool) -> AnyTransition {
+        guard !reduced else { return .opacity }
+        let distance: CGFloat = forward ? 24 : -24
+        return .asymmetric(insertion: .offset(x: distance).combined(with: .opacity),
+                           removal: .offset(x: -distance / 2).combined(with: .opacity).animation(Motion.exit))
+    }
+
     /// Content rising 12 pt into place, for infrequent arrivals. A cross-fade under Reduce Motion.
     static func arrive(reduced: Bool) -> AnyTransition {
         reduced ? .opacity : .asymmetric(insertion: .offset(y: 12).combined(with: .opacity),

@@ -34,20 +34,24 @@ public struct RootView: View {
                     PlayerBar(player: model.player, onOpen: model.openPlayingEpisode)
                         .elevated(cornerRadius: 14)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { playerHeight = $0 }
+                        .transition(.rise(reduced: reduceMotion))
                 }
             }
+            .animation(reduceMotion ? Motion.fade : Motion.standard, value: showsPlayer)
             .padding([.trailing, .bottom], 8)
             .overlay(alignment: .top) {
                 if let notice = model.notice {
                     NoticeBar(text: notice).padding(.top, 10)
+                        .transition(.drop(reduced: reduceMotion))
                 }
             }
+            .animation(Motion.overlay(showing: model.notice != nil, reduced: reduceMotion), value: model.notice)
         }
         .background(Palette.paper.ignoresSafeArea())
         // No system title bar background: the paper and the dimming layer reach under the title bar, so the window
         // is one surface in both themes and the title bar dims exactly like the rest.
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-        .animation(motion(.snappy(duration: 0.2), reduced: reduceMotion), value: model.sidebarCollapsed)
+        .animation(motion(Motion.standard, reduced: reduceMotion), value: model.sidebarCollapsed)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
@@ -102,12 +106,13 @@ public struct RootView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .shadow(color: .black.opacity(0.18), radius: 30, y: 12)
                         .accessibilityAddTraits(.isModal)
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.98).combined(with: .opacity))
                 }
                 .transition(.opacity)
             }
         }
-        .animation(motion(model.showSettings ? Motion.enter : Motion.exit, reduced: reduceMotion), value: model.showSettings)
-        .animation(motion(.easeOut(duration: 0.15), reduced: reduceMotion), value: model.showOnboarding)
+        .animation(Motion.overlay(showing: model.showSettings, reduced: reduceMotion), value: model.showSettings)
+        .animation(Motion.overlay(showing: model.showOnboarding, reduced: reduceMotion), value: model.showOnboarding)
         .sheet(isPresented: $model.showTranslation) {
             VStack(alignment: .leading) {
                 HStack { Text("Translation · \(model.translationLanguage.title)").font(.headline); Spacer(); Button("Done") { model.showTranslation = false } }

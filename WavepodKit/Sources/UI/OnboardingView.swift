@@ -5,6 +5,8 @@ import SwiftUI
 struct OnboardingView: View {
     @Bindable var model: AppModel
     @State private var step = 0
+    /// The direction of the last step change, so the next step slides in from the side it comes from.
+    @State private var forward = true
     @State private var link = ""
     @FocusState private var linkFocused: Bool
     @Environment(\.typography) private var type
@@ -37,7 +39,7 @@ struct OnboardingView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 40)
             .padding(.top, 26)
-            .transition(.opacity)
+            .transition(.step(forward: forward, reduced: reduceMotion))
             .id(step)
 
             HStack {
@@ -80,7 +82,8 @@ struct OnboardingView: View {
     }
 
     private func go(_ next: Int) {
-        withAnimation(motion(.easeOut(duration: 0.2), reduced: reduceMotion)) { step = next }
+        forward = next > step
+        withAnimation(reduceMotion ? Motion.fade : Motion.standard) { step = next }
     }
 
     // MARK: Steps
