@@ -135,19 +135,8 @@ public protocol NotesGenerating: Sendable {
     func notes(_ transcript: Transcript) async throws -> [CitedClaim]
 }
 
-/// Notes from a cloud plan (ChatGPT or Claude): the same instruction and citation checks as the local model, in
-/// larger sections, so a long episode takes a few requests instead of dozens of local passes.
-public struct PlanNotes: NotesGenerating {
-    public let generator: any TextGenerating
-    public let isAvailable: Bool
-    public init(generator: any TextGenerating, isAvailable: Bool) { self.generator = generator; self.isAvailable = isAvailable }
-    public func notes(_ transcript: Transcript) async throws -> [CitedClaim] {
-        try await EpisodeSummaryStyle.notes(transcript, generator: generator, contextLimit: 40_000)
-    }
-}
-
 extension LocalGenerator: NotesGenerating {
-    public var isAvailable: Bool { FileManager.default.fileExists(atPath: directory.appendingPathComponent("config.json").path) }
+    public var isAvailable: Bool { isInstalled }
 }
 
 public struct EpisodeNotesService: Sendable {

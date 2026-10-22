@@ -1,5 +1,6 @@
 import Engine
 import Foundation
+import Library
 import Networking
 
 public struct ChatGPTProfile: Identifiable, Sendable, Equatable {
@@ -41,8 +42,7 @@ public actor ChatGPTPlan {
     private let client: HTTPClient
     private let store: any ChatGPTCredentialStore
     private var refreshes: [String: Task<String, Error>] = [:]
-    private static let refreshGate = InferenceGate(processLockURL: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("wavepod/chatgpt-refresh.lock"))
+    private static let refreshGate = InferenceGate(processLockURL: WavepodFolder.default.appendingPathComponent("chatgpt-refresh.lock"))
     private var signingIn = false
     public init(client: HTTPClient) { self.client = client; self.store = ChatGPTKeychain() }
     init(client: HTTPClient, store: any ChatGPTCredentialStore) { self.client = client; self.store = store }

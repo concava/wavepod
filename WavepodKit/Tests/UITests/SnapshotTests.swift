@@ -1,5 +1,6 @@
 import AppKit
 import Library
+import LLM
 import Resolver
 import SnapshotTesting
 import SwiftUI
@@ -138,13 +139,13 @@ final class SnapshotTests: XCTestCase {
 
     func testAskSettings() {
         let model = makeModel()
-        let previous = model.askProvider, previousClaude = model.claudeExecutable
-        defer { model.askProvider = previous; model.claudeExecutable = previousClaude }
+        let previous = model.answerProvider, previousClaude = model.claudeExecutable
+        defer { model.answerProvider = previous; model.claudeExecutable = previousClaude }
         model.claudeExecutable = ""
         model.settingsPane = .ask
-        for provider in ["local", "chatgpt", "claude"] {
-            model.askProvider = provider
-            check("ask-settings-\(provider)", size: CGSize(width: 900, height: 620)) { SettingsView(model: model) }
+        for provider in AnswerProvider.allCases {
+            model.answerProvider = provider
+            check("ask-settings-\(provider.rawValue)", size: CGSize(width: 900, height: 620)) { SettingsView(model: model) }
         }
     }
 
@@ -185,7 +186,7 @@ private struct DetailSnapshot: View {
 private struct WorkspaceSnapshot: View {
     let model: AppModel
     @FocusState var focus: AppModel.FocusTarget?
-    var body: some View { Workspace(model: model, focus: $focus) }
+    var body: some View { EpisodeCards(model: model, focus: $focus) }
 }
 
 @MainActor

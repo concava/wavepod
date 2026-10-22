@@ -12,40 +12,29 @@ import ServiceManagement
 import Speakers
 
 struct WorkspaceServices: Sendable {
-    let root: URL
-    let store: LibraryStore
-    let client: HTTPClient
-    let queue: JobQueue
-    let subscriptions: SubscriptionMonitor
-    let chatGPT: ChatGPTPlan
-    let claude: ClaudePlan
+    /// The library, client, engine, answer model and queue, wired as in the feed checker.
+    let workspace: Workspace
     let artwork: ArtworkCache
+    var root: URL { workspace.root }
+    var store: LibraryStore { workspace.store }
+    var client: HTTPClient { workspace.client }
+    var queue: JobQueue { workspace.queue }
+    var subscriptions: SubscriptionMonitor { workspace.subscriptions }
+    var chatGPT: ChatGPTPlan { workspace.chatGPT }
+    var claude: ClaudePlan { workspace.claude }
+    /// Which model writes answers and summaries: on this Mac, or the ChatGPT or Claude plan chosen in Settings → Ask.
+    var answers: AnswerModel { workspace.answers }
     var resolver: Resolver {
         let executable = root.appendingPathComponent("tools/yt-dlp")
         return Resolver(fetcher: URLSessionFetcher(client: client), extractor: FileManager.default.isExecutableFile(atPath: executable.path) ? YtDlpExtractor(executable: executable) : nil)
     }
-    var generator: LocalGenerator { LocalGenerator(directory: root.appendingPathComponent("models/language")) }
-    /// Summaries run where answers run: on this Mac, or on the ChatGPT or Claude plan chosen in Settings → Ask.
-    var notes: ProviderNotes { ProviderNotes(local: generator, chatGPT: chatGPT, claude: claude) }
     var embeddings: LocalEmbeddings { LocalEmbeddings(directory: root.appendingPathComponent("models/embeddings")) }
     init(root: URL) throws {
-        self.root = root
-        store = try LibraryStore(url: root.appendingPathComponent("library.sqlite"))
-        client = HTTPClient(logURL: root.appendingPathComponent("network.json"))
-        chatGPT = ChatGPTPlan(client: client)
-        claude = ClaudePlan(root: root.appendingPathComponent("claude"), client: client)
-        artwork = ArtworkCache(directory: root.appendingPathComponent("artwork"), client: client)
-        let engine: any Engine
-        if UserDefaults.standard.string(forKey: "engine") == "scriberr",
-           let value = UserDefaults.standard.string(forKey: "scriberrURL"), let url = URL(string: value) {
-            engine = try ScriberrEngine(base: url, client: client)
-        } else { engine = IsolatedEngine() }
-        queue = try JobQueue(store: store, directory: root.appendingPathComponent("jobs"), client: client, engine: engine,
-                             notesGenerator: ProviderNotes(local: LocalGenerator(directory: root.appendingPathComponent("models/language")), chatGPT: chatGPT, claude: claude))
-        subscriptions = SubscriptionMonitor(store: store, client: client, queue: queue)
+        workspace = try Workspace(root: root)
+        artwork = ArtworkCache(directory: root.appendingPathComponent("artwork"), client: workspace.client)
     }
     static var defaultRoot: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("wavepod")
+        WavepodFolder.default
     }
 }
 
@@ -257,8 +246,8 @@ extension AppModel {
                 _ = try ScriberrEngine(base: url, client: services.client)
                 try APIKeyStore.set(scriberrKey, host: url.absoluteString)
             }
-            UserDefaults.standard.set(engineChoice, forKey: "engine")
-            UserDefaults.standard.set(scriberrURL, forKey: "scriberrURL")
+            UserDefaults.standard.set(engineChoice, forKey: Workspace.EngineSetting.choice)
+            UserDefaults.standard.set(scriberrURL, forKey: Workspace.EngineSetting.scriberrURL)
             scriberrKey = ""
             show("Engine saved. Restart Wavepod after current jobs finish to apply it.")
         } catch { show(error.localizedDescription) }
@@ -297,7 +286,7 @@ extension AppModel {
     /// Writes the summary an episode lacks, once per episode per launch, when the chosen answer model can run.
     /// Called when a transcription finishes and when an episode opens.
     func writeMissingNotes() {
-        guard let services, services.notes.isAvailable, !episode.id.isEmpty, summary == nil, !autoNoted.contains(episode.id) else { return }
+        guard let services, services.answers.isAvailable, !episode.id.isEmpty, summary == nil, !autoNoted.contains(episode.id) else { return }
         autoNoted.insert(episode.id)
         Task { await writeSummary() }
     }
@@ -308,7 +297,7 @@ extension AppModel {
         defer { isGenerating = false }
         let id = episode.id
         do {
-            let claims = try await EpisodeNotesService(store: services.store, generator: services.notes).generate(id)
+            let claims = try await EpisodeNotesService(store: services.store, generator: services.answers).generate(id)
             guard let record = try services.store.episode(id) else { return }
             if episode.id == id { install(record) }
             if claims.isEmpty { show("Not found in this episode. No claim passed the citation check.") }
@@ -322,7 +311,7 @@ extension AppModel {
         Task {
             defer { isGenerating = false }
             do {
-                translationText = try await services.generator.translation(source, language: language)
+                translationText = try await services.answers.local.translation(source, language: language)
                 showTranslation = true
             } catch { show(error.localizedDescription) }
         }
@@ -341,32 +330,3 @@ extension ResolvedShow {
     }
 }
 
-/// The summary writer for the answer model chosen in Settings → Ask, read when it runs so a change applies to the
-/// next summary, including ones the queue writes in the background.
-struct ProviderNotes: NotesGenerating {
-    let local: LocalGenerator
-    let chatGPT: ChatGPTPlan
-    let claude: ClaudePlan
-
-    private var current: any NotesGenerating {
-        let defaults = UserDefaults.standard
-        switch AppModel.AskProvider(rawValue: defaults.string(forKey: "askProvider") ?? "") ?? .local {
-        case .local:
-            return local
-        case .chatgpt:
-            let account = defaults.string(forKey: "chatGPTProfile") ?? ""
-            let model = defaults.string(forKey: "chatGPTModel.\(account)") ?? ""
-            return PlanNotes(generator: ChatGPTGenerator(plan: chatGPT, account: account, model: model,
-                                                               effort: defaults.string(forKey: "chatGPTEffort.\(model)") ?? ""),
-                             isAvailable: !account.isEmpty && !model.isEmpty)
-        case .claude:
-            let executable = defaults.string(forKey: "claudeExecutable").flatMap { ClaudePlan.isExecutable($0) ? $0 : nil }
-                ?? ClaudePlan.detectedExecutable
-            return PlanNotes(generator: ClaudeGenerator(plan: claude, executable: executable, model: defaults.string(forKey: "claudeModel") ?? "sonnet",
-                                                             effort: defaults.string(forKey: "claudeEffort") ?? ""),
-                             isAvailable: !executable.isEmpty)
-        }
-    }
-    var isAvailable: Bool { current.isAvailable }
-    func notes(_ transcript: Transcript) async throws -> [CitedClaim] { try await current.notes(transcript) }
-}

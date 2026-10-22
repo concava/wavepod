@@ -23,7 +23,7 @@ extension AppModel {
             do {
                 if action == "logout" {
                     try await services.claude.disconnect(executable: executable)
-                    askProvider = "local"
+                    answerProvider = .local
                     claudeStatus = "Disconnected from Claude."
                 } else {
                     let account = action == "login" ? try await services.claude.signIn(executable: executable) : try await services.claude.status(executable: executable)

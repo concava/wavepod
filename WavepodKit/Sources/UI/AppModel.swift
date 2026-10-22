@@ -153,64 +153,46 @@ public final class AppModel {
 
     // Command field and Ask
     public var commandText = ""
-    /// Where answers run. Stored by raw value in `askProvider`.
-    public enum AskProvider: String, CaseIterable, Identifiable, Sendable {
-        case local, chatgpt, claude
-        public var id: String { rawValue }
-        public var title: String {
-            switch self {
-            case .local: "On this Mac"
-            case .chatgpt: "My ChatGPT plan"
-            case .claude: "My Claude plan"
-            }
-        }
-        public var shortTitle: String {
-            switch self {
-            case .local: "On this Mac"
-            case .chatgpt: "ChatGPT"
-            case .claude: "Claude"
-            }
-        }
+    /// Where answers and summaries run, with account, model and effort. Saved as it changes. `AnswerModel` reads
+    /// the same settings, so answers, summaries and the background queue always agree with what Settings shows.
+    public var answerChoice = AnswerChoice.load(from: UserDefaults.standard) {
+        didSet { answerChoice.save(to: UserDefaults.standard) }
     }
-    /// Whether a summary can be written now: the local model is installed, or a ChatGPT or Claude plan is chosen.
-    var canWriteSummary: Bool { askProvider == "local" ? installedModels.contains("language") : isAskProviderReady }
-    /// Whether the chosen plan has what it needs to answer; false sends the user to Settings → Ask.
-    var isAskProviderReady: Bool {
-        switch AskProvider(rawValue: askProvider) ?? .local {
-        case .local: true
-        case .chatgpt: !chatGPTModelID.isEmpty && chatGPTProfiles.contains { $0.id == chatGPTProfileID && $0.connected }
-        case .claude: !claudeExecutable.isEmpty
-        }
+    /// Whether the chosen answer model can run now. ChatGPT counts only with a connected account.
+    var answerReadiness: AnswerReadiness {
+        let answers = services?.answers ?? AnswerModel(local: LocalGenerator(directory: WorkspaceServices.defaultRoot.appendingPathComponent("models/language")),
+                                                       chatGPT: .shared, claude: ClaudePlan(root: WorkspaceServices.defaultRoot.appendingPathComponent("claude"), client: .shared))
+        return answers.readiness(answerChoice, connectedChatGPTAccounts: Set(chatGPTProfiles.filter(\.connected).map(\.id)))
     }
-    public var askProvider = UserDefaults.standard.string(forKey: "askProvider") ?? "local" {
-        didSet { UserDefaults.standard.set(askProvider, forKey: "askProvider") }
+    public var answerProvider: AnswerProvider {
+        get { answerChoice.provider }
+        set { answerChoice.provider = newValue }
     }
-    public var chatGPTProfileID = UserDefaults.standard.string(forKey: "chatGPTProfile") ?? "" {
-        didSet { UserDefaults.standard.set(chatGPTProfileID, forKey: "chatGPTProfile") }
+    public var chatGPTProfileID: String {
+        get { answerChoice.chatGPTAccount }
+        set { answerChoice.selectChatGPTAccount(newValue, settings: UserDefaults.standard) }
     }
-    public var chatGPTModelID = "" {
-        didSet {
-            UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)")
-            chatGPTEffort = UserDefaults.standard.string(forKey: "chatGPTEffort.\(chatGPTModelID)") ?? ""
-        }
+    public var chatGPTModelID: String {
+        get { answerChoice.chatGPTModel }
+        set { answerChoice.selectChatGPTModel(newValue, settings: UserDefaults.standard) }
     }
     /// The reasoning effort for the chosen ChatGPT model, saved per model. Empty: the model's default.
-    public var chatGPTEffort = "" {
-        didSet { UserDefaults.standard.set(chatGPTEffort, forKey: "chatGPTEffort.\(chatGPTModelID)") }
+    public var chatGPTEffort: String {
+        get { answerChoice.chatGPTEffort }
+        set { answerChoice.chatGPTEffort = newValue }
     }
-    public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable")
-        .flatMap { ClaudePlan.isExecutable($0) ? $0 : nil } ?? ClaudePlan.detectedExecutable {
-        didSet { UserDefaults.standard.set(claudeExecutable, forKey: "claudeExecutable"); claudeStatus = "Connect your Claude plan." }
+    public var claudeExecutable: String {
+        get { answerChoice.claudeExecutable }
+        set { answerChoice.claudeExecutable = newValue; claudeStatus = "Connect your Claude plan." }
     }
-    public var claudeModel = UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet" {
-        didSet {
-            UserDefaults.standard.set(claudeModel, forKey: "claudeModel")
-            if !ClaudePlan.efforts(for: claudeModel).contains(claudeEffort) { claudeEffort = "" }
-        }
+    public var claudeModel: String {
+        get { answerChoice.claudeModel }
+        set { answerChoice.selectClaudeModel(newValue) }
     }
     /// One of `ClaudePlan.efforts(for: claudeModel)`, or empty for Claude Code's default.
-    public var claudeEffort = UserDefaults.standard.string(forKey: "claudeEffort") ?? "" {
-        didSet { UserDefaults.standard.set(claudeEffort, forKey: "claudeEffort") }
+    public var claudeEffort: String {
+        get { answerChoice.claudeEffort }
+        set { answerChoice.claudeEffort = newValue }
     }
     /// How an effort level reads in Settings.
     public static func effortTitle(_ effort: String) -> String {
@@ -262,8 +244,8 @@ public final class AppModel {
     public var isInstalling = false
     public var modelStatus = "You download each model once. It runs on this Mac."
     public var networkEntries: [NetworkEntry] = []
-    public var engineChoice = UserDefaults.standard.string(forKey: "engine") ?? "native"
-    public var scriberrURL = UserDefaults.standard.string(forKey: "scriberrURL") ?? "http://localhost:8080"
+    public var engineChoice = UserDefaults.standard.string(forKey: Workspace.EngineSetting.choice) ?? "native"
+    public var scriberrURL = UserDefaults.standard.string(forKey: Workspace.EngineSetting.scriberrURL) ?? "http://localhost:8080"
     public var scriberrKey = ""
     public var backgroundChecks = SMAppService.agent(plistName: "app.wavepod.feeds.plist").status == .enabled
     public var namedVoices = 0
@@ -596,10 +578,7 @@ public final class AppModel {
         persistWorkspace()
         isAnswering = true
         let id = episode.id, source = transcript, language = "Auto", history = Array(chat.dropLast())
-        let provider = askProvider, account = chatGPTProfileID
-        let model = chatGPTModelID.isEmpty ? UserDefaults.standard.string(forKey: "chatGPTModel.\(account)") ?? "" : chatGPTModelID
-        let claudePath = claudeExecutable, claudeChoice = claudeModel, claudeLevel = claudeEffort
-        let chatGPTLevel = UserDefaults.standard.string(forKey: "chatGPTEffort.\(model)") ?? ""
+        let choice = answerChoice
         askProgress = "Preparing transcript…"
         answerTask = Task { [self] in
             defer { isAnswering = false; askProgress = ""; answerTask = nil }
@@ -607,17 +586,9 @@ public final class AppModel {
                 let progress: @Sendable (String) async -> Void = { [weak self] status in
                     await MainActor.run { if self?.episode.id == id { self?.askProgress = status } }
                 }
-                let claims: [CitedClaim]
-                if provider == "chatgpt" {
-                    claims = try await EpisodeAnswers(generator: ChatGPTGenerator(plan: services.chatGPT, account: account, model: model, effort: chatGPTLevel), contextLimit: 40_000)
+                let claims = try await services.answers.withGenerator(choice) { generator, limit in
+                    try await EpisodeAnswers(generator: generator, contextLimit: limit)
                         .answer(question: q, language: language, history: history, transcript: source, progress: progress)
-                } else if provider == "claude" {
-                    claims = try await EpisodeAnswers(generator: ClaudeGenerator(plan: services.claude, executable: claudePath, model: claudeChoice, effort: claudeLevel), contextLimit: 40_000)
-                        .answer(question: q, language: language, history: history, transcript: source, progress: progress)
-                } else {
-                    claims = try await services.generator.withSession { generator in
-                        try await EpisodeAnswers(generator: generator).answer(question: q, language: language, history: history, transcript: source, progress: progress)
-                    }
                 }
                 try Task.checkCancellation()
                 saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now, sections: EpisodeAnswers.sections(from: claims)), episodeID: id)
