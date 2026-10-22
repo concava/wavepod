@@ -4,6 +4,8 @@ import SwiftUI
 
 struct PlayerBar: View {
     @Bindable var player: PlayerModel
+    /// Opens the episode. A click anywhere on the bar except its controls calls it.
+    var onOpen: () -> Void = {}
     @State private var showVolume = false
     @Environment(\.typography) private var type
 
@@ -97,8 +99,12 @@ struct PlayerBar: View {
         .padding(.bottom, 8)
         .background(Palette.surface)
         .overlay(alignment: .top) { Divider().overlay(Palette.rule) }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        .help("Open this episode")
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Player")
+        .accessibilityAction(named: "Open episode", onOpen)
     }
 
     private var rateLabel: String {
