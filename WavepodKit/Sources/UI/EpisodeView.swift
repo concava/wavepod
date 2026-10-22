@@ -347,6 +347,7 @@ struct DetailCard: View {
 /// Copy, export, translate and view options for the transcript, shown while the right card holds it.
 struct TranscriptActions: View {
     @Bindable var model: AppModel
+    @State private var confirmingDelete = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -369,13 +370,23 @@ struct TranscriptActions: View {
                 Toggle("Speaker Labels", isOn: $model.showSpeakerLabels)
                 Toggle("Merge Lines", isOn: $model.mergeLines)
                 Toggle("Follow Playback", isOn: $model.followPlayback)
+                if model.isPersistent && !model.episode.id.isEmpty {
+                    Divider()
+                    Button("Delete Episode…", systemImage: "trash", role: .destructive) { confirmingDelete = true }
+                }
             } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.button)
                 .menuIndicator(.hidden)
                 .buttonStyle(IconButtonStyle())
                 .fixedSize()
-                .help("Export, translate and view options")
+                .help("Export, translate, view options and delete")
                 .accessibilityLabel("Transcript options")
+                .confirmationDialog("Delete “\(model.episode.title)”?", isPresented: $confirmingDelete) {
+                    Button("Delete Episode", role: .destructive, action: model.deleteEpisode)
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Wavepod deletes its transcript, summary, answers and downloaded audio. You can't undo this. To get it back, add the episode again and transcribe it.")
+                }
         }
     }
 }
