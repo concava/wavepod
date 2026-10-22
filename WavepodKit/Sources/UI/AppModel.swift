@@ -223,6 +223,8 @@ public final class AppModel {
 
     @ObservationIgnored var services: WorkspaceServices?
     @ObservationIgnored private var workspaceTask: Task<Void, Never>?
+    /// Listens for saved changes to episodes, so a summary or answer shows as soon as it is saved.
+    @ObservationIgnored private var changesTask: Task<Void, Never>?
     @ObservationIgnored private var loadedJobs = false
     @ObservationIgnored var autoNoted: Set<String> = []
     public var isPersistent = false
@@ -284,6 +286,10 @@ public final class AppModel {
                 services = try WorkspaceServices(root: WorkspaceServices.defaultRoot)
                 savedEpisodes = try services!.store.items()
                 if let item = savedEpisodes.first, let record = try services!.store.episode(item.id) { install(record) }
+                let changes = services!.store.changes()
+                changesTask = Task { [weak self] in
+                    for await change in changes { self?.applyStoredChange(change) }
+                }
                 workspaceTask = Task { [weak self] in
                     var checks = 0
                     while !Task.isCancelled {
@@ -371,10 +377,10 @@ public final class AppModel {
             loadedJobs = true
             let previous = savedEpisodes.first(where: { $0.id == episode.id })
             savedEpisodes = try services.store.items()
+            // The feed checker writes summaries in its own process, so they arrive here instead of on `changes()`.
             if let latest = savedEpisodes.first(where: { $0.id == episode.id }),
-               previous?.summarized != latest.summarized || previous?.notesPending != latest.notesPending,
-               let record = try services.store.episode(latest.id) {
-                install(record)
+               previous?.summarized != latest.summarized || previous?.notesPending != latest.notesPending {
+                applyStoredChange(EpisodeChange(id: latest.id, parts: [.summary]))
             }
             subscriptions = try services.store.values(Subscription.self, kind: "subscription")
             networkEntries = await services.client.log()
@@ -393,12 +399,29 @@ public final class AppModel {
 
     func persistWorkspace() {
         guard let services, !episode.id.isEmpty else { return }
-        do {
-            guard var record = try services.store.episode(episode.id) else { return }
-            record.speakers = speakers; record.chat = chat
-            try services.store.save(record)
-            savedEpisodes = try services.store.items()
-        } catch { show(error.localizedDescription) }
+        let speakers = speakers, chat = chat
+        do { try services.store.update(episode.id) { $0.speakers = speakers; $0.chat = chat } }
+        catch { show(error.localizedDescription) }
+    }
+
+    /// Brings the view up to date with a saved change, part by part. A new summary or answer only replaces that
+    /// part: it never re-installs the episode, so it can't cancel a question that is running.
+    func applyStoredChange(_ change: EpisodeChange) {
+        guard let services else { return }
+        if let items = try? services.store.items() { savedEpisodes = items }
+        guard change.id == episode.id else { return }
+        if change.parts.contains(.deleted) {
+            cancelAnswer()
+            showEmptyEpisode()
+            return
+        }
+        guard let record = try? services.store.episode(change.id) else { return }
+        if change.parts.contains(.transcript) { install(record); return }
+        if change.parts.contains(.summary) { summary = record.summary }
+        if change.parts.contains(.chat) { chat = record.chat }
+        if change.parts.contains(.speakers) { speakers = record.speakers; speakerEvidence = record.speakerEvidence }
+        if change.parts.contains(.details) { episode = record.episode; feedURL = record.feedURL }
+        if change.parts.contains(.audio) { episodeAudioURL = record.audioURL }
     }
 
     // MARK: Speakers
@@ -604,9 +627,7 @@ public final class AppModel {
     private func saveAskMessage(_ message: ChatMessage, episodeID: String) {
         guard let services else { return }
         do {
-            guard var record = try services.store.episode(episodeID) else { return }
-            record.chat.append(message)
-            try services.store.save(record)
+            guard let record = try services.store.update(episodeID, { $0.chat.append(message) }) else { return }
             if episode.id == episodeID { chat = record.chat }
         } catch { show(error.localizedDescription) }
     }

@@ -146,17 +146,14 @@ public struct EpisodeNotesService: Sendable {
     @discardableResult public func generate(_ id: String) async throws -> [CitedClaim] {
         guard let source = try store.episode(id), !source.transcript.segments.isEmpty else { return [] }
         let claims = try await generator.notes(source.transcript)
-        guard var record = try store.episode(id) else { return claims }
-        record.summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
-        try store.save(record)
+        let summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
+        try store.update(id) { $0.summary = summary }
         return claims
     }
     public func completePending(_ id: String) async throws {
         guard let record = try store.episode(id), record.notesPending == true,
               !record.transcript.segments.isEmpty, generator.isAvailable else { return }
         try await generate(id)
-        guard var latest = try store.episode(id) else { return }
-        latest.notesPending = false
-        try store.save(latest)
+        try store.update(id) { $0.notesPending = false }
     }
 }

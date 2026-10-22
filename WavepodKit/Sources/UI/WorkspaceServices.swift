@@ -267,9 +267,7 @@ extension AppModel {
                 let destination = services.root.appendingPathComponent("audio/\(UUID().uuidString).\(url.pathExtension)")
                 if url.isFileURL { try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true); try FileManager.default.copyItem(at: url, to: destination) }
                 else { try await services.client.allow(url); try await services.client.download(url, to: destination) }
-                guard var record = try services.store.episode(id) else { return }
-                record.audioURL = destination
-                try services.store.save(record)
+                guard let record = try services.store.update(id, { $0.audioURL = destination }) else { return }
                 if let subscription = try services.store.values(Subscription.self, kind: "subscription").first(where: { $0.feedURL == record.feedURL }) {
                     try AudioRetention.prune(subscription, store: services.store, directory: services.root)
                 }

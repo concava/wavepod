@@ -180,9 +180,8 @@ public actor JobQueue {
                 downloaded = destination
             }
             if let downloaded, previous?.audioURL != downloaded {
-                var offline = previous ?? makeRecord(job.episode, transcript: Transcript(language: job.episode.language ?? "und", segments: []), embeddings: [:], audio: downloaded)
-                offline.audioURL = downloaded
-                try store.save(offline)
+                let empty = makeRecord(job.episode, transcript: Transcript(language: job.episode.language ?? "und", segments: []), embeddings: [:], audio: downloaded)
+                try store.update(empty.id, ifMissing: empty) { $0.audioURL = downloaded }
             }
             if job.automation?.transcribe == false, record == nil {
                 record = makeRecord(job.episode, transcript: Transcript(language: job.episode.language ?? "und", segments: []), embeddings: [:], audio: downloaded)
@@ -254,14 +253,19 @@ public actor JobQueue {
             guard var record else { throw EngineError.invalidResult }
             try Task.checkCancellation()
             if let downloaded { record.audioURL = downloaded }
-            if let previous {
-                record.chat = previous.chat
-                record.summary = previous.summary
-                if !previous.speakers.isEmpty { record.speakers = previous.speakers; record.speakerEvidence = previous.speakerEvidence }
-            }
-            record.notesPending = job.automation?.summarize == true || previous?.notesPending == true
             if job.automation != nil, downloaded == nil { record.audioURL = nil }
-            try store.save(record)
+            record.notesPending = job.automation?.summarize == true || previous?.notesPending == true
+            // What people added while the job ran (answers, a summary, speaker names) is merged in the same write,
+            // so a long transcription never overwrites it.
+            let transcribed = record
+            record = try store.update(transcribed.id, ifMissing: transcribed) { saved in
+                var merged = transcribed
+                merged.chat = saved.chat
+                merged.summary = saved.summary
+                merged.notesPending = transcribed.notesPending == true || saved.notesPending == true
+                if !saved.speakers.isEmpty { merged.speakers = saved.speakers; merged.speakerEvidence = saved.speakerEvidence }
+                saved = merged
+            } ?? transcribed
             if job.automation != nil {
                 for name in try FileManager.default.contentsOfDirectory(atPath: folder.path)
                     where name == "decoded.wav" || name.hasPrefix("source.") {

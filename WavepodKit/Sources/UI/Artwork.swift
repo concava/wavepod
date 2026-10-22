@@ -80,9 +80,9 @@ extension AppModel {
         Task {
             guard let url = await services.artwork.feedArtwork(feed) else { return }
             do {
-                guard var record = try services.store.episode(id), record.episode.artworkURL == nil else { return }
-                record.episode.artworkURL = url
-                try services.store.save(record)
+                try services.store.update(id) { record in
+                    if record.episode.artworkURL == nil { record.episode.artworkURL = url }
+                }
                 if episode.id == id { episode.artworkURL = url }
             } catch {}
         }
