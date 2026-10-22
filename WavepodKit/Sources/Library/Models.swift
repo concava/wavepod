@@ -216,9 +216,12 @@ public struct Episode: Identifiable, Hashable, Sendable, Codable {
     public var enclosureURL: URL?
     /// Seed for the generated placeholder artwork until real artwork is downloaded.
     public var artworkHue: Double
+    /// The episode's or show's image from the feed. nil for imported files and episodes saved before artwork.
+    public var artworkURL: URL?
 
     public init(id: String, showName: String, title: String, pubDate: Date, duration: Seconds,
-                descriptionHTML: String, sourceName: String, sourceURL: URL?, enclosureURL: URL?, artworkHue: Double) {
+                descriptionHTML: String, sourceName: String, sourceURL: URL?, enclosureURL: URL?, artworkHue: Double,
+                artworkURL: URL? = nil) {
         self.id = id
         self.showName = showName
         self.title = title
@@ -229,5 +232,6 @@ public struct Episode: Identifiable, Hashable, Sendable, Codable {
         self.sourceURL = sourceURL
         self.enclosureURL = enclosureURL
         self.artworkHue = artworkHue
+        self.artworkURL = artworkURL
     }
 }

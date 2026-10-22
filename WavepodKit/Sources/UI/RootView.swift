@@ -100,6 +100,7 @@ public struct RootView: View {
             }.padding().frame(width: 640, height: 560)
         }
         .environment(\.typography, Typography(scale: model.textScale))
+        .environment(\.artworkCache, model.services?.artwork)
         .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
         .tint(Palette.accent)
         .onChange(of: model.focusRequest) { _, request in

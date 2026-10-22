@@ -119,9 +119,10 @@ public actor HTTPClient {
                 guard followRedirects, request.httpBody == nil, request.value(forHTTPHeaderField: "Authorization") == nil,
                       request.value(forHTTPHeaderField: "X-API-Key") == nil else { throw NetworkError.denied(next.host ?? "redirect") }
                 // Model CDNs are part of Hugging Face's signed download chain. Feed redirects are explicitly
-                // authorized by the user opening that feed. Auth and request bodies never cross origins.
+                // authorized by the user opening that feed, and so is the artwork it names. Auth and request bodies
+                // never cross origins.
                 if !localOnly, request.httpMethod == nil || ["GET", "HEAD"].contains(request.httpMethod ?? "GET") {
-                    if purpose == "feed" || purpose == "audio" ||
+                    if purpose == "feed" || purpose == "audio" || purpose == "artwork" ||
                         (purpose == "model" && next.scheme == "https" &&
                          (next.host?.hasSuffix(".huggingface.co") == true || next.host?.hasSuffix(".hf.co") == true)) {
                         try allow(next)

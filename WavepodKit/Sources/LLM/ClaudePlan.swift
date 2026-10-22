@@ -82,8 +82,10 @@ public struct ClaudePlan: Sendable {
     public init(root: URL, client: HTTPClient) { self.root = root; self.client = client; executor = ClaudeProcess() }
     init(root: URL, client: HTTPClient, executor: any ClaudeExecuting) { self.root = root; self.client = client; self.executor = executor }
     public static var detectedExecutable: String {
-        [FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/claude").path,
-         "/opt/homebrew/bin/claude", "/usr/local/bin/claude"].first { FileManager.default.isExecutableFile(atPath: $0) } ?? ""
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [home.appendingPathComponent(".local/bin/claude").path, home.appendingPathComponent(".claude/local/claude").path,
+                "/opt/homebrew/bin/claude", "/usr/local/bin/claude", home.appendingPathComponent(".npm-global/bin/claude").path,
+                home.appendingPathComponent(".bun/bin/claude").path].first { FileManager.default.isExecutableFile(atPath: $0) } ?? ""
     }
     private static let settings = "{\"forceLoginMethod\":\"claudeai\",\"disableAllHooks\":true,\"autoMemoryEnabled\":false}"
     static func environment(root: URL, inherited: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {

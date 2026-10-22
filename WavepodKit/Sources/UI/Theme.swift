@@ -210,10 +210,14 @@ struct TimestampPill: View {
     }
 }
 
-/// Generated placeholder artwork until a feed's image is downloaded: a wave line over a tinted field.
+/// The feed's image when there is one, over generated placeholder artwork (a wave line on a tinted field) that
+/// shows until it loads or when it can't.
 struct ArtworkView: View {
     let hue: Double
+    var url: URL? = nil
     var cornerRadius: CGFloat = 10
+    @Environment(\.artworkCache) private var cache
+    @State private var image: NSImage?
 
     var body: some View {
         ZStack {
@@ -225,9 +229,17 @@ struct ArtworkView: View {
                         style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .padding(.horizontal, cornerRadius * 1.4)
                 .padding(.vertical, cornerRadius)
+            if let image {
+                Image(nsImage: image).resizable().scaledToFill()
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .accessibilityHidden(true)
+        .task(id: url) {
+            image = nil
+            guard let url, let cache, let data = await cache.image(for: url) else { return }
+            image = NSImage(data: data)
+        }
     }
 }
 

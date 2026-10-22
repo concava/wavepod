@@ -19,6 +19,7 @@ struct WorkspaceServices: Sendable {
     let subscriptions: SubscriptionMonitor
     let chatGPT: ChatGPTPlan
     let claude: ClaudePlan
+    let artwork: ArtworkCache
     var resolver: Resolver {
         let executable = root.appendingPathComponent("tools/yt-dlp")
         return Resolver(fetcher: URLSessionFetcher(client: client), extractor: FileManager.default.isExecutableFile(atPath: executable.path) ? YtDlpExtractor(executable: executable) : nil)
@@ -31,6 +32,7 @@ struct WorkspaceServices: Sendable {
         client = HTTPClient(logURL: root.appendingPathComponent("network.json"))
         chatGPT = ChatGPTPlan(client: client)
         claude = ClaudePlan(root: root.appendingPathComponent("claude"), client: client)
+        artwork = ArtworkCache(directory: root.appendingPathComponent("artwork"), client: client)
         let engine: any Engine
         if UserDefaults.standard.string(forKey: "engine") == "scriberr",
            let value = UserDefaults.standard.string(forKey: "scriberrURL"), let url = URL(string: value) {

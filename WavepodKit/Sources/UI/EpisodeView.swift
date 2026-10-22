@@ -41,7 +41,7 @@ struct PodcastCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
-                ArtworkView(hue: model.episode.artworkHue, cornerRadius: 10)
+                ArtworkView(hue: model.episode.artworkHue, url: model.episode.artworkURL, cornerRadius: 10)
                     .frame(width: 64, height: 64)
                 Text(model.episode.showName)
                     .font(type.episodeTitle)
@@ -181,6 +181,7 @@ struct AskField: View {
                     if new.count > Self.maxLength { draft = String(new.prefix(Self.maxLength)) }
                 }
                 .accessibilityLabel("Ask this episode")
+            AskProviderMenu(model: model)
             if model.isAnswering {
                 ProgressView().controlSize(.small).accessibilityLabel("Answering")
             } else {
@@ -211,6 +212,39 @@ struct AskField: View {
         guard canSend else { return }
         model.ask(draft)
         draft = ""
+    }
+}
+
+/// Where answers run, switchable from the Ask field. Picking a plan that isn't set up opens Settings → Ask.
+struct AskProviderMenu: View {
+    @Bindable var model: AppModel
+    @Environment(\.typography) private var type
+
+    var body: some View {
+        Menu {
+            ForEach(AppModel.AskProvider.allCases) { provider in
+                Button { choose(provider) } label: {
+                    if provider.rawValue == model.askProvider { Label(provider.title, systemImage: "checkmark") } else { Text(provider.title) }
+                }
+            }
+            Divider()
+            Button("Ask Settings…") { model.openSettings(.ask) }
+        } label: {
+            Text((AppModel.AskProvider(rawValue: model.askProvider) ?? .local).shortTitle)
+                .font(type.caption)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.visible)
+        .fixedSize()
+        .foregroundStyle(Palette.inkMuted)
+        .help("Choose where answers run")
+        .accessibilityLabel("Answers run on")
+        .task { await model.refreshChatGPTProfiles() }
+    }
+
+    private func choose(_ provider: AppModel.AskProvider) {
+        model.askProvider = provider.rawValue
+        if !model.isAskProviderReady { model.openSettings(.ask) }
     }
 }
 

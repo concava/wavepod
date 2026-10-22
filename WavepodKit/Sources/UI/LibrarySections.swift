@@ -149,7 +149,7 @@ struct PodcastFeedCard: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            ArtworkView(hue: hue, cornerRadius: 9).frame(width: 48, height: 48)
+            ArtworkView(hue: hue, url: episodes?.lazy.compactMap(\.artwork).first, cornerRadius: 9).frame(width: 48, height: 48)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(type.episodeTitle).foregroundStyle(Palette.ink).lineLimit(1)
                 Text(subtitle).font(type.callout).foregroundStyle(Palette.inkMuted).lineLimit(1)

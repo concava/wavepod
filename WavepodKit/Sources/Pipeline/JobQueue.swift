@@ -343,7 +343,7 @@ public actor JobQueue {
         let episode = Episode(id: Self.episodeID(resolved), showName: resolved.showTitle ?? "Imported audio", title: resolved.title,
                               pubDate: resolved.pubDate ?? .now, duration: max(resolved.duration ?? 0, transcript.duration, audioDuration),
                               descriptionHTML: resolved.descriptionHTML ?? "", sourceName: "Source", sourceURL: resolved.feedURL,
-                              enclosureURL: resolved.enclosureURL, artworkHue: 0.15)
+                              enclosureURL: resolved.enclosureURL, artworkHue: 0.15, artworkURL: resolved.artwork)
         return EpisodeRecord(episode: episode, transcript: transcript, speakers: speakers, audioURL: audio,
                              feedURL: resolved.feedURL, embeddings: embeddings, speakerEvidence: evidence)
     }

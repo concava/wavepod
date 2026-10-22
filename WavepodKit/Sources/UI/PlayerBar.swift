@@ -11,7 +11,7 @@ struct PlayerBar: View {
         VStack(spacing: 6) {
             HStack(spacing: 12) {
                 HStack(spacing: 10) {
-                    ArtworkView(hue: player.episode?.artworkHue ?? 0.15, cornerRadius: 6)
+                    ArtworkView(hue: player.episode?.artworkHue ?? 0.15, url: player.episode?.artworkURL, cornerRadius: 6)
                         .frame(width: 38, height: 38)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.episode?.showName ?? "wavepod")

@@ -149,6 +149,33 @@ public final class AppModel {
 
     // Command field and Ask
     public var commandText = ""
+    /// Where answers run. Stored by raw value in `askProvider`.
+    public enum AskProvider: String, CaseIterable, Identifiable, Sendable {
+        case local, chatgpt, claude
+        public var id: String { rawValue }
+        public var title: String {
+            switch self {
+            case .local: "On this Mac"
+            case .chatgpt: "My ChatGPT plan"
+            case .claude: "My Claude plan"
+            }
+        }
+        public var shortTitle: String {
+            switch self {
+            case .local: "On this Mac"
+            case .chatgpt: "ChatGPT"
+            case .claude: "Claude"
+            }
+        }
+    }
+    /// Whether the chosen plan has what it needs to answer; false sends the user to Settings → Ask.
+    var isAskProviderReady: Bool {
+        switch AskProvider(rawValue: askProvider) ?? .local {
+        case .local: true
+        case .chatgpt: chatGPTProfiles.contains { $0.id == chatGPTProfileID && $0.connected }
+        case .claude: !claudeExecutable.isEmpty
+        }
+    }
     public var askProvider = UserDefaults.standard.string(forKey: "askProvider") ?? "local" {
         didSet { UserDefaults.standard.set(askProvider, forKey: "askProvider") }
     }
@@ -158,7 +185,8 @@ public final class AppModel {
     public var chatGPTModelID = "" {
         didSet { UserDefaults.standard.set(chatGPTModelID, forKey: "chatGPTModel.\(chatGPTProfileID)") }
     }
-    public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable") ?? ClaudePlan.detectedExecutable {
+    public var claudeExecutable = UserDefaults.standard.string(forKey: "claudeExecutable")
+        .flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil } ?? ClaudePlan.detectedExecutable {
         didSet { UserDefaults.standard.set(claudeExecutable, forKey: "claudeExecutable"); claudeStatus = "Connect your Claude plan." }
     }
     public var claudeModel = UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet" {
@@ -279,6 +307,7 @@ public final class AppModel {
         if speakers.values.contains(where: \.isConfirmed) { hasNamedSpeaker = true }
         episodeAudioURL = record.audioURL
         transcriptLocation = nil
+        backfillArtwork()
     }
 
     func refreshWorkspace() async {

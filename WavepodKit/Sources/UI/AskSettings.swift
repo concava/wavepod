@@ -67,56 +67,59 @@ struct AskSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsGroup(title: "Answer model") {
-                SettingRow(title: "Run answers", detail: "Local is the default. Choose an eligible ChatGPT or Claude plan for cloud answers.", last: true) {
+                SettingRow(title: "Run answers", detail: model.isAnswering ? "Applies from your next question; the current answer keeps its model."
+                           : "Local is the default. Your ChatGPT or Claude plan gives better answers on long episodes.", last: true) {
                     Picker("Answer model", selection: $model.askProvider) {
-                        Text("On this Mac").tag("local")
-                        Text("My ChatGPT plan").tag("chatgpt")
-                        Text("My Claude plan").tag("claude")
+                        ForEach(AppModel.AskProvider.allCases) { Text($0.title).tag($0.rawValue) }
                     }.labelsHidden().fixedSize()
                 }
             }
-            if model.askProvider == "chatgpt" {
-                Text("Questions, recent conversation and transcript text are sent to OpenAI when you ask. Audio is not sent. ChatGPT plan limits apply. This connection does not read your existing ChatGPT conversations.")
-                    .font(type.callout).foregroundStyle(Palette.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-                if !model.chatGPTProfiles.isEmpty {
-                    Picker("ChatGPT account", selection: $model.chatGPTProfileID) {
-                        ForEach(model.chatGPTProfiles) { profile in Text(profile.label + (profile.connected ? "" : " (disconnected)")).tag(profile.id) }
-                    }.onChange(of: model.chatGPTProfileID) { _, _ in Task { await model.loadChatGPTModels() } }
-                }
-                HStack {
-                    Button("Continue with ChatGPT") { model.connectChatGPT() }.buttonStyle(PrimaryButtonStyle())
-                    Button("Add another account") { model.connectChatGPT(newAccount: true) }
-                    if model.chatGPTProfiles.contains(where: { $0.id == model.chatGPTProfileID && $0.connected }) {
-                        Button("Disconnect", action: model.disconnectChatGPT)
-                    }
-                }.disabled(model.isConnectingChatGPT)
-                if model.isConnectingChatGPT {
-                    HStack { ProgressView().controlSize(.small); Button("Cancel") { model.chatGPTConnectionTask?.cancel() } }
-                }
-                if !model.chatGPTModels.isEmpty {
-                    Picker("ChatGPT model", selection: $model.chatGPTModelID) {
-                        ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
-                    }
-                }
-                Text(model.chatGPTStatus).font(type.callout).foregroundStyle(Palette.inkMuted).textSelection(.enabled)
-                HStack {
-                    Button("Refresh models") { Task { await model.loadChatGPTModels() } }
-                    Link("Manage usage", destination: URL(string: "https://chatgpt.com/#settings/Usage")!)
-                }
-            } else if model.askProvider == "claude" {
-                ClaudeSettings(model: model)
-            } else {
-                Text("Uses the language model installed in Models. Every transcript section is read before producing an answer; long episodes take longer on the local model.")
-                    .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
-            }
+            // Only the connection controls wait for a running answer; the choice of model never does.
+            Group { providerSettings }.disabled(model.isAnswering)
         }
-        .disabled(model.isAnswering)
         .task { await model.refreshChatGPTProfiles() }
         .alert("You’re using your ChatGPT plan", isPresented: $model.showChatGPTPlanNotice) {
             Button("Got it", role: .cancel) {}
         } message: {
             Text("Eligible requests use your ChatGPT plan. You can manage app access and usage in ChatGPT Settings. Local inference remains available in wavepod.")
+        }
+    }
+
+    @ViewBuilder private var providerSettings: some View {
+        if model.askProvider == "chatgpt" {
+            Text("Questions, recent conversation and transcript text are sent to OpenAI when you ask. Audio is not sent. ChatGPT plan limits apply. This connection does not read your existing ChatGPT conversations.")
+                .font(type.callout).foregroundStyle(Palette.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            if !model.chatGPTProfiles.isEmpty {
+                Picker("ChatGPT account", selection: $model.chatGPTProfileID) {
+                    ForEach(model.chatGPTProfiles) { profile in Text(profile.label + (profile.connected ? "" : " (disconnected)")).tag(profile.id) }
+                }.onChange(of: model.chatGPTProfileID) { _, _ in Task { await model.loadChatGPTModels() } }
+            }
+            HStack {
+                Button("Continue with ChatGPT") { model.connectChatGPT() }.buttonStyle(PrimaryButtonStyle())
+                Button("Add another account") { model.connectChatGPT(newAccount: true) }
+                if model.chatGPTProfiles.contains(where: { $0.id == model.chatGPTProfileID && $0.connected }) {
+                    Button("Disconnect", action: model.disconnectChatGPT)
+                }
+            }.disabled(model.isConnectingChatGPT)
+            if model.isConnectingChatGPT {
+                HStack { ProgressView().controlSize(.small); Button("Cancel") { model.chatGPTConnectionTask?.cancel() } }
+            }
+            if !model.chatGPTModels.isEmpty {
+                Picker("ChatGPT model", selection: $model.chatGPTModelID) {
+                    ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
+                }
+            }
+            Text(model.chatGPTStatus).font(type.callout).foregroundStyle(Palette.inkMuted).textSelection(.enabled)
+            HStack {
+                Button("Refresh models") { Task { await model.loadChatGPTModels() } }
+                Link("Manage usage", destination: URL(string: "https://chatgpt.com/#settings/Usage")!)
+            }
+        } else if model.askProvider == "claude" {
+            ClaudeSettings(model: model)
+        } else {
+            Text("Uses the language model installed in Models. Every transcript section is read before producing an answer; long episodes take longer on the local model.")
+                .font(type.callout).foregroundStyle(Palette.inkMuted).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

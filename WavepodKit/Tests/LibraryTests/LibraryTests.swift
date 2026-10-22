@@ -133,3 +133,13 @@ final class ExportTests: XCTestCase {
         XCTAssertThrowsError(try render(.docx))
     }
 }
+
+final class EpisodeCodingTests: XCTestCase {
+    func testEpisodesSavedBeforeArtworkStillDecode() throws {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(SampleData.episode)) as? [String: Any])
+        object["artworkURL"] = nil
+        let episode = try JSONDecoder().decode(Episode.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertNil(episode.artworkURL)
+        XCTAssertEqual(episode.title, SampleData.episode.title)
+    }
+}
