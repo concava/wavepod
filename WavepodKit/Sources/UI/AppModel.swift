@@ -598,38 +598,16 @@ public final class AppModel {
                                     citations: matches.map { Citation(start: $0.start, quote: $0.words.map(\.text).joined(separator: " ")) }, date: .now))
             return
         }
-        persistWorkspace()
         isAnswering = true
-        let id = episode.id, source = transcript, language = "Auto", history = Array(chat.dropLast())
-        let choice = answerChoice
         askProgress = "Preparing transcript…"
+        let id = episode.id, choice = answerChoice
+        let session = AskSession(store: services.store, answers: services.answers)
         answerTask = Task { [self] in
             defer { isAnswering = false; askProgress = ""; answerTask = nil }
-            do {
-                let progress: @Sendable (String) async -> Void = { [weak self] status in
-                    await MainActor.run { if self?.episode.id == id { self?.askProgress = status } }
-                }
-                let claims = try await services.answers.withGenerator(choice) { generator, limit in
-                    try await EpisodeAnswers(generator: generator, contextLimit: limit)
-                        .answer(question: q, language: language, history: history, transcript: source, progress: progress)
-                }
-                try Task.checkCancellation()
-                saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now, sections: EpisodeAnswers.sections(from: claims)), episodeID: id)
-            } catch is CancellationError {
-                saveAskMessage(ChatMessage(role: .assistant, text: "Stopped before completing the answer.", date: .now), episodeID: id)
-            } catch {
-                let text = Task.isCancelled ? "Stopped before completing the answer." : "I couldn’t complete this answer: \(error.localizedDescription)"
-                saveAskMessage(ChatMessage(role: .assistant, text: text, date: .now), episodeID: id)
+            await session.ask(q, episodeID: id, choice: choice) { [weak self] status in
+                await MainActor.run { if self?.episode.id == id { self?.askProgress = status } }
             }
         }
-    }
-
-    private func saveAskMessage(_ message: ChatMessage, episodeID: String) {
-        guard let services else { return }
-        do {
-            guard let record = try services.store.update(episodeID, { $0.chat.append(message) }) else { return }
-            if episode.id == episodeID { chat = record.chat }
-        } catch { show(error.localizedDescription) }
     }
 
     // MARK: Appearance and notices
