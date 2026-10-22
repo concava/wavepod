@@ -8,12 +8,18 @@ public struct RootView: View {
     @Bindable var model: AppModel
     @FocusState private var focus: AppModel.FocusTarget?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var playerHeight: CGFloat = 0
 
     public init(model: AppModel) { self.model = model }
 
+    /// The player shows once something is loaded in it, or on an opened episode. Never as an empty bar.
+    private var showsPlayer: Bool {
+        model.player.episode != nil || (model.section == .library && !model.episode.id.isEmpty)
+    }
+
     public var body: some View {
         HStack(spacing: 0) {
-            SidebarView(model: model)
+            SidebarView(model: model, footerHeight: showsPlayer && playerHeight > 0 ? playerHeight : nil)
             VStack(spacing: 8) {
                 Group {
                     switch model.section {
@@ -24,9 +30,10 @@ public struct RootView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if model.section == .library || model.player.duration > 0 {
+                if showsPlayer {
                     PlayerBar(player: model.player)
                         .elevated(cornerRadius: 14)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { playerHeight = $0 }
                 }
             }
             .padding([.trailing, .bottom], 8)

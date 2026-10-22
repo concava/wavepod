@@ -3,6 +3,9 @@ import SwiftUI
 /// The sidebar: wordmark, sections, recent episodes and the setup checklist. Collapses to an icon rail.
 struct SidebarView: View {
     @Bindable var model: AppModel
+    /// The player bar's height while it shows. Settings then sits on the player's centre line and the divider on
+    /// the bottom edge of the cards above it.
+    var footerHeight: CGFloat? = nil
     @Environment(\.typography) private var type
 
     private var collapsed: Bool { model.sidebarCollapsed }
@@ -55,9 +58,10 @@ struct SidebarView: View {
             NavRow(title: "Settings", symbol: "gearshape", collapsed: collapsed, isSelected: false, badge: activeJobs) {
                 model.openSettings(activeJobs == nil ? nil : .queue)
             }
+            .frame(height: footerHeight, alignment: .center)
         }
         .padding(.horizontal, collapsed ? 8 : 12)
-        .padding(.bottom, 12)
+        .padding(.bottom, footerHeight == nil ? 12 : 8)
         .frame(width: collapsed ? 60 : 236)
         .frame(maxHeight: .infinity, alignment: .top)
     }
