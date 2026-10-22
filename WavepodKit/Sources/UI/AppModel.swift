@@ -114,7 +114,9 @@ public final class AppModel {
     public func toggleSidePane(_ pane: SidePane) {
         if showSidePane && sidePane == pane { showSidePane = false } else { sidePane = pane; showSidePane = true }
     }
-    public var appearance: Appearance = .system
+    public var appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "") ?? .system {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "appearance") }
+    }
     public var textScale = UserDefaults.standard.object(forKey: "textScale") as? Double ?? 1 {
         didSet { UserDefaults.standard.set(textScale, forKey: "textScale") }
     }

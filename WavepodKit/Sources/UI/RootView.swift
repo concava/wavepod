@@ -102,7 +102,14 @@ public struct RootView: View {
         }
         .environment(\.typography, Typography(scale: model.textScale, readingFont: model.readingFont, readingSize: model.readingSize))
         .environment(\.artworkCache, model.services?.artwork)
-        .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
+        // preferredColorScheme(nil) does not give the window back to the system theme on macOS, so set it in AppKit.
+        .onChange(of: model.appearance, initial: true) { _, appearance in
+            NSApp.appearance = switch appearance {
+            case .system: nil
+            case .light: NSAppearance(named: .aqua)
+            case .dark: NSAppearance(named: .darkAqua)
+            }
+        }
         .tint(Palette.accent)
         .onChange(of: model.focusRequest) { _, request in
             // The command field lives in the toolbar, a focus scope of its own, and takes ⌘K itself.
