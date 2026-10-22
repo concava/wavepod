@@ -100,7 +100,7 @@ public struct RootView: View {
                 ScrollView { Text(model.translationText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
             }.padding().frame(width: 640, height: 560)
         }
-        .environment(\.typography, Typography(scale: model.textScale))
+        .environment(\.typography, Typography(scale: model.textScale, readingFont: model.readingFont, readingSize: model.readingSize))
         .environment(\.artworkCache, model.services?.artwork)
         .preferredColorScheme(model.appearance == .system ? nil : (model.appearance == .dark ? .dark : .light))
         .tint(Palette.accent)

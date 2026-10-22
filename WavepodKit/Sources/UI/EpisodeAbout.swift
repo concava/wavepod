@@ -36,9 +36,9 @@ struct EpisodeAbout: View {
                 }
 
                 Text(SafeHTML.render(episode.descriptionHTML))
-                    .font(type.callout)
+                    .font(type.reading)
                     .foregroundStyle(Palette.ink)
-                    .lineSpacing(3)
+                    .lineSpacing(5)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel("Episode description")

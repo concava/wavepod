@@ -50,12 +50,20 @@ extension NSColor {
 /// style; VoiceOver and the system's accessibility text settings still apply on top.
 public struct Typography: Sendable {
     public var scale: Double
+    /// The font of long text: transcript, answers, summary and the episode description.
+    public var readingFont: ReadingFont
+    /// The size of long text in points at 100 %. The window text size scales it too.
+    public var readingSize: Double
 
-    public init(scale: Double = 1) { self.scale = scale }
+    public init(scale: Double = 1, readingFont: ReadingFont = .serif, readingSize: Double = 15.5) {
+        self.scale = scale
+        self.readingFont = readingFont
+        self.readingSize = readingSize
+    }
 
     func size(_ base: Double) -> CGFloat { CGFloat((base * scale).rounded()) }
 
-    public var reading: Font { .system(size: size(15.5), design: .serif) }
+    public var reading: Font { .system(size: size(readingSize), design: readingFont.design) }
     public var readingTitle: Font { .system(size: size(22), weight: .semibold, design: .serif) }
     public var paneTitle: Font { .system(size: size(13), weight: .semibold) }
     public var body: Font { .system(size: size(13)) }
@@ -73,6 +81,28 @@ public struct Typography: Sendable {
     public var speaker: Font { .system(size: size(12), weight: .semibold) }
 
     public static let scales: [Double] = [0.85, 1, 1.15, 1.3, 1.5]
+    public static let readingSizes: [Double] = [13, 14, 15.5, 17, 19, 22]
+}
+
+public enum ReadingFont: String, CaseIterable, Identifiable, Sendable {
+    case serif, sans, rounded, mono
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .serif: "Serif"
+        case .sans: "Sans serif"
+        case .rounded: "Rounded"
+        case .mono: "Monospaced"
+        }
+    }
+    var design: Font.Design {
+        switch self {
+        case .serif: .serif
+        case .sans: .default
+        case .rounded: .rounded
+        case .mono: .monospaced
+        }
+    }
 }
 
 private struct TypographyKey: EnvironmentKey {

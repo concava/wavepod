@@ -70,12 +70,31 @@ struct SettingsView: View {
                 }
                 .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
-            SettingRow(title: "Text size", detail: "Changes the size of all text in the window. You can also use ⌘+ and ⌘−.", last: true) {
+            SettingRow(title: "Text size", detail: "Changes the size of all text in the window. You can also use ⌘+ and ⌘−.") {
                 Picker("Text size", selection: $model.textScale) {
                     ForEach(Typography.scales, id: \.self) { Text("\(Int($0 * 100)) %").tag($0) }
                 }
                 .labelsHidden().fixedSize()
             }
+            SettingRow(title: "Reading font", detail: "The font of the transcript, answers, summary and About text.") {
+                Picker("Reading font", selection: $model.readingFont) {
+                    ForEach(ReadingFont.allCases) { Text($0.title).tag($0) }
+                }
+                .labelsHidden().fixedSize()
+            }
+            SettingRow(title: "Reading size", detail: "The size of the transcript, answers, summary and About text.") {
+                Picker("Reading size", selection: $model.readingSize) {
+                    ForEach(Typography.readingSizes, id: \.self) { Text("\($0.formatted()) pt").tag($0) }
+                }
+                .labelsHidden().fixedSize()
+            }
+            Text("The quick brown fox jumps over the lazy dog.")
+                .font(type.reading)
+                .foregroundStyle(Palette.ink)
+                .lineSpacing(5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 18).padding(.vertical, 14)
+                .accessibilityHidden(true)
         }
         SettingsGroup(title: "Podcasts") {
             SettingRow(title: "Check podcasts in the background",

@@ -115,7 +115,15 @@ public final class AppModel {
         if showSidePane && sidePane == pane { showSidePane = false } else { sidePane = pane; showSidePane = true }
     }
     public var appearance: Appearance = .system
-    public var textScale: Double = 1
+    public var textScale = UserDefaults.standard.object(forKey: "textScale") as? Double ?? 1 {
+        didSet { UserDefaults.standard.set(textScale, forKey: "textScale") }
+    }
+    public var readingFont = ReadingFont(rawValue: UserDefaults.standard.string(forKey: "readingFont") ?? "") ?? .serif {
+        didSet { UserDefaults.standard.set(readingFont.rawValue, forKey: "readingFont") }
+    }
+    public var readingSize = UserDefaults.standard.object(forKey: "readingSize") as? Double ?? 15.5 {
+        didSet { UserDefaults.standard.set(readingSize, forKey: "readingSize") }
+    }
 
     // Episode in the workspace
     public internal(set) var episode: Episode
