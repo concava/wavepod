@@ -193,13 +193,17 @@ public struct ChatMessage: Identifiable, Hashable, Sendable, Codable {
     public var text: String
     public var citations: [Citation]
     public var date: Date
+    /// An answer organized under headings, each point with its citation. nil for plain answers and for messages
+    /// saved before structured answers; `text` always holds the whole answer.
+    public var sections: [SummarySection]?
 
-    public init(id: UUID = UUID(), role: Role, text: String, citations: [Citation] = [], date: Date) {
+    public init(id: UUID = UUID(), role: Role, text: String, citations: [Citation] = [], date: Date, sections: [SummarySection]? = nil) {
         self.id = id
         self.role = role
         self.text = text
         self.citations = citations
         self.date = date
+        self.sections = sections
     }
 }
 

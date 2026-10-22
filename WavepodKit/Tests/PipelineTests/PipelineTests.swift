@@ -300,3 +300,31 @@ final class PowerPolicyTests: XCTestCase {
         XCTAssertFalse(PowerPolicy.decide(onBattery: false, charge: nil, lowPowerMode: false, currentlyPaused: false))
     }
 }
+
+final class StructuredAnswerTests: XCTestCase {
+    func testAnswersKeepTheModelsOrderUnderHeadings() throws {
+        let claims = [
+            CitedClaim(claim: "**Bernat (host):** Moderates.", quote: "a", start: 5, section: "Quién participa"),
+            CitedClaim(claim: "**Instinct:** Raised 1,000 M$.", quote: "b", start: 900, section: "Tema principal: agentes personales"),
+            CitedClaim(claim: "**Jordi Romero (Factorial):** Explains the summit.", quote: "c", start: 40, section: "Quién participa"),
+        ]
+        let sections = try XCTUnwrap(EpisodeAnswers.sections(from: claims))
+        XCTAssertEqual(sections.map(\.title), ["Quién participa", "Tema principal: agentes personales"])
+        XCTAssertEqual(sections[0].points.map(\.citation.start), [5, 40])
+        // A short answer without headings stays plain.
+        XCTAssertNil(EpisodeAnswers.sections(from: [CitedClaim(claim: "Yes.", quote: "yes", start: 1)]))
+    }
+    func testMessagesSavedBeforeStructuredAnswersStillDecode() throws {
+        let message = try JSONDecoder().decode(ChatMessage.self, from: Data(#"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","role":"assistant","text":"Old","citations":[],"date":0}"#.utf8))
+        XCTAssertNil(message.sections)
+    }
+    func testSummaryHeadingsFollowTheEpisodeLanguage() {
+        let claims = [CitedClaim(claim: "**Bernat (host):** Opens.", quote: "a", start: 0, section: "Who’s there"),
+                      CitedClaim(claim: "**Topic:** Agents.", quote: "b", start: 9, section: "Main discussion")]
+        XCTAssertEqual(EpisodeSummaryStyle.summary(from: claims, language: "es").sections?.map(\.title), ["Quién participa", "Tema principal"])
+        XCTAssertEqual(EpisodeSummaryStyle.summary(from: claims, language: "ca").sections?.map(\.title), ["Qui hi participa", "Tema principal"])
+        XCTAssertEqual(EpisodeSummaryStyle.summary(from: claims, language: "und").sections?.map(\.title), ["Who’s there", "Main discussion"])
+        XCTAssertTrue(EpisodeSummaryStyle.instruction(language: "es").contains("in Spanish"))
+        XCTAssertTrue(EpisodeSummaryStyle.instruction(language: "und").contains("the language of the transcript"))
+    }
+}

@@ -27,6 +27,7 @@ public struct EpisodeAnswers: Sendable {
         Use the conversation only to interpret follow-up questions; it is not transcript evidence.
         <conversation>\(conversation)</conversation>
         Current question: \(question)
+        \(AnswerStyle.instruction)
         """
         var findings: [CitedClaim] = []
         for (offset, chunk) in chunks.enumerated() {
@@ -44,7 +45,7 @@ public struct EpisodeAnswers: Sendable {
             let groups = Self.groups(findings, limit: contextLimit)
             var reduced: [CitedClaim] = []
             for group in groups {
-                let notes = group.map { "[\($0.start)] Finding: \($0.claim)\nExact quote: \($0.quote)" }.joined(separator: "\n")
+                let notes = group.map { "[\($0.start)]\($0.section.map { " (section: \($0))" } ?? "") Finding: \($0.claim)\nExact quote: \($0.quote)" }.joined(separator: "\n")
                 let evidence = group.enumerated().map { offset, claim in
                     Segment(id: offset, speaker: SpeakerID("evidence"), words: [Word(text: claim.quote, start: claim.start, end: claim.start)])
                 }
@@ -63,6 +64,19 @@ public struct EpisodeAnswers: Sendable {
         return findings
     }
 
+    /// Organizes an answer's claims under their sections, in the order the model gave them. Answers without
+    /// sections, or with a single unnamed one, stay plain.
+    public static func sections(from claims: [CitedClaim]) -> [SummarySection]? {
+        var sections: [SummarySection] = []
+        for claim in claims {
+            let title = claim.section?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let point = SummaryPoint(text: claim.claim, citation: claim.citation)
+            if let index = sections.firstIndex(where: { $0.title == title }) { sections[index].points.append(point) }
+            else { sections.append(SummarySection(title: title, points: [point])) }
+        }
+        return sections.contains(where: { !$0.title.isEmpty }) ? sections : nil
+    }
+
     private static func unique(_ claims: [CitedClaim]) -> [CitedClaim] {
         var seen = Set<String>()
         return claims.filter { seen.insert("\($0.start)|\(CitationValidator.normalize($0.claim).joined(separator: " "))").inserted }
@@ -78,4 +92,19 @@ public struct EpisodeAnswers: Sendable {
         if !current.isEmpty { result.append(current) }
         return result
     }
+}
+
+/// How answers are written: the structure of good episode notes, scaled to the question.
+public enum AnswerStyle {
+    public static let instruction = """
+    Write each claim as one self-contained bullet of one to three sentences that begins with a short bold label
+    naming its topic or speaker, e.g. "**Budget limits (host):** ...". Be specific: keep names, roles, figures,
+    dates, chronology, examples, anecdotes and who said what. Attribute opinions and estimates to their speakers,
+    and present news and anecdotes as claims made in the conversation.
+    When the answer has distinct parts (for example who takes part, the main topic, anecdotes, news, audience
+    questions), add a "section" field with a short heading in the answer's language, give claims that belong
+    together the same heading, and put the most important part first. A heading may name its subject, e.g.
+    "Main topic: personal agents (late 2025 to October 2026)". For a short factual question, answer with one or
+    two bullets and no sections.
+    """
 }

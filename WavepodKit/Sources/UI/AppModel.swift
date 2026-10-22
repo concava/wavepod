@@ -531,7 +531,7 @@ public final class AppModel {
                     }
                 }
                 try Task.checkCancellation()
-                saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now), episodeID: id)
+                saveAskMessage(ChatMessage(role: .assistant, text: claims.isEmpty ? "I read the whole transcript and couldn’t find evidence to answer that question." : claims.map(\.claim).joined(separator: "\n\n"), citations: claims.map(\.citation), date: .now, sections: EpisodeAnswers.sections(from: claims)), episodeID: id)
             } catch is CancellationError {
                 saveAskMessage(ChatMessage(role: .assistant, text: "Stopped before completing the answer.", date: .now), episodeID: id)
             } catch {

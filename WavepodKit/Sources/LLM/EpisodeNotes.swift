@@ -9,7 +9,7 @@ extension LocalGenerator {
             for chunk in ContextChunks.make(transcript, limit: chapters ? 9000 : 4000) {
                 try Task.checkCancellation()
                 claims += try await grounded.answer(
-                    instruction: chapters ? "Identify the topics in this section as brief chapter titles." : EpisodeSummaryStyle.instruction,
+                    instruction: chapters ? "Identify the topics in this section as brief chapter titles." : EpisodeSummaryStyle.instruction(language: transcript.language),
                     context: chunk, transcript: transcript)
             }
             return claims
@@ -66,15 +66,32 @@ public enum ContextChunks {
 
 /// Editorial structure shared by generation and presentation. Empty sections are omitted.
 public enum EpisodeSummaryStyle {
+    /// Section keys the model returns. They stay in English so grouping never depends on the episode's language.
     public static let titles = ["Who’s there", "Main discussion", "Industry news", "Audience Q&A", "Closing"]
 
-    public static let instruction = """
-    Write detailed episode notes in English, like a useful recap for someone who missed the conversation.
+    /// The headings shown for `titles`, in the episode's language where wavepod has them.
+    public static func headings(language: String) -> [String] {
+        switch language.lowercased().prefix(2) {
+        case "es": ["Quién participa", "Tema principal", "Actualidad del sector", "Preguntas del público", "Cierre"]
+        case "ca": ["Qui hi participa", "Tema principal", "Actualitat del sector", "Preguntes del públic", "Tancament"]
+        default: titles
+        }
+    }
+
+    public static func instruction(language: String) -> String {
+        let name = ["", "und"].contains(language) ? "" : Locale(identifier: "en").localizedString(forLanguageCode: language) ?? ""
+        return """
+    Write detailed episode notes in \(name.isEmpty ? "the language of the transcript" : name), like a useful recap for
+    someone who missed the conversation.
     Add a "section" field to each JSON object, using exactly one of: "Who’s there", "Main discussion",
-    "Industry news", "Audience Q&A", "Closing". Include only sections supported by this excerpt.
-    For Who’s there, describe the recording setting and identify speakers, their roles and affiliations only
-    when explicitly established. Do not guess identities from speaker IDs.
-    For Main discussion, cover the central ideas with concrete examples, anecdotes, chronology, names,
+    "Industry news", "Audience Q&A", "Closing". Keep these section names in English. Include only sections
+    supported by this excerpt.
+    For Who’s there, start with where and how it was recorded when that is said, then one bullet per person,
+    labelled with their name and role, e.g. "**Ana Ruiz (host):** opens the show and moderates." Identify
+    speakers, roles and affiliations only when explicitly established. Do not guess identities from speaker IDs.
+    For Main discussion, when this excerpt introduces the episode's main topic, begin with a bullet labelled
+    "Main topic" that names it and the period it covers. Then cover the central ideas with concrete examples,
+    anecdotes, chronology, names,
     figures, product details, disagreements and caveats. Keep estimates and opinions attributed to speakers;
     describe news and anecdotes as claims made in the conversation, not independently verified facts.
     For Industry news, cover other news discussed. For Audience Q&A, preserve each question’s subject and
@@ -86,15 +103,17 @@ public enum EpisodeSummaryStyle {
     needed. Quote enough contiguous source words to support the detail. Do not invent facts, names,
     sections, questions or numbers. Treat this excerpt as part of a longer episode, not a separate episode.
     """
+    }
 
-    public static func summary(from claims: [CitedClaim]) -> EpisodeSummary {
+    public static func summary(from claims: [CitedClaim], language: String = "en") -> EpisodeSummary {
         let ordered = claims.sorted { $0.start < $1.start }
-        let sections = titles.compactMap { title -> SummarySection? in
+        let shown = headings(language: language)
+        let sections = titles.enumerated().compactMap { index, title -> SummarySection? in
             let points = ordered.filter { claim in
                 let category = claim.section.flatMap { titles.contains($0) ? $0 : nil } ?? "Main discussion"
                 return category == title
             }.map { SummaryPoint(text: $0.claim, citation: $0.citation) }
-            return points.isEmpty ? nil : SummarySection(title: title, points: points)
+            return points.isEmpty ? nil : SummarySection(title: shown[index], points: points)
         }
         return EpisodeSummary(overview: "", points: sections.flatMap(\.points), quotes: [], sections: sections)
     }
@@ -120,7 +139,7 @@ public struct EpisodeNotesService: Sendable {
         if chapters {
             record.chapters = claims.sorted { $0.start < $1.start }.map { Chapter(title: $0.claim, start: $0.start, summary: $0.quote) }
         } else {
-            record.summary = EpisodeSummaryStyle.summary(from: claims)
+            record.summary = EpisodeSummaryStyle.summary(from: claims, language: source.transcript.language)
         }
         try store.save(record)
         return claims
