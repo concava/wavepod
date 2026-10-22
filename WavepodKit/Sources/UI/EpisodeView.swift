@@ -171,15 +171,6 @@ struct SummaryCard: View {
                         .foregroundStyle(Palette.inkMuted)
                 }
                 Spacer(minLength: 8)
-                if model.summary != nil {
-                    Button { model.generateNotes() } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(IconButtonStyle())
-                    .disabled(model.isGenerating)
-                    .help("Regenerate summary")
-                    .accessibilityLabel("Regenerate summary")
-                }
                 Button {
                     model.toggleEpisodePlayback()
                 } label: {
@@ -196,7 +187,8 @@ struct SummaryCard: View {
                 }
             }
             .padding(.horizontal, 22)
-            .padding(.top, 20)
+            // Play's centre line meets the Transcript and About tabs in the card beside it (DetailCard.headerHeight).
+            .padding(.top, DetailCard.headerHeight / 2 - 15)
             AskField(model: model, focus: focus)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 14)
@@ -375,6 +367,8 @@ struct AskProviderMenu: View {
 // MARK: - Right: transcript or details
 
 struct DetailCard: View {
+    /// The tab row's height. The summary card's Play button is centred on the same line.
+    static let headerHeight: CGFloat = 54
     @Bindable var model: AppModel
     var focus: FocusState<AppModel.FocusTarget?>.Binding
     @Environment(\.typography) private var type
@@ -404,7 +398,7 @@ struct DetailCard: View {
                 .accessibilityLabel("Close the right card")
             }
             .padding(.horizontal, 12)
-            .frame(height: 48)
+            .frame(height: DetailCard.headerHeight)
             Divider().overlay(Palette.rule)
             Group {
                 switch model.sidePane {

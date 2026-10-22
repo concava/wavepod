@@ -189,6 +189,14 @@ struct SummaryView: View {
             AnswersSection(model: model)
             if let summary = model.summary {
                 VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        SectionHeading("Summary")
+                        Spacer()
+                        Button(model.isGenerating ? "Writing…" : "Write Again", systemImage: "arrow.clockwise", action: model.generateNotes)
+                            .buttonStyle(ChipStyle(prominent: false))
+                            .disabled(model.isGenerating)
+                            .help("Write the summary again with \(model.answerProvider.title.lowercased().replacingOccurrences(of: "my ", with: "your "))")
+                    }
                     if !summary.overview.isEmpty {
                         Text(summary.overview)
                             .font(type.reading)
