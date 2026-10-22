@@ -158,6 +158,14 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The preview beside the answer-model choices.
+    func testAnswerModelPreview() {
+        let model = makeModel()
+        check("answer-model-preview", size: CGSize(width: 320, height: 300)) {
+            AnswerModelPreview(model: model, provider: .local).padding(16).frame(width: 312, alignment: .topLeading)
+        }
+    }
+
     func testPlayerBar() {
         let model = makeModel()
         check("player", size: CGSize(width: 1100, height: 80)) { PlayerBar(player: model.player) }

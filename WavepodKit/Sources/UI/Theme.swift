@@ -217,19 +217,38 @@ extension View {
 }
 
 /// Square icon button used in pane toolbars.
+/// A quiet icon button: no fill at rest, a fill on hover and a darker one while pressed, like the close button
+/// beside it. A toggle that is on keeps its accent tint, so its state shows without hovering.
 struct IconButtonStyle: ButtonStyle {
     /// Marks a toggle that is on, such as the side pane being shown.
     var isActive = false
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(isActive ? Palette.accent : Palette.ink)
-            .frame(width: 30, height: 28)
-            .background(isActive ? Palette.accentSoft : (configuration.isPressed ? Palette.rule : Palette.sunken),
-                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .contentShape(Rectangle())
-            .pressScale(configuration.isPressed)
+        IconButtonBody(configuration: configuration, isActive: isActive)
+    }
+
+    private struct IconButtonBody: View {
+        let configuration: ButtonStyleConfiguration
+        let isActive: Bool
+        @State private var hovering = false
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isActive ? Palette.accent : Palette.ink)
+                .frame(width: 30, height: 28)
+                .background(fill, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(Rectangle())
+                .onHover { hovering = $0 && isEnabled }
+                .pressScale(configuration.isPressed)
+        }
+
+        private var fill: Color {
+            if configuration.isPressed { return Palette.rule }
+            if isActive { return Palette.accentSoft }
+            return hovering ? Palette.sunken : .clear
+        }
     }
 }
 

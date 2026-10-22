@@ -197,6 +197,15 @@ public final class AppModel {
         get { answerChoice.claudeEffort }
         set { answerChoice.claudeEffort = newValue }
     }
+    /// "GPT-6.1 · High": the chosen ChatGPT model and effort, for the answer-model selector.
+    var chatGPTSummary: String {
+        let name = chatGPTModels.first { $0.id == chatGPTModelID }?.display_name ?? chatGPTModelID
+        return [name, chatGPTEffort.isEmpty ? "" : Self.effortTitle(chatGPTEffort)].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+    /// "Opus · Maximum": the chosen Claude model and effort.
+    var claudeSummary: String {
+        [claudeModel.capitalized, claudeEffort.isEmpty ? "" : Self.effortTitle(claudeEffort)].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
     /// How an effort level reads in Settings.
     public static func effortTitle(_ effort: String) -> String {
         switch effort {

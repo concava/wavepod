@@ -107,40 +107,59 @@ struct PodcastMenu: View {
     }
 
     var body: some View {
-        Menu {
-            if episodes.count > 1 {
-                // macOS draws the checkmark on the open episode, aligned with the others.
-                Picker("In your library", selection: Binding(get: { model.episode.id },
-                                                             set: { id in episodes.first { $0.id == id }.map { model.open($0) } })) {
-                    ForEach(episodes) { item in
-                        Button {} label: {
-                            Text(item.episode.title)
-                            Text(item.episode.pubDate.formatted(date: .abbreviated, time: .omitted))
-                        }
-                        .tag(item.id)
-                    }
-                }
-                .pickerStyle(.inline)
-            }
-            if model.feedURL != nil {
-                Section(model.episode.showName) {
-                    Button(isFollowing ? "All Episodes" : "All Episodes and Follow", action: model.openPodcast)
-                        .disabled(model.isResolving)
-                }
-            }
-        } label: {
+        PreviewSelector(title: "In your library",
+                        options: episodes.map {
+                            SelectorOption(id: $0.id, title: $0.episode.title,
+                                           subtitle: "\($0.episode.pubDate.formatted(date: .abbreviated, time: .omitted)) · \(Timecode.format($0.episode.duration))")
+                        },
+                        selection: model.episode.id,
+                        onSelect: { id in episodes.first { $0.id == id }.map { model.open($0) } },
+                        footer: model.feedURL == nil ? [] : [(isFollowing ? "All Episodes" : "All Episodes and Follow", model.openPodcast)]) {
             HStack(spacing: 4) {
                 Text(model.episode.showName).lineLimit(1).truncationMode(.tail)
                 if isFollowing { Image(systemName: "checkmark.circle.fill").imageScale(.small).accessibilityLabel("Following") }
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
             }
             .font(type.label)
+            .foregroundStyle(Palette.accent)
+            .contentShape(Rectangle())
+        } preview: { id in
+            EpisodePreview(model: model, id: id)
         }
-        .menuStyle(.borderlessButton)
         // Only the height is fixed. A long podcast name shortens instead of widening the summary card.
         .fixedSize(horizontal: false, vertical: true)
-        .foregroundStyle(Palette.accent)
         .disabled(episodes.count <= 1 && model.feedURL == nil)
         .help("Episodes of this podcast")
+    }
+}
+
+/// The preview beside an episode choice: artwork, title, date and length, and the start of its summary.
+struct EpisodePreview: View {
+    let model: AppModel
+    let id: String
+    @Environment(\.typography) private var type
+
+    private var listing: EpisodeListing? { model.savedEpisodes.first { $0.id == id } }
+    private var summary: String? {
+        guard let summary = (try? model.services?.store.episode(id))??.summary else { return nil }
+        if !summary.overview.isEmpty { return summary.overview }
+        return (summary.sections?.flatMap(\.points) ?? summary.points).prefix(3).map(\.text).joined(separator: " ")
+    }
+
+    var body: some View {
+        if let listing {
+            VStack(alignment: .leading, spacing: 12) {
+                ArtworkView(hue: listing.episode.artworkHue, url: listing.episode.artworkURL, cornerRadius: 10)
+                    .frame(width: 64, height: 64)
+                Text(listing.episode.title).font(type.episodeTitle).foregroundStyle(Palette.ink)
+                    .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                Text("\(listing.episode.pubDate.formatted(date: .abbreviated, time: .omitted)) · \(Timecode.format(listing.episode.duration))\(listing.downloaded ? " · Downloaded" : "")")
+                    .font(type.caption).foregroundStyle(Palette.inkMuted)
+                Text(summary ?? "No summary yet.")
+                    .font(type.callout).foregroundStyle(summary == nil ? Palette.inkMuted : Palette.ink)
+                    .lineLimit(6).fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
@@ -256,8 +275,9 @@ struct AskField: View {
     }
 }
 
-/// Where answers run, switchable from the Ask field. Each choice says what it would use, the plan in use offers its
-/// model and effort, and picking a plan that isn't set up opens Settings → Ask.
+/// Where answers run, switchable from the Ask field: a panel of the three choices with a preview of the one under
+/// the pointer. The preview says where it runs and what leaves the Mac, and a plan's model and effort can be set
+/// there. Picking a choice that isn't set up opens Settings → Ask.
 struct AskProviderMenu: View {
     @Bindable var model: AppModel
     @Environment(\.typography) private var type
@@ -265,91 +285,53 @@ struct AskProviderMenu: View {
     static let claudeModels = [("sonnet", "Sonnet"), ("opus", "Opus"), ("haiku", "Haiku")]
 
     var body: some View {
-        Menu {
-            Picker("Answers run on", selection: Binding(get: { model.answerProvider }, set: choose)) {
-                ForEach(AnswerProvider.allCases) { provider in
-                    // Two lines: the choice and what it would use. macOS draws the checkmark column.
-                    Button {} label: {
-                        Text(provider.title)
-                        Text(detail(provider))
-                    }
-                    .tag(provider)
-                }
-            }
-            .pickerStyle(.inline)
-            if model.answerProvider == .chatgpt, !model.chatGPTModels.isEmpty {
-                Section {
-                    Picker("Model", selection: $model.chatGPTModelID) {
-                        ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
-                    }
-                    if !chatGPTEfforts.isEmpty { effortPicker($model.chatGPTEffort, efforts: chatGPTEfforts) }
-                }
-            }
-            if model.answerProvider == .claude {
-                Section {
-                    Picker("Model", selection: $model.claudeModel) {
-                        ForEach(Self.claudeModels, id: \.0) { Text($0.1).tag($0.0) }
-                    }
-                    let efforts = ClaudePlan.efforts(for: model.claudeModel)
-                    if !efforts.isEmpty { effortPicker($model.claudeEffort, efforts: efforts) }
-                }
-            }
-            Section {
-                Button("Ask Settings…") { model.openSettings(.ask) }
-            }
-        } label: {
+        PreviewSelector(title: "Answers run on",
+                        options: AnswerProvider.allCases.map {
+                            SelectorOption(id: $0, symbol: Self.symbol($0), title: $0.title, subtitle: detail($0))
+                        },
+                        selection: model.answerProvider,
+                        onSelect: choose,
+                        footer: [("Ask Settings…", { model.openSettings(.ask) })]) {
             HStack(spacing: 5) {
-                Image(systemName: model.answerProvider == .local ? "laptopcomputer" : "cloud")
-                    .imageScale(.small)
+                Image(systemName: Self.symbol(model.answerProvider)).imageScale(.small)
                 Text(model.answerProvider.shortTitle)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .semibold))
             }
             .font(type.caption.weight(.medium))
+            .foregroundStyle(model.answerReadiness.isReady ? Palette.inkMuted : Palette.danger)
             .padding(.horizontal, 8)
             .frame(height: 24)
             .background(Palette.surface.opacity(0.7), in: Capsule())
             .contentShape(Capsule())
+        } preview: { provider in
+            AnswerModelPreview(model: model, provider: provider)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
         .fixedSize()
-        .foregroundStyle(model.answerReadiness.isReady ? Palette.inkMuted : Palette.danger)
         .help(helpText)
         .accessibilityLabel("Answers run on")
         .accessibilityValue(model.answerProvider.title)
         .task { await model.refreshChatGPTProfiles() }
     }
 
-    private var chatGPTEfforts: [String] {
-        model.chatGPTModels.first { $0.id == model.chatGPTModelID }?.efforts ?? []
-    }
-
-    private func effortPicker(_ selection: Binding<String>, efforts: [String]) -> some View {
-        Picker("Effort", selection: selection) {
-            Text("Default").tag("")
-            ForEach(efforts, id: \.self) { Text(AppModel.effortTitle($0)).tag($0) }
+    static func symbol(_ provider: AnswerProvider) -> String {
+        switch provider {
+        case .local: "laptopcomputer"
+        case .chatgpt: "bubble.left.and.bubble.right"
+        case .claude: "sparkle"
         }
     }
 
-    /// The second line under each choice: what it would use, or what it still needs.
+    /// The line under each choice: what it would use, or what it still needs.
     private func detail(_ provider: AnswerProvider) -> String {
         var choice = model.answerChoice
         choice.provider = provider
-        let readiness = model.services?.answers.readiness(choice) ?? .ready
-        if case .needsSetup = readiness {
+        if case .needsSetup = model.services?.answers.readiness(choice) ?? .ready {
             return provider == .local ? "Download needed" : "Set up in Settings"
         }
         switch provider {
-        case .local:
-            return "Private. Nothing leaves this Mac"
-        case .chatgpt:
-            let name = model.chatGPTModels.first { $0.id == choice.chatGPTModel }?.display_name ?? choice.chatGPTModel
-            return [name, choice.chatGPTEffort.isEmpty ? "" : AppModel.effortTitle(choice.chatGPTEffort)].filter { !$0.isEmpty }.joined(separator: " · ")
-        case .claude:
-            let name = Self.claudeModels.first { $0.0 == choice.claudeModel }?.1 ?? choice.claudeModel
-            return [name, choice.claudeEffort.isEmpty ? "" : AppModel.effortTitle(choice.claudeEffort)].filter { !$0.isEmpty }.joined(separator: " · ")
+        case .local: return "Private. Nothing leaves this Mac"
+        case .chatgpt: return model.chatGPTSummary
+        case .claude: return model.claudeSummary
         }
     }
 
@@ -361,6 +343,101 @@ struct AskProviderMenu: View {
     private func choose(_ provider: AnswerProvider) {
         model.answerProvider = provider
         if !model.answerReadiness.isReady { model.openSettings(.ask) }
+    }
+}
+
+/// The preview beside the answer-model choices.
+struct AnswerModelPreview: View {
+    @Bindable var model: AppModel
+    let provider: AnswerProvider
+    @Environment(\.typography) private var type
+
+    private var readiness: AnswerReadiness {
+        var choice = model.answerChoice
+        choice.provider = provider
+        return model.services?.answers.readiness(choice) ?? .ready
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: AskProviderMenu.symbol(provider))
+                    .font(.system(size: 18))
+                    .foregroundStyle(Palette.accent)
+                    .frame(width: 36, height: 36)
+                    .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(provider.title).font(type.episodeTitle)
+                    status
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                fact("Runs", runs)
+                fact("Leaves your Mac", leaves)
+                fact("Speed", speed)
+            }
+            if provider == .chatgpt, !model.chatGPTModels.isEmpty {
+                Divider().overlay(Palette.rule)
+                compactPicker("Model", selection: $model.chatGPTModelID) {
+                    ForEach(model.chatGPTModels) { Text($0.display_name).tag($0.id) }
+                }
+                let efforts = model.chatGPTModels.first { $0.id == model.chatGPTModelID }?.efforts ?? []
+                if !efforts.isEmpty { effort($model.chatGPTEffort, efforts) }
+            }
+            if provider == .claude {
+                Divider().overlay(Palette.rule)
+                compactPicker("Model", selection: $model.claudeModel) {
+                    ForEach(AskProviderMenu.claudeModels, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                let efforts = ClaudePlan.efforts(for: model.claudeModel)
+                if !efforts.isEmpty { effort($model.claudeEffort, efforts) }
+            }
+        }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch readiness {
+        case .ready:
+            Label("Ready", systemImage: "checkmark.circle.fill").font(type.caption).foregroundStyle(Palette.accent)
+        case .needsSetup(let reason):
+            Text(reason).font(type.caption).foregroundStyle(Palette.danger).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var runs: String {
+        switch provider {
+        case .local: "On this Mac, with the Ask model (2.3 GB)."
+        case .chatgpt: "On OpenAI's servers, with your ChatGPT plan. Your plan's limits apply."
+        case .claude: "On Anthropic's servers, through Claude Code and your Claude plan."
+        }
+    }
+    private var leaves: String {
+        provider == .local ? "Nothing." : "Your question, recent answers and transcript text. Never audio."
+    }
+    private var speed: String {
+        provider == .local ? "Slower on long episodes: it reads every part of the transcript." : "Fast. It reads the transcript in larger parts."
+    }
+
+    private func fact(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased()).font(type.eyebrow).tracking(0.8).foregroundStyle(Palette.inkMuted)
+            Text(text).font(type.callout).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func compactPicker<Content: View>(_ title: String, selection: Binding<String>, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(title).font(type.callout).foregroundStyle(Palette.inkMuted)
+            Spacer()
+            Picker(title, selection: selection, content: content).labelsHidden().fixedSize()
+        }
+    }
+
+    private func effort(_ selection: Binding<String>, _ efforts: [String]) -> some View {
+        compactPicker("Effort", selection: selection) {
+            Text("Default").tag("")
+            ForEach(efforts, id: \.self) { Text(AppModel.effortTitle($0)).tag($0) }
+        }
     }
 }
 
@@ -390,7 +467,7 @@ struct DetailCard: View {
                 Button { model.showSidePane = false } label: {
                     Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(IconButtonStyle())
                 .foregroundStyle(Palette.inkMuted)
                 .frame(width: 24, height: 24)
                 .contentShape(Rectangle())
