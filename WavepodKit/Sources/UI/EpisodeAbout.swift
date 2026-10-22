@@ -7,6 +7,7 @@ struct EpisodeAbout: View {
     @Environment(\.typography) private var type
 
     private var episode: Episode { model.episode }
+    private var description: AttributedString { SafeHTML.renderDescription(episode.descriptionHTML) }
 
     var body: some View {
         ScrollView {
@@ -35,14 +36,21 @@ struct EpisodeAbout: View {
                     .accessibilityLabel("Download audio")
                 }
 
-                Text(SafeHTML.render(episode.descriptionHTML))
+                Text(description)
                     .font(type.reading)
                     .foregroundStyle(Palette.ink)
+                    .tint(Palette.accent)
                     .lineSpacing(5)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel("Episode description")
-                    .accessibilityValue(String(SafeHTML.render(episode.descriptionHTML).characters))
+                    .accessibilityValue(String(description.characters))
+                    // Timestamps in the notes play the episode from that point. Other links open in the browser.
+                    .environment(\.openURL, OpenURLAction { url in
+                        guard let seconds = SafeHTML.seconds(in: url) else { return .systemAction }
+                        model.play(from: episode.duration > 0 ? min(Double(seconds), episode.duration - 1) : Double(seconds))
+                        return .handled
+                    })
             }
             .padding(.horizontal, 28)
             .padding(.vertical, 18)
