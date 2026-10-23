@@ -97,25 +97,10 @@
   .timeline h3 { font: 600 26px/1.2 var(--serif); margin: 16px 0 0; }
   .timeline li > p { color: var(--muted); font-size: 17px; max-width: 560px; margin: 10px auto 24px; text-wrap: pretty; }
   .card { max-width: 560px; margin: 0 auto; background: var(--surface); border-radius: var(--radius-card); box-shadow: var(--shadow-raised); padding: 20px; text-align: left; }
-  .paste { display: flex; align-items: center; gap: 12px; max-width: 560px; margin: 0 auto; padding: 14px 18px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-raised); color: var(--muted); text-align: left; }
-  .paste svg, .ask svg { width: 18px; height: 18px; flex: none; }
-  .paste code { color: var(--ink); font: 14px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sources { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
-  .chip { font-size: 13px; padding: 6px 12px; border-radius: 999px; background: var(--sunken); color: var(--muted); }
-  .line { display: flex; gap: 12px; align-items: baseline; padding: 12px 0; border-top: 1px solid var(--rule); }
-  .line:first-child { border-top: 0; padding-top: 0; }
-  .line:last-child { padding-bottom: 0; }
-  .who { font-size: 14px; font-weight: 600; }
-  .who.a { color: #1F5F8B; } .who.b { color: #8A4B1F; }
-  @media (prefers-color-scheme: dark) { .who.a { color: #8CB8E0; } .who.b { color: #E0A57A; } }
-  .line p { margin: 4px 0 0; font: 17px/1.45 var(--serif); }
-  .ask { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 999px; background: var(--sunken); color: var(--muted); font-size: 15px; }
-  .answer { margin-top: 16px; }
-  .answer p { margin: 0; font: 17px/1.5 var(--serif); }
 
-  .film { display: block; max-width: 820px; margin: 0 auto; border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-popover); background: #000; }
-  .film video { display: block; width: 100%; height: auto; }
 
+  .film-section { margin-top: 96px; background: #000; }
+  .film-section video { display: block; width: 100%; height: auto; max-height: 100svh; object-fit: contain; }
   section.faq { padding-top: 96px; }
   .center { text-align: center; }
   .faq-list { max-width: 760px; margin: 40px auto 0; }
@@ -164,8 +149,6 @@
     .eq i { animation: eq 1.2s ease-in-out infinite alternate; }
     .eq i:nth-child(2) { animation-delay: -.3s; } .eq i:nth-child(3) { animation-delay: -.7s; } .eq i:nth-child(4) { animation-delay: -.5s; }
     @keyframes eq { from { scale: 1 .3; } to { scale: 1 1; } }
-    .js .karaoke .w { color: var(--muted); }
-    .js .karaoke.is-in .w { color: var(--ink); transition: color 240ms var(--ease-out) calc(500ms + var(--i) * 70ms); }
     details::details-content { block-size: 0; overflow: hidden;
       transition: block-size 300ms var(--ease-out), content-visibility 300ms allow-discrete; }
     details[open]::details-content { block-size: auto; }
@@ -182,7 +165,7 @@
   <div class="wrap">
     <a class="wordmark" href="/"><img src="assets/icon.png" alt="" width="32" height="32">Wavepod</a>
     <nav class="nav" aria-label="Main">
-      <a class="hide-sm" href="#how-it-works">How it works</a>
+      <a class="hide-sm" href="#film">Film</a>
       <a class="hide-sm" href="#install">Install</a>
       <a class="hide-sm" href="#faq">FAQ</a>
       <a class="hide-sm" href="https://github.com/concava/wavepod">GitHub</a>
@@ -213,7 +196,7 @@
         <div class="quote"><span class="time">01:12:04</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>Each answer quotes the transcript. Click a quote to hear it.</span></div>
       </aside>
     </div>
-    <a class="discover" href="#how-it-works">See how it works ↓</a>
+    <a class="discover" href="#film">Watch the film ↓</a>
   </section>
 
   <section class="wrap" aria-label="Key facts">
@@ -224,48 +207,11 @@
     </div>
   </section>
 
-  <section id="how-it-works" class="story wrap" aria-labelledby="how-title">
-    <p class="eyebrow" data-enter>From a link to an answer</p>
-    <h2 id="how-title" class="h2" data-enter style="--delay:80ms">Paste a link, read the episode, ask it a question.</h2>
-    <p class="story-lead" data-enter style="--delay:160ms">Podcasts have ideas, numbers and quotes that you want to keep. You cannot search audio or skim it. Wavepod changes the audio into text that you can read and ask about.</p>
-    <ol class="timeline">
-      <li data-enter>
-        <span class="num">1</span>
-        <h3>Paste any link</h3>
-        <p>Use a Spotify, Apple Podcasts or YouTube link, an RSS feed or the website of a podcast. You can also add an audio or video file.</p>
-        <div class="paste" role="img" aria-label="Example: a Spotify link pasted into Wavepod">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <code>open.spotify.com/episode/…</code>
-        </div>
-        <div class="sources"><span class="chip">Spotify</span><span class="chip">Apple Podcasts</span><span class="chip">YouTube</span><span class="chip">RSS</span><span class="chip">Audio and video files</span></div>
-      </li>
-      <li data-enter>
-        <span class="num">2</span>
-        <h3>Know who said what</h3>
-        <p>Wavepod finds each voice and names the speaker from the episode. The summary is ready when the transcript is ready. Each point links to its moment in the audio.</p>
-        <div class="card karaoke" role="img" aria-label="Example transcript with named speakers" data-enter style="--delay:150ms">
-          <div class="line"><span class="time">00:49</span><div><span class="who a">Ben Gilbert</span><p>Welcome to the fall 2026 season of Acquired, the podcast about great companies.</p></div></div>
-          <div class="line"><span class="time">00:58</span><div><span class="who b">David Rosenthal</span><p>And today we tell the story of Disney's renaissance.</p></div></div>
-        </div>
-      </li>
-      <li data-enter>
-        <span class="num">3</span>
-        <h3>Ask the episode</h3>
-        <p>"What did they say about pricing?" The answer quotes the transcript, in the language of your question. The model on your Mac writes the answer. You can select your ChatGPT or Claude plan instead.</p>
-        <div class="card">
-          <div class="ask"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Why did the Pixar deal matter so much?</div>
-          <div class="answer"><p><strong>Saving the core:</strong> the hosts argue that the Pixar deal saved Disney Animation, and with it the company's creative core.</p>
-            <div class="quote"><span class="time">01:12:04</span><span>"…the only viable way to restore it."</span></div></div>
-        </div>
-      </li>
-    </ol>
-
-    <figure class="film" data-enter>
-      <video controls playsinline preload="none" poster="assets/film-poster.jpg" width="1280" height="720"
-             aria-label="The 30-second Wavepod film: find an episode, transcribe it on your Mac, click a summary point to hear it, and ask the episode a question.">
-        <source src="assets/wavepod-film.mp4" type="video/mp4">
-      </video>
-    </figure>
+  <section id="film" class="film-section" aria-label="The 30-second Wavepod film">
+    <video autoplay muted loop playsinline controls preload="auto" poster="assets/film-poster.jpg" width="1280" height="720"
+           aria-label="The 30-second Wavepod film: find an episode, transcribe it on your Mac, click a summary point to hear it, and ask the episode a question.">
+      <source src="assets/wavepod-film.mp4" type="video/mp4">
+    </video>
   </section>
 
   <section id="install" class="story wrap" aria-labelledby="install-title">
@@ -316,6 +262,7 @@
       <h2 id="faq-title" class="h2" data-enter style="--delay:80ms">Frequently asked questions</h2>
     </div>
     <div class="faq-list" data-enter style="--delay:160ms">
+      <details><summary>How does it work?</summary><p>Paste a Spotify, Apple Podcasts or YouTube link, an RSS feed or the website of a podcast. You can also add an audio or video file. Wavepod writes the transcript and names each speaker from the episode. The summary is ready when the transcript is ready, and each point links to its moment in the audio. Then you can ask the episode a question. The answer quotes the transcript, in the language of your question.</p></details>
       <details><summary>How much does it cost?</summary><p>Nothing. Wavepod is free and open source under the Apache-2.0 license. There is no account and no subscription.</p></details>
       <details><summary>What do I need?</summary><p>You need a Mac with Apple Silicon (M1 or later), macOS 15 or later and about 4 GB of free disk space. When you open Wavepod the first time, it downloads the transcription models. You can also download a 2.3 GB model that answers questions on your Mac.</p></details>
       <details><summary>Does my audio leave my Mac?</summary><p>No. Transcription always runs on your Mac. Answers and summaries also run on your Mac, unless you select your ChatGPT or Claude plan. Then Wavepod sends the transcript text to that service, but not the audio. Settings › Data and Privacy shows each network request that Wavepod makes.</p></details>
@@ -348,18 +295,12 @@
   </div>
 </footer>
 <script>
-  // Each [data-enter] element appears once, when it scrolls into view. Transcript words light up in reading order.
-  document.querySelectorAll(".karaoke .line p").forEach((p, line) => {
-    const words = p.textContent.split(" ");
-    p.textContent = "";
-    words.forEach((word, i) => {
-      const span = document.createElement("span");
-      span.className = "w";
-      span.style.setProperty("--i", line * 14 + i);
-      span.textContent = word + (i < words.length - 1 ? " " : "");
-      p.append(span);
-    });
-  });
+  // Each [data-enter] element appears once, when it scrolls into view.
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const film = document.querySelector(".film-section video");
+    film.removeAttribute("autoplay");
+    film.pause();
+  }
   const reveal = (el) => el.classList.add("is-in");
   const items = document.querySelectorAll("[data-enter]");
   if ("IntersectionObserver" in window) {
