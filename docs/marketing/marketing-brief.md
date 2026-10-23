@@ -13,7 +13,7 @@ sentences, concrete examples, no hype words ("revolutionary", "game-changing", "
 
 ### One line
 
-**Read any podcast. Ask it anything. On your Mac.**
+**Read any podcast, ask it anything. Open-source on your Mac, completely free**
 
 ### The problem
 
