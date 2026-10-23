@@ -12,6 +12,9 @@
 #   NOTARY_KEY_PATH, NOTARY_KEY_ID, NOTARY_ISSUER
 #                        App Store Connect API key for notarytool; needs DEVELOPER_ID
 #
+# The dmg window (background, arrow, icon places) needs dmgbuild: python3 -m pip install dmgbuild==1.6.5.
+# Without it the dmg is a plain folder window.
+#
 # Output: dist/Wavepod-$VERSION.dmg, and the same file as dist/Wavepod.dmg for the README's
 #         releases/latest/download/Wavepod.dmg link, which needs one name in every release
 set -euo pipefail
@@ -26,7 +29,7 @@ DMG="dist/Wavepod-$VERSION.dmg"
 xcodegen generate --quiet
 xcodebuild -project wavepod.xcodeproj -scheme wavepod -configuration Release -derivedDataPath "$DD" -quiet \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}" \
-  build
+  build >&2  # stdout carries only the dmg path, which the release workflow reads with tail -1
 # The app is named by PRODUCT_NAME in project.yml.
 APP="$(find "$DD/Build/Products/Release" -maxdepth 1 -name "*.app" | head -1)"
 [[ -d "$APP" ]] || { echo "No .app in $DD/Build/Products/Release" >&2; exit 1; }
@@ -54,10 +57,17 @@ codesign --verify --deep --strict "$APP"
 mkdir -p dist
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
-cp -R "$APP" "$staging/"
-ln -s /Applications "$staging/Applications"
 rm -f "$DMG"
-hdiutil create -quiet -volname Wavepod -srcfolder "$staging" -fs HFS+ -format UDZO "$DMG"
+if command -v dmgbuild >/dev/null; then
+  # One TIFF with the 1x and 2x backgrounds, so the window is sharp on Retina screens.
+  tiffutil -cathidpicheck tools/dmg/background.png tools/dmg/background@2x.png -out "$staging/background.tiff" >&2
+  dmgbuild -s tools/dmg/settings.py -D app="$APP" -D background="$staging/background.tiff" Wavepod "$DMG" >&2
+else
+  echo "warning: no dmgbuild; the dmg opens as a plain folder window" >&2
+  cp -R "$APP" "$staging/"
+  ln -s /Applications "$staging/Applications"
+  hdiutil create -quiet -volname Wavepod -srcfolder "$staging" -fs HFS+ -format UDZO "$DMG"
+fi
 
 if [[ -n "${DEVELOPER_ID:-}" ]]; then
   codesign --force --timestamp --sign "$DEVELOPER_ID" "$DMG"

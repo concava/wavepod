@@ -48,12 +48,18 @@ release). The [Releases page](https://github.com/concava/wavepod/releases) has t
 
 1. Download `Wavepod.dmg` from the link above.
 2. Open the `.dmg` file and drag **Wavepod** to **Applications**.
+
+   ![The Wavepod disk window. An arrow points from the Wavepod icon to the Applications folder.](docs/images/install-drag.jpg)
+
 3. Open Wavepod from Applications.
 4. macOS can show a message that it cannot verify Wavepod. This message means that the release is a test build that
    Apple did not check (notarize). Do these steps one time:
    1. Click **Done**.
    2. Open **System Settings › Privacy & Security**.
-   3. Scroll down and click **Open Anyway**.
+   3. Scroll down to **Security** and click **Open Anyway**. Click **Open Anyway** again and enter your Mac password.
+
+      ![System Settings, Privacy & Security. The Security section says that Wavepod was blocked, with an Open
+      Anyway button.](docs/images/install-open-anyway.jpg)
 
    A notarized release opens without these steps.
 
