@@ -54,7 +54,7 @@ targets:
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: "Connect to your own Scriberr transcription server."
         NSHumanReadableCopyright: "Apache-2.0"
-        # Sparkle (docs/decisions/0005). Updates stay off until a build sets SPARKLE_PUBLIC_KEY.
+        # Sparkle. Updates stay off until a build sets SPARKLE_PUBLIC_KEY.
         SUFeedURL: https://concava.github.io/wavepod/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
     settings:

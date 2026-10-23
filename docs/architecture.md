@@ -1,7 +1,7 @@
 # How Wavepod works
 
 This is the map of the app: what runs where, what happens to an episode from the moment a link is pasted, and
-where everything is stored. The *why* behind each choice is in [decisions](decisions/README.md).
+where everything is stored.
 
 ## The pieces
 
@@ -206,6 +206,5 @@ On an M3 with 16 GB and cached models (2026-10-19):
 | Acquired "Ferrari" (EN) | 3 h 58 min | 5 min 19 s | 45× real time | 0.93 GB |
 | Two full Itnig episodes (ES) | 1 h 44, 2 h 05 | 2 min 23 s, 2 min 48 s | 44× real time | n/a |
 
-Ask on the local model peaks at about 3.6 GB. Accuracy figures are in [0002](decisions/0002-asr-engine.md) and
-[0010](decisions/0010-ask-long-transcripts.md); the golden-set references are still machine drafts, so they
-compare engines rather than prove absolute accuracy.
+Ask on the local model peaks at about 3.6 GB. The golden-set references are still machine drafts, so accuracy figures compare engines rather than prove
+absolute accuracy.

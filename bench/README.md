@@ -1,7 +1,7 @@
 # bench — Phase 0 engine benchmark
 
-Reproduces the numbers in [docs/decisions/0002](../docs/decisions/0002-asr-engine.md) and
-[0003](../docs/decisions/0003-diarization.md). Nothing here ships in the app.
+Measures the speech recognizers and diarizers that Wavepod chose between, on public data. Nothing here ships in the
+app.
 
 ## Run
 

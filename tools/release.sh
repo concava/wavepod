@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds a release .dmg (docs/decisions/0005). Each signing stage runs only when its inputs are set, so the same script
+# Builds a release .dmg. Each signing stage runs only when its inputs are set, so the same script
 # makes an ad-hoc test build on any Mac and a notarized release in CI.
 #
 #   VERSION=0.2.0 tools/release.sh
@@ -38,7 +38,7 @@ APP="$(find "$DD/Build/Products/Release" -maxdepth 1 -name "*.app" | head -1)"
 rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices"
 
 if [[ -n "${DEVELOPER_ID:-}" ]]; then
-  # Re-sign inside out with the hardened runtime and a secure timestamp. No entitlements: the goal in 0005 is none.
+  # Re-sign inside out with the hardened runtime and a secure timestamp. No entitlements.
   sign() { codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID" "$@"; }
   sparkle="$APP/Contents/Frameworks/Sparkle.framework"
   sign "$sparkle/Versions/B/Autoupdate"

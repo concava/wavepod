@@ -1,4 +1,4 @@
-# Diarization stress test (docs/decisions/0003, "Risk: macOS 14 crash in Apple's BNNS").
+# Diarization stress test: checks for the macOS 14 crash in Apple's BNNS.
 # macOS 14 crashed in every routing (run 39270446236), so wavepod requires macOS 15; the macOS 14 rows stay as the
 # record of why, and the job fails only if the shipping routing crashes on macOS 15.
 #

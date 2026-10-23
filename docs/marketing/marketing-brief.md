@@ -34,7 +34,7 @@ Paste a Spotify, Apple Podcasts or YouTube link. Wavepod downloads the episode a
 
 | Metric | Value |
 | --- | --- |
-| Speed | A 4-hour episode is transcribed in about 5 minutes on an M3 Mac |
+| Speed | A 4-hour episode is transcribed in less than 10 minutes on an M3 Mac |
 | Privacy | 100 % of audio stays on your Mac. Transcription always runs locally |
 | Cost | Free. Open source (Apache-2.0). No account, no subscription |
 | Sources | Spotify, Apple Podcasts, YouTube, RSS feeds, podcast websites, local audio and video files |

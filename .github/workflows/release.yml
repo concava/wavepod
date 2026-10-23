@@ -1,4 +1,4 @@
-# Release (docs/decisions/0005): a version tag builds the .dmg with tools/release.sh and attaches it to a GitHub
+# Release: a version tag builds the .dmg with tools/release.sh and attaches it to a GitHub
 # Release. Each signing stage runs only when its secrets exist:
 #
 #   no secrets                 ad-hoc build, published as a pre-release marked "testing only"

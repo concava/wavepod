@@ -82,8 +82,7 @@ Two harnesses, neither of which ships in the app.
 
 ### Golden set (`eval/`)
 
-Six real podcast episodes (Spanish, English, Catalan; up to 4 hours) defined in `eval/golden/manifest.json`,
-see [0007](decisions/0007-golden-set.md). Audio and references stay in a local cache
+Six real podcast episodes (Spanish, English, Catalan; up to 4 hours) defined in `eval/golden/manifest.json`. Audio and references stay in a local cache
 (`~/Library/Caches/wavepod-golden`) and never enter the repository.
 
 ```sh
@@ -94,18 +93,13 @@ see [0007](decisions/0007-golden-set.md). Audio and references stay in a local c
 ```
 
 `wavepod-transcribe` runs the same decode, windowing, recognition, diarization and alignment as the app,
-in-process, so the score measures the code that ships. Details: [0009](decisions/0009-evaluation-harness.md).
+in-process, so the score measures the code that ships.
 The references are machine drafts until someone listens to them.
 
 ### Engine benchmark (`bench/`)
 
-Public data (FLEURS, VoxConverse) comparing recognizers and diarizers. It produced the engine choices in
-[0002](decisions/0002-asr-engine.md) and [0003](decisions/0003-diarization.md). See [bench/README](../bench/README.md).
-
-### Profiling
-
-`tools/wavepod.trace-template.md` describes an Instruments setup that records the app and the engine
-service together.
+Public data (FLEURS, VoxConverse) comparing recognizers and diarizers. It produced the engine choices. See
+[bench/README](../bench/README.md).
 
 ## Continuous integration
 
@@ -113,7 +107,7 @@ service together.
 | --- | --- |
 | `podeval.yml` | The golden-set check. |
 | `release.yml` | A `v*` tag builds the `.dmg` and publishes a GitHub Release. See [Release](#release). |
-| `diarization-stress.yml` | 100 diarizations per mode on macOS 14 and 15. It fails only if the shipping routing crashes on macOS 15; the macOS 14 rows record why 15 is the minimum ([0003](decisions/0003-diarization.md)). |
+| `diarization-stress.yml` | 100 diarizations per mode on macOS 14 and 15. It fails only if the shipping routing crashes on macOS 15; the macOS 14 rows record why 15 is the minimum. |
 
 ## Before a release
 
@@ -121,7 +115,7 @@ service together.
 - Evaluate the local model's citations and answer language on the golden set (20 questions per episode).
 - Check a live Scriberr server and `SMAppService` registration of the feed checker on a clean Mac.
 - Add the Developer ID, notary and Sparkle secrets (see [Release](#release)) so the tag produces a notarized
-  build ([0005](decisions/0005-distribution.md)).
+  build.
 
 ## Release
 
@@ -139,9 +133,8 @@ In CI, pushing a tag runs `.github/workflows/release.yml`:
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-The release notes come from `docs/releases/$VERSION.md` (for example `docs/releases/0.2.0.md`). Add that file and
-bump `MARKETING_VERSION` in `project.yml` in the same PR. Without a notes file, a notarized release lists the merged
-PRs instead.
+Bump `MARKETING_VERSION` in `project.yml` before you tag. To write the release notes yourself, add
+`docs/releases/$VERSION.md` in the same PR. Without it, the release lists the merged PRs.
 
 Without secrets the tag gives an ad-hoc pre-release marked "testing only". A manual run (Actions → release →
 Run workflow) builds the `.dmg` as a workflow artifact and publishes nothing.

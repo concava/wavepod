@@ -17,7 +17,7 @@ timed() {  # timed <engine-dir> <command...>: peak memory of the whole process -
   /usr/bin/time -l "$@" 2> >(tee $dir/time.txt >&2)
 }
 
-# Default: the configurations kept in docs/decisions/0002 and 0003, then the short-form reference.
+# Default: the shipping configurations, then the short-form reference.
 engines=(${@:-wk-vad fa-parakeet wk-short fa-parakeet-short fa-diarize ref-openai-short})
 for e in $engines; do
   echo "== $e"

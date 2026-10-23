@@ -1,4 +1,4 @@
-"""podeval — scores wavepod's engines on the golden set (docs/decisions/0007, 0009).
+"""podeval — scores wavepod's engines on the golden set.
 
     ./podeval fetch                 download each episode once, pin its SHA-256, cut the scored window
     ./podeval draft                 draft reference transcripts for the windows (for hand-correction)
@@ -37,10 +37,10 @@ TRANSCRIBE = REPO / "WavepodKit/.build/release/wavepod-transcribe"
 MODELS = Path(os.environ.get("WAVEPOD_MODELS", CACHE / "models"))  # layout: parakeet/, whisper/, vad/, diarizer/
 RESOLVE = next((p for p in (REPO / "WavepodKit/.build" / c / "wavepod-resolve" for c in ("release", "debug")) if p.exists()),
                REPO / "WavepodKit/.build/release/wavepod-resolve")
-YT_DLP = "yt-dlp@2026.8.19"  # same pin as the app (docs/decisions/0005)
+YT_DLP = "yt-dlp@2026.8.19"  # same pin as the app
 WK_MODEL = "large-v3-v20240930_turbo"
 
-# Engine name -> (wavebench arguments, results directory, kind). Names match docs/decisions/0002 and 0003.
+# Engine name -> (wavebench arguments, results directory, kind). Names match bench/.
 ENGINES = {
     "fa-parakeet": (["parakeet"], "fa-parakeet-ultra", "asr"),
     "wk-vad": (["whisperkit-vad", WK_MODEL], f"wk-vad-{WK_MODEL}", "asr"),
@@ -55,7 +55,7 @@ PIPELINES = {"parakeet+fa-offline": ("fa-parakeet-ultra", "fa-offline"), "wk-vad
 REF_ENGINE = "ref-openai-turns"
 REF_DIARIZATION = "fa-offline"
 
-# Regression tolerances for `check`, relative to the baseline. Absolute gates come from docs/decisions/0002/0003.
+# Regression tolerances for `check`, relative to the baseline. Absolute gates are in `check`.
 TOLERANCE = {"wer": 1.0, "cpwer": 1.5, "der": 1.0}  # percentage points
 RTF_FACTOR = 1.3  # wall-clock noise on a shared runner
 MEMORY_FACTOR = 1.2
@@ -387,7 +387,7 @@ def read_reference(ep: dict) -> tuple[str, list[tuple[float, float, str, str]]]:
 
 
 def assign_speakers(words: list, turns: list[tuple[float, float, str]]) -> list[str]:
-    """Word -> speaker, the rule of docs/decisions/0003: the turn covering the word's midpoint (the shortest if
+    """Word -> speaker, the rule the app uses: the turn covering the word's midpoint (the shortest if
     several), else the nearest turn within 0.5 s, else the previous word's speaker."""
     speakers, previous = [], "?"
     for s, e, _ in words:
@@ -567,7 +567,7 @@ def cmd_check(args) -> None:
         for k, v in r.get("der", {}).items():
             if (old := b.get("der", {}).get(k, {}).get("der")) is not None and v["der"] > old + TOLERANCE["der"]:
                 failures.append(f"{eid} DER {k}: {v['der']:.2f} vs baseline {old:.2f}")
-        # Absolute gate (docs/decisions/0002): the shipping engine within 1.5 points of openai/whisper large-v3.
+        # Absolute gate: the shipping engine within 1.5 points of openai/whisper large-v3.
         # Only meaningful on a verified reference: a draft is the reference engine's own output.
         wer = r.get("wer", {})
         if r["reference"] == "verified" and REF_ENGINE in wer:

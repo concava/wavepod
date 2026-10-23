@@ -2,7 +2,7 @@ import Combine
 import Sparkle
 import SwiftUI
 
-/// Sparkle updates (docs/decisions/0005). A build without `SPARKLE_PUBLIC_KEY` (every local and ad-hoc build) has
+/// Sparkle updates. A build without `SPARKLE_PUBLIC_KEY` (every local and ad-hoc build) has
 /// an empty `SUPublicEDKey`, so the updater never starts and "Check for Updates…" stays disabled.
 @MainActor
 final class Updater: ObservableObject {
