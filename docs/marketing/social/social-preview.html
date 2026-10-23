@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- Source of social-preview.png (1280 x 640, GitHub's social preview size). Render:
+     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars \
+       --window-size=1280,640 --screenshot=social-preview.png social-preview.html -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+  body { background: #F7F4EE; color: #1C1B19; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+         display: grid; grid-template-columns: 1fr 470px; align-items: center; padding: 0 80px; box-sizing: border-box; gap: 48px; }
+  .brand { display: flex; align-items: center; gap: 18px; font: 600 40px/1 ui-serif, "New York", Georgia, serif; }
+  .brand img { width: 72px; height: 72px; border-radius: 16px; }
+  h1 { font: 600 64px/1.05 ui-serif, "New York", Georgia, serif; letter-spacing: -0.02em; margin: 40px 0 0; }
+  p { font-size: 24px; color: #6B665E; margin: 22px 0 0; line-height: 1.4; }
+  .url { margin-top: 36px; font: 600 22px/1 -apple-system, system-ui, sans-serif; color: #0F5E63; }
+  .card { background: #FFFFFF; border-radius: 20px; padding: 28px; box-shadow: 0 12px 32px rgba(28,27,25,.10), 0 2px 6px rgba(28,27,25,.06); }
+  .row { display: flex; align-items: center; gap: 10px; font-size: 16px; }
+  .time { font: 500 15px/1 ui-monospace, "SF Mono", Menlo, monospace; color: #0F5E63; background: #E3EEEC; padding: 6px 8px; border-radius: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 4px; background: #8A4B1F; }
+  .who { color: #8A4B1F; font-weight: 600; }
+  .line { font: 21px/1.45 ui-serif, "New York", Georgia, serif; margin: 12px 0 0; }
+  mark { background: #BFDCD7; color: inherit; padding: 0 2px; border-radius: 3px; }
+  hr { border: 0; border-top: 1px solid #E4DFD6; margin: 22px 0; }
+  .label { font-size: 13px; font-weight: 600; letter-spacing: .1em; color: #6B665E; }
+  .point { font: 19px/1.45 ui-serif, "New York", Georgia, serif; margin: 10px 0 0; }
+</style></head><body>
+<div>
+  <div class="brand"><img src="icon.png" alt="">Wavepod</div>
+  <h1>Read any podcast, ask it anything.</h1>
+  <p>Transcripts with named speakers, summaries and answers with quotes. Open source, on your Mac, completely free.</p>
+  <div class="url">wavepod.co</div>
+</div>
+<div class="card">
+  <div class="row"><span class="time">00:36</span><span class="dot"></span><span class="who">Jordi Serra</span><span style="color:#6B665E">Low Tide</span></div>
+  <div class="line">Wind direction, visibility, every ship that passed, and how much <mark>oil</mark> the lamp burned.</div>
+  <hr>
+  <div class="label">SUMMARY</div>
+  <div class="point"><b>Logbooks as audits:</b> keepers wrote down the oil the lamp burned, and an inspector checked the numbers.</div>
+</div>
+</body></html>
