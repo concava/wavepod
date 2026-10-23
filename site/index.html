@@ -14,6 +14,7 @@
 <meta property="og:url" content="https://wavepod.co/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
+<script>document.documentElement.classList.add("js")</script>
 <style>
   :root {
     --paper: #F7F4EE; --surface: #FFFFFF; --sunken: #F1EDE5; --ink: #1C1B19; --muted: #6B665E;
@@ -150,6 +151,32 @@
   .settings-row .muted { color: var(--muted); text-align: right; }
   .settings-button { flex: none; padding: 7px 14px; border-radius: 8px; background: var(--surface); border: 1px solid var(--rule); font-weight: 500; outline: 2px solid var(--accent); outline-offset: 2px; }
   .meta a { color: var(--muted); }
+  /* Motion: calm, like reading. One curve, three durations, short distances. Content is visible without JS. */
+  :root { --ease-out: cubic-bezier(0.2, 0, 0, 1); --d-quick: 150ms; --d-base: 400ms; --d-slow: 700ms; interpolate-size: allow-keywords; }
+  .eq { display: inline-flex; align-items: center; gap: 2px; height: 14px; flex: none; }
+  .eq i { width: 3px; height: 100%; border-radius: 2px; background: var(--accent); scale: 1 .4; transform-origin: center; }
+  .btn-primary { transition-property: scale, background-color, box-shadow; }
+  @media (hover: hover) { .btn-primary:hover { box-shadow: 0 4px 14px color-mix(in oklab, var(--accent) 30%, transparent); } }
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-enter] { opacity: 0; translate: 0 12px; filter: blur(4px); }
+    .js [data-enter].is-in { opacity: 1; translate: 0 0; filter: blur(0);
+      transition: opacity var(--d-base) var(--ease-out), translate var(--d-base) var(--ease-out), filter var(--d-base) var(--ease-out);
+      transition-delay: var(--delay, 0ms); }
+    .js .float[data-enter] { translate: 0 16px; }
+    .eq i { animation: eq 1.2s ease-in-out infinite alternate; }
+    .eq i:nth-child(2) { animation-delay: -.3s; } .eq i:nth-child(3) { animation-delay: -.7s; } .eq i:nth-child(4) { animation-delay: -.5s; }
+    @keyframes eq { from { scale: 1 .3; } to { scale: 1 1; } }
+    .js .karaoke .w { color: var(--muted); }
+    .js .karaoke.is-in .w { color: var(--ink); transition: color 240ms var(--ease-out) calc(500ms + var(--i) * 70ms); }
+    details::details-content { block-size: 0; overflow: hidden;
+      transition: block-size 300ms var(--ease-out), content-visibility 300ms allow-discrete; }
+    details[open]::details-content { block-size: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js [data-enter] { opacity: 0; }
+    .js [data-enter].is-in { opacity: 1; transition: opacity var(--d-base) ease-out; }
+    .eq i:nth-child(odd) { scale: 1 .7; }
+  }
 </style>
 </head>
 <body>
@@ -168,24 +195,24 @@
 
 <main>
   <section class="hero" aria-labelledby="title">
-    <h1 id="title" class="display">Read any podcast,<br>ask it anything.</h1>
-    <p class="lead">Open-source on your Mac, completely free. Wavepod writes the transcript and names each speaker. It writes a summary and answers your questions with quotes.</p>
-    <div class="cta">
+    <h1 id="title" class="display" data-enter>Read any podcast,<br>ask it anything.</h1>
+    <p class="lead" data-enter style="--delay:100ms">Open-source on your Mac, completely free. Wavepod writes the transcript and names each speaker. It writes a summary and answers your questions with quotes.</p>
+    <div class="cta" data-enter style="--delay:200ms">
       <a class="btn btn-primary btn-lg" href="https://github.com/concava/wavepod/releases/latest/download/Wavepod.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.75.73 1.05 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.5zM14.2 6.12c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.65-1.05 1.68-.92 2.67.97.08 1.96-.49 2.56-1.22z"/></svg>
         Download for Mac
       </a>
       <a class="btn btn-ghost btn-lg" href="https://github.com/concava/wavepod">View on GitHub</a>
     </div>
-    <p class="meta">Version 0.2.0 · Apple Silicon (M1 or later) · macOS 15 or later · <a href="#install">How to install</a></p>
+    <p class="meta" data-enter style="--delay:250ms">Version 0.2.0 · Apple Silicon (M1 or later) · macOS 15 or later · <a href="#install">How to install</a></p>
 
-    <div class="stage">
+    <div class="stage" data-enter style="--delay:300ms">
       <img class="shot" src="assets/04-ask-light.jpg" width="1600" height="988"
            alt="Wavepod with the Acquired episode about Disney open. On the left, the answer to a question, with its key points. On the right, the transcript with each speaker named.">
-      <aside class="float" aria-label="Example answer">
+      <aside class="float" aria-label="Example answer" data-enter style="--delay:700ms">
         <h3>Ask the episode</h3>
         <p>Why did the Pixar deal matter so much for Disney?</p>
-        <div class="quote"><span class="time">01:12:04</span><span>Each answer quotes the transcript. Click a quote to hear it.</span></div>
+        <div class="quote"><span class="time">01:12:04</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>Each answer quotes the transcript. Click a quote to hear it.</span></div>
       </aside>
     </div>
     <a class="discover" href="#how-it-works">See how it works ↓</a>
@@ -193,18 +220,18 @@
 
   <section class="wrap" aria-label="Key facts">
     <div class="facts">
-      <div class="fact"><strong>Minutes, not hours</strong><span>Wavepod transcribes a four-hour episode in less than ten minutes on an M3 Mac.</span></div>
-      <div class="fact"><strong>Your audio stays here</strong><span>Transcription runs on your Mac. Wavepod does not send your audio to the internet.</span></div>
-      <div class="fact"><strong>Free</strong><span>The license is Apache-2.0. You do not need an account or a subscription.</span></div>
+      <div class="fact" data-enter style="--delay:0ms"><strong>Minutes, not hours</strong><span>Wavepod transcribes a four-hour episode in less than ten minutes on an M3 Mac.</span></div>
+      <div class="fact" data-enter style="--delay:80ms"><strong>Your audio stays here</strong><span>Transcription runs on your Mac. Wavepod does not send your audio to the internet.</span></div>
+      <div class="fact" data-enter style="--delay:160ms"><strong>Free</strong><span>The license is Apache-2.0. You do not need an account or a subscription.</span></div>
     </div>
   </section>
 
   <section id="how-it-works" class="story wrap" aria-labelledby="how-title">
-    <p class="eyebrow">From a link to an answer</p>
-    <h2 id="how-title" class="h2">Paste a link, read the episode, ask it a question.</h2>
-    <p class="story-lead">Podcasts have ideas, numbers and quotes that you want to keep. You cannot search audio or skim it. Wavepod changes the audio into text that you can read and ask about.</p>
+    <p class="eyebrow" data-enter>From a link to an answer</p>
+    <h2 id="how-title" class="h2" data-enter style="--delay:80ms">Paste a link, read the episode, ask it a question.</h2>
+    <p class="story-lead" data-enter style="--delay:160ms">Podcasts have ideas, numbers and quotes that you want to keep. You cannot search audio or skim it. Wavepod changes the audio into text that you can read and ask about.</p>
     <ol class="timeline">
-      <li>
+      <li data-enter>
         <span class="num">1</span>
         <h3>Paste any link</h3>
         <p>Use a Spotify, Apple Podcasts or YouTube link, an RSS feed or the website of a podcast. You can also add an audio or video file.</p>
@@ -214,16 +241,16 @@
         </div>
         <div class="sources"><span class="chip">Spotify</span><span class="chip">Apple Podcasts</span><span class="chip">YouTube</span><span class="chip">RSS</span><span class="chip">Audio and video files</span></div>
       </li>
-      <li>
+      <li data-enter>
         <span class="num">2</span>
         <h3>Know who said what</h3>
         <p>Wavepod finds each voice and names the speaker from the episode. The summary is ready when the transcript is ready. Each point links to its moment in the audio.</p>
-        <div class="card" role="img" aria-label="Example transcript with named speakers">
+        <div class="card karaoke" role="img" aria-label="Example transcript with named speakers" data-enter style="--delay:150ms">
           <div class="line"><span class="time">00:49</span><div><span class="who a">Ben Gilbert</span><p>Welcome to the fall 2026 season of Acquired, the podcast about great companies.</p></div></div>
           <div class="line"><span class="time">00:58</span><div><span class="who b">David Rosenthal</span><p>And today we tell the story of Disney's renaissance.</p></div></div>
         </div>
       </li>
-      <li>
+      <li data-enter>
         <span class="num">3</span>
         <h3>Ask the episode</h3>
         <p>"What did they say about pricing?" The answer quotes the transcript, in the language of your question. The model on your Mac writes the answer. You can select your ChatGPT or Claude plan instead.</p>
@@ -235,31 +262,31 @@
       </li>
     </ol>
 
-    <a class="film" href="https://github.com/concava/wavepod/blob/main/docs/marketing/launch-30s/wavepod-launch-30s.mp4">
+    <a class="film" data-enter href="https://github.com/concava/wavepod/blob/main/docs/marketing/launch-30s/wavepod-launch-30s.mp4">
       <img src="assets/film-poster.jpg" width="1920" height="1080" alt="Poster of the 30-second Wavepod film">
       <span class="play"><span>▶ Watch the 30-second film</span></span>
     </a>
   </section>
 
   <section id="install" class="story wrap" aria-labelledby="install-title">
-    <p class="eyebrow">Install</p>
-    <h2 id="install-title" class="h2">Install Wavepod in four steps</h2>
-    <p class="story-lead">Apple did not notarize this version of Wavepod. The first time you open it, macOS asks you to confirm. You do these steps one time.</p>
+    <p class="eyebrow" data-enter>Install</p>
+    <h2 id="install-title" class="h2" data-enter style="--delay:80ms">Install Wavepod in four steps</h2>
+    <p class="story-lead" data-enter style="--delay:160ms">Apple did not notarize this version of Wavepod. The first time you open it, macOS asks you to confirm. You do these steps one time.</p>
     <ol class="timeline">
-      <li>
+      <li data-enter>
         <span class="num">1</span>
         <h3>Download the app</h3>
         <p>Click Download for Mac. Open Wavepod.dmg from your Downloads folder.</p>
         <div class="cta" style="margin-top:0"><a class="btn btn-primary btn-lg" href="https://github.com/concava/wavepod/releases/latest/download/Wavepod.dmg">Download for Mac</a></div>
       </li>
-      <li>
+      <li data-enter>
         <span class="num">2</span>
         <h3>Drag Wavepod to Applications</h3>
         <p>In the window that opens, drag the Wavepod icon onto the Applications folder.</p>
         <img class="shot" style="max-width:560px;margin:0 auto" src="assets/install-drag.jpg" width="1000" height="625"
              alt="The Wavepod disk window. The Wavepod icon is on the left, an arrow points to the Applications folder on the right.">
       </li>
-      <li>
+      <li data-enter>
         <span class="num">3</span>
         <h3>Open Wavepod one time</h3>
         <p>Open Wavepod from your Applications folder. macOS shows "Apple could not verify Wavepod". Click Done.</p>
@@ -270,7 +297,7 @@
           <div class="dialog-buttons"><span>Move to Bin</span><span class="is-default">Done</span></div>
         </div>
       </li>
-      <li>
+      <li data-enter>
         <span class="num">4</span>
         <h3>Click Open Anyway</h3>
         <p>Open System Settings and select Privacy &amp; Security. In the Security section, click Open Anyway. Click Open Anyway again and enter your Mac password.</p>
@@ -285,10 +312,10 @@
 
   <section id="faq" class="faq wrap" aria-labelledby="faq-title">
     <div class="center">
-      <p class="eyebrow">Questions</p>
-      <h2 id="faq-title" class="h2">Frequently asked questions</h2>
+      <p class="eyebrow" data-enter>Questions</p>
+      <h2 id="faq-title" class="h2" data-enter style="--delay:80ms">Frequently asked questions</h2>
     </div>
-    <div class="faq-list">
+    <div class="faq-list" data-enter style="--delay:160ms">
       <details><summary>How much does it cost?</summary><p>Nothing. Wavepod is free and open source under the Apache-2.0 license. There is no account and no subscription.</p></details>
       <details><summary>What do I need?</summary><p>You need a Mac with Apple Silicon (M1 or later), macOS 15 or later and about 4 GB of free disk space. When you open Wavepod the first time, it downloads the transcription models. You can also download a 2.3 GB model that answers questions on your Mac.</p></details>
       <details><summary>Does my audio leave my Mac?</summary><p>No. Transcription always runs on your Mac. Answers and summaries also run on your Mac, unless you select your ChatGPT or Claude plan. Then Wavepod sends the transcript text to that service, but not the audio. Settings › Data and Privacy shows each network request that Wavepod makes.</p></details>
@@ -300,7 +327,7 @@
   </section>
 
   <section class="wrap">
-    <div class="closing">
+    <div class="closing" data-enter>
       <img src="assets/icon.png" alt="" width="72" height="72">
       <h2 class="h2">Read your next podcast.</h2>
       <div class="cta"><a class="btn btn-primary btn-lg" href="https://github.com/concava/wavepod/releases/latest/download/Wavepod.dmg">Download for Mac</a></div>
@@ -320,5 +347,27 @@
     </nav>
   </div>
 </footer>
+<script>
+  // Each [data-enter] element appears once, when it scrolls into view. Transcript words light up in reading order.
+  document.querySelectorAll(".karaoke .line p").forEach((p, line) => {
+    const words = p.textContent.split(" ");
+    p.textContent = "";
+    words.forEach((word, i) => {
+      const span = document.createElement("span");
+      span.className = "w";
+      span.style.setProperty("--i", line * 14 + i);
+      span.textContent = word + (i < words.length - 1 ? " " : "");
+      p.append(span);
+    });
+  });
+  const reveal = (el) => el.classList.add("is-in");
+  const items = document.querySelectorAll("[data-enter]");
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
+      if (entry.isIntersecting) { reveal(entry.target); observer.unobserve(entry.target); }
+    }), { rootMargin: "0px 0px -8% 0px" });
+    items.forEach((el) => observer.observe(el));
+  } else items.forEach(reveal);
+</script>
 </body>
 </html>
