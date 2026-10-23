@@ -113,10 +113,8 @@
   .answer { margin-top: 16px; }
   .answer p { margin: 0; font: 17px/1.5 var(--serif); }
 
-  .film { display: block; position: relative; max-width: 820px; margin: 0 auto; border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-popover); }
-  .film .play { position: absolute; inset: 0; display: grid; place-items: center; }
-  .film .play span { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,.92); color: #1C1B19; padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 15px; transition: scale 150ms ease-out; }
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) { .film:hover .play span { scale: 1.04; } }
+  .film { display: block; max-width: 820px; margin: 0 auto; border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-popover); background: #000; }
+  .film video { display: block; width: 100%; height: auto; }
 
   section.faq { padding-top: 96px; }
   .center { text-align: center; }
@@ -262,10 +260,12 @@
       </li>
     </ol>
 
-    <a class="film" data-enter href="https://github.com/concava/wavepod/blob/main/docs/marketing/launch-30s/wavepod-launch-30s.mp4">
-      <img src="assets/film-poster.jpg" width="1920" height="1080" alt="Poster of the 30-second Wavepod film">
-      <span class="play"><span>▶ Watch the 30-second film</span></span>
-    </a>
+    <figure class="film" data-enter>
+      <video controls playsinline preload="none" poster="assets/film-poster.jpg" width="1280" height="720"
+             aria-label="The 30-second Wavepod film: find an episode, transcribe it on your Mac, click a summary point to hear it, and ask the episode a question.">
+        <source src="assets/wavepod-film.mp4" type="video/mp4">
+      </video>
+    </figure>
   </section>
 
   <section id="install" class="story wrap" aria-labelledby="install-title">
