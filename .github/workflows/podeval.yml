@@ -1,4 +1,4 @@
-# Golden-set evaluation (docs/decisions/0009). Needs a self-hosted Apple Silicon runner labelled "golden"
+# Golden-set evaluation. Needs a self-hosted Apple Silicon runner labelled "golden"
 # whose ~/Library/Caches/wavepod-golden already holds the pinned audio and verified references.
 name: podeval
 

@@ -7,12 +7,12 @@ makes a transcript of an episode and names each speaker. It writes a summary, an
 the audio. You can ask the episode a question. The answer quotes the transcript, and you can click a quote to hear it.
 
 Paste a Spotify, Apple Podcasts or YouTube link. Wavepod does all the work on your Mac. On an M3, it transcribes a
-four-hour episode in about five minutes. Your audio stays on your Mac.
+four-hour episode in less than ten minutes. Your audio stays on your Mac.
 
 [![Watch the 30-second Wavepod film: find an episode, transcribe it on your Mac, click a summary point to hear it,
-and ask the episode a question.](docs/marketing/launch-30s/wavepod-launch-30s-poster.jpg)](docs/marketing/launch-30s/wavepod-launch-30s.mp4)
+and ask the episode a question.](docs/marketing/launch-30s/wavepod-launch-30s-poster.jpg)](https://wavepod.co/#film)
 
-▶ [Watch the 30-second film](docs/marketing/launch-30s/wavepod-launch-30s.mp4) (with sound).
+▶ [Watch the 30-second film on wavepod.co](https://wavepod.co/#film). It plays in the browser.
 
 ![Wavepod with the Acquired episode about Disney open. On the left, the answer to "Why did the Pixar deal matter so
 much for Disney?", with its key points. On the right, the transcript with each speaker
@@ -169,6 +169,5 @@ sign the build with your team.
 
 - [How Wavepod works](docs/architecture.md): the processes, the modules, the path of an episode, storage and privacy.
 - [Developing Wavepod](docs/development.md): the build, the tests, the evaluation set and how to make a release.
-- [Decisions](docs/decisions/README.md): the reasons for the design, with the evidence.
 
 License: [Apache-2.0](LICENSE).

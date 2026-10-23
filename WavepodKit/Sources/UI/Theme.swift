@@ -2,7 +2,7 @@ import AppKit
 import Library
 import SwiftUI
 
-/// Design tokens from docs/decisions/0006-license-and-brand.md. Every colour has a light and a dark value and
+/// Design tokens: warm paper and ink, one deep teal accent. Every colour has a light and a dark value and
 /// resolves against the view's effective appearance, so snapshot tests can force either.
 public enum Palette {
     public static let paper = dynamic(0xF7F4EE, 0x16181A)
