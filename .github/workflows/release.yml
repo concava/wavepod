@@ -93,11 +93,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The notes are docs/releases/$VERSION.md when the release has them, else GitHub's list of merged PRs.
+          notes="$RUNNER_TEMP/notes.md"
+          if [ -f "docs/releases/$VERSION.md" ]; then cp "docs/releases/$VERSION.md" "$notes"; else : > "$notes"; fi
           if [ "${NOTARIZED:-}" = true ]; then
-            gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION" --generate-notes
+            if [ -s "$notes" ]; then
+              gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION" --notes-file "$notes"
+            else
+              gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION" --generate-notes
+            fi
           else
+            { echo "> Ad-hoc signed and not notarized: for testing only. macOS will refuse to open it until you allow it in System Settings → Privacy & Security."
+              echo; cat "$notes"; } > "$notes.test"
             gh release create "$TAG" "$DMG" dist/Wavepod.dmg --title "Wavepod $VERSION (test build)" --prerelease \
-              --notes "Ad-hoc signed and not notarized: for testing only. macOS will refuse to open it until you allow it in System Settings → Privacy & Security."
+              --notes-file "$notes.test"
           fi
 
       - name: Appcast

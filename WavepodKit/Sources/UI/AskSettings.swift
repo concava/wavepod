@@ -136,11 +136,15 @@ struct AskSettings: View {
                             Button("Continue with ChatGPT") { model.connectChatGPT() }.buttonStyle(PrimaryButtonStyle())
                         }
                         Menu {
-                            Button("Add Another Account") { model.connectChatGPT(newAccount: true) }
-                            Button("Refresh Models") { Task { await model.loadChatGPTModels() } }
-                            if isChatGPTConnected { Divider(); Button("Disconnect", role: .destructive, action: model.disconnectChatGPT) }
+                            Section {
+                                Button("Add Another Account") { model.connectChatGPT(newAccount: true) }
+                                Button("Refresh Models") { Task { await model.loadChatGPTModels() } }
+                            }
+                            if isChatGPTConnected {
+                                Section { Button("Disconnect", role: .destructive, action: model.disconnectChatGPT) }
+                            }
                         } label: { Image(systemName: "ellipsis") }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(IconButtonStyle()).fixedSize()
                         .accessibilityLabel("More account actions")
                     }
                 }

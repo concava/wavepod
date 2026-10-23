@@ -139,6 +139,10 @@ In CI, pushing a tag runs `.github/workflows/release.yml`:
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
+The release notes come from `docs/releases/$VERSION.md` (for example `docs/releases/0.2.0.md`). Add that file and
+bump `MARKETING_VERSION` in `project.yml` in the same PR. Without a notes file, a notarized release lists the merged
+PRs instead.
+
 Without secrets the tag gives an ad-hoc pre-release marked "testing only". A manual run (Actions → release →
 Run workflow) builds the `.dmg` as a workflow artifact and publishes nothing.
 

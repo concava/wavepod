@@ -9,6 +9,7 @@ public struct RootView: View {
     @FocusState private var focus: AppModel.FocusTarget?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var playerHeight: CGFloat = 0
+    @State private var gestures = NavigationGestures()
 
     public init(model: AppModel) { self.model = model }
 
@@ -62,6 +63,14 @@ public struct RootView: View {
                 .help(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
                 .accessibilityLabel(model.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")
                 .dimmed(isDimmed)
+            }
+            ToolbarItemGroup(placement: .navigation) {
+                Button("Back", systemImage: "chevron.left", action: model.goBack)
+                    .disabled(!model.canGoBack)
+                    .help("Back")
+                Button("Forward", systemImage: "chevron.right", action: model.goForward)
+                    .disabled(!model.canGoForward)
+                    .help("Forward")
             }
             ToolbarItem(placement: .principal) {
                 CommandField(model: model)
@@ -130,6 +139,10 @@ public struct RootView: View {
             }
         }
         .tint(Palette.accent)
+        .onAppear {
+            gestures.install(back: model.goBack, forward: model.goForward) { !isDimmed }
+        }
+        .onDisappear { gestures.remove() }
         .onChange(of: model.focusRequest) { _, request in
             // The command field lives in the toolbar, a focus scope of its own, and takes ⌘K itself.
             guard let request, request != .command else { return }

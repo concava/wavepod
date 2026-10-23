@@ -189,6 +189,14 @@ struct SummaryView: View {
             AnswersSection(model: model)
             if let summary = model.summary {
                 VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        SectionHeading("Summary")
+                        Spacer()
+                        Button(model.isGenerating ? "Writing…" : "Write Again", systemImage: "arrow.clockwise", action: model.generateNotes)
+                            .buttonStyle(ChipStyle(prominent: false))
+                            .disabled(model.isGenerating)
+                            .help("Write the summary again with \(model.answerProvider.title.lowercased().replacingOccurrences(of: "my ", with: "your "))")
+                    }
                     if !summary.overview.isEmpty {
                         Text(summary.overview)
                             .font(type.reading)
@@ -199,17 +207,12 @@ struct SummaryView: View {
 
                     ForEach(summary.sections ?? [SummarySection(title: "Key points", points: summary.points)]) { section in
                         SectionHeading(section.title)
-                        ForEach(section.points) { point in
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                TimestampPill(time: point.citation.start) { model.play(from: point.citation.start) }
-                                Text(.init(point.text))
-                                    .font(type.reading)
-                                    .foregroundStyle(Palette.ink)
-                                    .lineSpacing(5)
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(section.points) { point in
+                                SummaryPointRow(text: point.text, time: point.citation.start) { model.play(from: point.citation.start) }
                             }
                         }
+                        .padding(.horizontal, -8)
                     }
 
                     if !summary.quotes.isEmpty { SectionHeading("Quotes") }
@@ -225,7 +228,7 @@ struct SummaryView: View {
                         }
                         .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text("Every point links to the moment in the episode that supports it.")
+                    Text("Click a point to play the moment in the episode that supports it.")
                         .font(type.caption)
                         .foregroundStyle(Palette.inkMuted)
                 }
@@ -328,5 +331,55 @@ struct SectionHeading: View {
             .tracking(0.8)
             .foregroundStyle(Palette.inkMuted)
             .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A point in a summary or an answer. Clicking it plays the moment that supports it. The time shows only on hover, so
+/// the text reads as text.
+struct SummaryPointRow: View {
+    let text: String
+    let time: Double
+    /// The words from the transcript that support the point, shown in the tooltip.
+    var quote: String? = nil
+    let onPlay: () -> Void
+    @State private var hovering = false
+    @Environment(\.typography) private var type
+
+    /// The model sometimes starts a point with its own list marker.
+    private var plainText: String {
+        var text = text.trimmingCharacters(in: .whitespaces)
+        for marker in ["- ", "• ", "* ", "– "] where text.hasPrefix(marker) { text = String(text.dropFirst(marker.count)) }
+        return text
+    }
+
+    var body: some View {
+        Button(action: onPlay) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Circle().fill(Palette.inkMuted).frame(width: 5, height: 5)
+                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
+                Text(.init(plainText))
+                    .font(type.reading)
+                    .foregroundStyle(Palette.ink)
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Label(Timecode.format(time), systemImage: "play.fill")
+                    .labelStyle(.titleAndIcon)
+                    .font(type.caption.monospacedDigit())
+                    .foregroundStyle(Palette.accent)
+                    .opacity(hovering ? 1 : 0)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .background(hovering ? Palette.selection : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.15), value: hovering)
+        .help(quote.map { "“\($0)” · Play from \(Timecode.format(time))" } ?? "Play from \(Timecode.format(time))")
+        .accessibilityLabel(plainText)
+        .accessibilityHint("Plays from \(Timecode.format(time))")
     }
 }

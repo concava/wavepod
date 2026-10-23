@@ -1,0 +1,27 @@
+1
+00:00:00,550 --> 00:00:02,765
+Your podcasts. Now readable.
+
+2
+00:00:03,450 --> 00:00:04,494
+Paste a link.
+
+3
+00:00:05,920 --> 00:00:07,537
+Get the story, at a glance.
+
+4
+00:00:08,700 --> 00:00:09,870
+Ask a question.
+
+5
+00:00:11,050 --> 00:00:12,960
+Find answers in the episode.
+
+6
+00:00:13,950 --> 00:00:15,878
+Read along, or keep listening.
+
+7
+00:00:17,300 --> 00:00:19,308
+Wavepod. Free for Mac.
