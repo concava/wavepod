@@ -48,6 +48,15 @@ final class ParallelPartsTests: XCTestCase {
         XCTAssertEqual(peak, 4)
         XCTAssertFalse(claims.isEmpty)
         XCTAssertTrue(claims.allSatisfy { CitationValidator.validates($0, transcript: source) })
+        XCTAssertEqual(claims.map(\.start), claims.map(\.start).sorted(), "Earlier parts finish last, and their claims still come first")
+    }
+
+    func testParallelResultsKeepItemOrderWhenLaterItemsFinishFirst() async throws {
+        let order = try await ParallelGenerator(width: 4).forEach(Array(0..<9)) { offset, item in
+            try await Task.sleep(for: .milliseconds(10 * (9 - item)))
+            return offset
+        }
+        XCTAssertEqual(order, Array(0..<9))
     }
 }
 
@@ -60,8 +69,10 @@ private actor ParallelGenerator: TextGenerating {
     func generate(_ prompt: String) async throws -> String {
         calls += 1; running += 1; peak = max(peak, running)
         defer { running -= 1 }
-        try await Task.sleep(for: .milliseconds(20))
         let source = prompt.components(separatedBy: "<transcript>").last ?? ""
+        // Earlier parts answer last, so results that came back in finishing order would be reversed.
+        let first = source.range(of: #"Part ([0-9]+)"#, options: .regularExpression).flatMap { Int(source[$0].dropFirst(5)) } ?? 0
+        try await Task.sleep(for: .milliseconds(10 * max(1, 12 - first)))
         let pattern = try NSRegularExpression(pattern: #"\[([0-9.]+)\] (Part [0-9]+ says the launch moves)"#)
         let matches = pattern.matches(in: source, range: NSRange(source.startIndex..., in: source))
         var items = matches.map { match -> [String: Any] in
