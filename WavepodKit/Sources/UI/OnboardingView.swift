@@ -12,12 +12,14 @@ struct OnboardingView: View {
     @Environment(\.typography) private var type
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let steps = 3
+    private let steps = ["Welcome", "Models", "First episode"]
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Wordmark()
+                Spacer()
+                stepNames
                 Spacer()
                 Button("Skip") { model.finishOnboarding() }
                     .buttonStyle(.plain)
@@ -49,23 +51,29 @@ struct OnboardingView: View {
                 Spacer()
                 primaryButton
             }
-            .overlay {
-                // Centred on the card whichever buttons are showing.
-                HStack(spacing: 7) {
-                    ForEach(0..<steps, id: \.self) { index in
-                        Capsule()
-                            .fill(index == step ? Palette.accent : Palette.rule)
-                            .frame(width: index == step ? 18 : 7, height: 7)
-                    }
-                }
-                .accessibilityElement()
-                .accessibilityLabel("Step \(step + 1) of \(steps)")
-            }
             .padding(.horizontal, 28)
             .padding(.bottom, 22)
         }
         .frame(width: 680, height: 540)
         .background(Palette.surface)
+    }
+
+    /// The step names, the current one in ink with an accent rule under it. They say where you are and what comes
+    /// next, which page dots do not.
+    private var stepNames: some View {
+        HStack(spacing: 18) {
+            ForEach(steps.indices, id: \.self) { index in
+                Text(steps[index])
+                    .font(type.label)
+                    .foregroundStyle(index == step ? Palette.ink : Palette.inkMuted)
+                    .padding(.vertical, 6)
+                    .overlay(alignment: .bottom) {
+                        Capsule().fill(Palette.accent).frame(height: 2).opacity(index == step ? 1 : 0)
+                    }
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Step \(step + 1) of \(steps.count): \(steps[step])")
     }
 
     @ViewBuilder private var primaryButton: some View {
@@ -89,28 +97,27 @@ struct OnboardingView: View {
     // MARK: Steps
 
     private var welcome: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            Text("Every podcast, transcribed on this Mac")
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Read any podcast, ask it anything.")
                 .font(type.display)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 16) {
-                Feature(symbol: "text.quote", title: "Transcripts with speakers",
-                        detail: "Paste a Spotify, Apple Podcasts, YouTube or RSS link, or drop an audio file. Name a voice once and Wavepod recognises it in the next episode.")
-                Feature(symbol: "text.append", title: "A summary of every episode",
-                        detail: "Your answer model writes it when the transcription finishes. Ask questions, and every answer links to its moment in the episode.")
-                Feature(symbol: "lock", title: "Private by design",
-                        detail: "Audio and transcripts stay on this Mac. Answers stay too, unless you choose a ChatGPT or Claude plan. Settings lists every network request.")
-            }
+            Text("Wavepod writes the transcript on this Mac, names each speaker and summarizes the episode. Your audio stays on this Mac.")
+                .font(type.body)
+                .foregroundStyle(Palette.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 520, alignment: .leading)
+            Specimen()
+                .padding(.top, 10)
         }
     }
 
     private var models: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Download the models once")
+            Text("Download the models")
                 .font(type.display)
                 .foregroundStyle(Palette.ink)
-            Text("The models run on this Mac, so you download them once. Transcription works without the Ask model. Add it now or later in Settings.")
+            Text("The models run on this Mac, so you download them one time. You need the transcription models to start. The Ask model can wait until later, in Settings.")
                 .font(type.body)
                 .foregroundStyle(Palette.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -135,7 +142,7 @@ struct OnboardingView: View {
             Text("Add your first episode")
                 .font(type.display)
                 .foregroundStyle(Palette.ink)
-            Text("Paste a link to an episode or a show. Spotify, Apple Podcasts, YouTube and RSS links all work.")
+            Text("Paste a link to an episode or a show from Spotify, Apple Podcasts, YouTube or an RSS feed.")
                 .font(type.body)
                 .foregroundStyle(Palette.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -183,27 +190,72 @@ struct OnboardingView: View {
     }
 }
 
-private struct Feature: View {
-    let symbol: String
-    let title: String
-    let detail: String
+/// A few seconds of the sample episode as Wavepod shows it: a named speaker, the word that is playing, and the
+/// summary point that cites it. It shows what the app does instead of describing it.
+private struct Specimen: View {
+    @Environment(\.typography) private var type
+    private let words = "Everything that could go wrong. Wind direction, visibility, every ship that passed, and how much oil the lamp burned."
+    private let playing = "oil"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Timestamp("00:36")
+                    Circle().fill(Palette.speaker(1)).frame(width: 6, height: 6)
+                    Text("Jordi Serra").font(type.label).foregroundStyle(Palette.speaker(1))
+                    Text("Low Tide").font(type.caption).foregroundStyle(Palette.inkMuted)
+                }
+                transcriptLine
+                    .font(.system(size: 16, design: .serif))
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            Rectangle().fill(Palette.rule).frame(height: 1)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("SUMMARY").font(type.caption.weight(.semibold)).tracking(0.8).foregroundStyle(Palette.inkMuted)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    (Text("Logbooks as audits: ").bold() +
+                     Text("keepers wrote down the oil the lamp burned, and an inspector checked the numbers."))
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Timestamp("00:41")
+                }
+            }
+            .padding(16)
+        }
+        .background(Palette.paper, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Palette.rule))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Example from the sample episode Low Tide: a transcript line by Jordi Serra at 36 seconds, and the summary point that cites it.")
+    }
+
+    /// The sentence with the playing word highlighted, as the transcript does during playback.
+    private var transcriptLine: Text {
+        let parts = words.components(separatedBy: playing)
+        var attributed = AttributedString(parts[0])
+        var word = AttributedString(playing)
+        word.backgroundColor = Palette.wordHighlight
+        attributed += word + AttributedString(parts.dropFirst().joined(separator: playing))
+        return Text(attributed).foregroundStyle(Palette.ink)
+    }
+}
+
+private struct Timestamp: View {
+    let text: String
+    init(_ text: String) { self.text = text }
     @Environment(\.typography) private var type
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Palette.accent)
-                .frame(width: 36, height: 36)
-                .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(type.body.weight(.semibold)).foregroundStyle(Palette.ink)
-                Text(detail).font(type.callout).foregroundStyle(Palette.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .accessibilityElement(children: .combine)
+        Text(text)
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(Palette.accent)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 }
 

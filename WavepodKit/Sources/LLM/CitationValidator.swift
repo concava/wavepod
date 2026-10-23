@@ -71,13 +71,42 @@ public enum CitationValidator {
 
 public protocol TextGenerating: Sendable {
     func generate(_ prompt: String) async throws -> String
+    /// How many requests can run at the same time. The local model has one session; a plan takes several.
+    var parallelRequests: Int { get }
+}
+extension TextGenerating {
+    public var parallelRequests: Int { 1 }
+
+    /// Runs `body` for every item, at most `parallelRequests` at a time, and returns the results in item order.
+    public func forEach<Item: Sendable, Result: Sendable>(_ items: [Item],
+                                                         _ body: @escaping @Sendable (Int, Item) async throws -> Result) async throws -> [Result] {
+        let width = max(1, parallelRequests)
+        if width == 1 || items.count < 2 {
+            var results: [Result] = []
+            for (offset, item) in items.enumerated() { try Task.checkCancellation(); results.append(try await body(offset, item)) }
+            return results
+        }
+        return try await withThrowingTaskGroup(of: (Int, Result).self) { group in
+            var results = [Result?](repeating: nil, count: items.count)
+            var next = 0
+            func add() { let offset = next; let item = items[offset]; next += 1; group.addTask { (offset, try await body(offset, item)) } }
+            while next < min(width, items.count) { add() }
+            while let (offset, result) = try await group.next() {
+                results[offset] = result
+                if next < items.count { try Task.checkCancellation(); add() }
+            }
+            return results.map { $0! }
+        }
+    }
 }
 public struct GroundedAnswers: Sendable {
     public let generator: any TextGenerating
     public init(generator: any TextGenerating) { self.generator = generator }
+    /// `acceptPartial` returns the valid claims at once when only some citations fail, without a retry.
     /// `report` receives, per attempt, how many claims the model returned and how many passed validation.
     public func answer(instruction: String, context: [Segment], transcript: Transcript,
                        index: CitationValidator.Index? = nil,
+                       acceptPartial: Bool = false,
                        report: (@Sendable (_ returned: Int, _ valid: Int) -> Void)? = nil) async throws -> [CitedClaim] {
         let index = index ?? CitationValidator.Index(transcript)
         let supplied = CitationValidator.Index(Transcript(language: transcript.language, segments: context))
@@ -107,6 +136,8 @@ public struct GroundedAnswers: Sendable {
             // A well-formed empty array is the model saying the evidence is missing: accept it, no retry.
             if parsed != nil, claims.isEmpty { return [] }
             if !claims.isEmpty, valid.count == claims.count { return valid }
+            // Notes keep the claims that passed: asking again would reread the whole part for a few bad quotes.
+            if acceptPartial, !valid.isEmpty { return valid }
             if attempt == 1 {
                 guard !valid.isEmpty else { throw GroundedAnswerError.invalidCitations }
                 return valid

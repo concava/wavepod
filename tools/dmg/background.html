@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- Source of the dmg window background. Render with tools/dmg/render-background.sh. Icon centres come from
+     settings.py: Wavepod at (160, 196), Applications at (480, 196), 112 pt icons. -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; width: 640px; height: 400px; overflow: hidden; }
+  body { background: #FFFFFF; color: #1C1B19; position: relative; font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; }
+  h1 { position: absolute; top: 40px; width: 100%; margin: 0; text-align: center;
+       font: 600 24px/1.2 ui-serif, "New York", Georgia, serif; letter-spacing: -0.01em; }
+  .well { position: absolute; top: 112px; width: 176px; height: 180px; border-radius: 28px; background: #F7F4EE; }
+  p { position: absolute; top: 330px; width: 100%; margin: 0; text-align: center; font-size: 12px; color: #6B665E; }
+</style></head><body>
+<h1>Drag Wavepod to Applications</h1>
+<div class="well" style="left:72px"></div>
+<div class="well" style="left:392px"></div>
+<svg style="position:absolute;left:264px;top:168px" width="112" height="40" viewBox="0 0 112 40" aria-hidden="true">
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M1 1 L7 5 L1 9" fill="none" stroke="#0F5E63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <path d="M10 30 Q 56 4, 98 26" fill="none" stroke="#0F5E63" stroke-width="3" stroke-linecap="round" marker-end="url(#head)"/>
+</svg>
+<p>Read any podcast, ask it anything. Free and open source.</p>
+</body></html>

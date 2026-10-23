@@ -237,5 +237,7 @@ public struct ChatGPTGenerator: TextGenerating {
     public init(plan: ChatGPTPlan, account: String, model: String, effort: String = "") {
         self.plan = plan; self.account = account; self.model = model; self.effort = effort
     }
+    /// Parts of a long episode go to the plan at the same time.
+    public var parallelRequests: Int { AnswerModel.planParallelRequests }
     public func generate(_ prompt: String) async throws -> String { try await plan.generate(prompt, account: account, model: model, effort: effort) }
 }
