@@ -4,6 +4,10 @@ Material for posts, videos and the website.
 
 | Path | What it is |
 | --- | --- |
+| [`launch-30s/wavepod-launch-30s.mp4`](launch-30s/wavepod-launch-30s.mp4) | The 30-second launch film, 1920 × 1080 at 60 fps, with an original score and sound design and no voice-over. It shows the real app flow on the Disney (Acquired) episode: search, transcribe, summary, transcript, Ask |
+| [`launch-30s/wavepod-launch-30s-poster.jpg`](launch-30s/wavepod-launch-30s-poster.jpg) | Its poster frame |
+| [`launch-30s/wavepod-launch-30s-storyboard.jpg`](launch-30s/wavepod-launch-30s-storyboard.jpg) | One frame from each of its ten shots |
+| [`launch-30s/wavepod-launch-30s-source.zip`](launch-30s/wavepod-launch-30s-source.zip) | Everything to make the 30-second film again (25 MB): the animation, the renderer, the sound script, the soundtrack WAVs and the assets. Its `README.md` explains how it is made and how to render it (macOS, Chrome, Node.js, FFmpeg and Python) |
 | [`launch/wavepod-launch-20s.mp4`](launch/wavepod-launch-20s.mp4) | The 20-second launch film, narrated, 1920 × 1080 |
 | [`launch/wavepod-launch-poster.jpg`](launch/wavepod-launch-poster.jpg) | Its poster frame |
 | [`launch/wavepod-launch-20s.srt`](launch/wavepod-launch-20s.srt) | Captions for the narration |
