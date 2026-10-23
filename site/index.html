@@ -208,7 +208,7 @@
   </section>
 
   <section id="film" class="film-section" aria-label="The 30-second Wavepod film">
-    <video autoplay muted loop playsinline controls preload="auto" poster="assets/film-poster.jpg" width="1280" height="720"
+    <video muted loop playsinline controls preload="metadata" poster="assets/film-poster.jpg" width="1280" height="720"
            aria-label="The 30-second Wavepod film: find an episode, transcribe it on your Mac, click a summary point to hear it, and ask the episode a question.">
       <source src="assets/wavepod-film.mp4" type="video/mp4">
     </video>
@@ -296,10 +296,13 @@
 </footer>
 <script>
   // Each [data-enter] element appears once, when it scrolls into view.
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    const film = document.querySelector(".film-section video");
-    film.removeAttribute("autoplay");
-    film.pause();
+  // The film plays when most of it is on screen and pauses when you scroll away. With reduced motion it waits for Play.
+  const film = document.querySelector(".film-section video");
+  if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) film.play().catch(() => {});
+      else film.pause();
+    }, { threshold: 0.6 }).observe(film);
   }
   const reveal = (el) => el.classList.add("is-in");
   const items = document.querySelectorAll("[data-enter]");
