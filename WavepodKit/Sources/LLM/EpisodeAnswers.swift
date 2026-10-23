@@ -13,7 +13,7 @@ public struct EpisodeAnswers: Sendable {
 
     public func answer(question: String, language: String, history: [ChatMessage] = [], transcript: Transcript,
                        report: (@Sendable (Int, Int) -> Void)? = nil,
-                       progress: @Sendable (String) async -> Void = { _ in }) async throws -> [CitedClaim] {
+                       progress: @escaping @Sendable (String) async -> Void = { _ in }) async throws -> [CitedClaim] {
         let chunks = ContextChunks.make(transcript, limit: contextLimit)
         guard !chunks.isEmpty else { return [] }
         let index = CitationValidator.Index(transcript)
@@ -29,13 +29,15 @@ public struct EpisodeAnswers: Sendable {
         Current question: \(question)
         \(AnswerStyle.instruction)
         """
-        var findings: [CitedClaim] = []
-        for (offset, chunk) in chunks.enumerated() {
-            try Task.checkCancellation()
-            await progress("Reading transcript \(offset + 1) of \(chunks.count)…")
+        let read = ReadCounter()
+        await progress("Reading transcript 1 of \(chunks.count)…")
+        var findings = try await generator.forEach(chunks) { offset, chunk in
             let instruction = chunks.count == 1 ? task : task + "\nThis is part \(offset + 1) of \(chunks.count) of the transcript. Give every relevant fact in this part. Include conditions, examples, dates and changes of opinion. Wavepod sends the other parts in separate requests. Do not conclude that the whole episode lacks a fact. Return [] only if this part has no evidence."
-            findings += try await grounded.answer(instruction: instruction, context: chunk, transcript: transcript, index: index, report: report)
-        }
+            let claims = try await grounded.answer(instruction: instruction, context: chunk, transcript: transcript, index: index, report: report)
+            let done = await read.increment()
+            if done < chunks.count { await progress("Reading transcript \(done + 1) of \(chunks.count)…") }
+            return claims
+        }.flatMap { $0 }
         findings = Self.unique(findings)
         guard chunks.count > 1, findings.count > 1 else { return findings }
         await progress("Combining evidence from the whole episode…")
@@ -43,8 +45,7 @@ public struct EpisodeAnswers: Sendable {
         while findings.count > 1 {
             try Task.checkCancellation()
             let groups = Self.groups(findings, limit: contextLimit)
-            var reduced: [CitedClaim] = []
-            for group in groups {
+            let reduced = Self.unique(try await generator.forEach(groups) { _, group in
                 let notes = group.map { "[\($0.start)]\($0.section.map { " (section: \($0))" } ?? "") Finding: \($0.claim)\nExact quote: \($0.quote)" }.joined(separator: "\n")
                 let evidence = group.enumerated().map { offset, claim in
                     Segment(id: offset, speaker: SpeakerID("evidence"), words: [Word(text: claim.quote, start: claim.start, end: claim.start)])
@@ -52,9 +53,8 @@ public struct EpisodeAnswers: Sendable {
                 let result = try await grounded.answer(instruction: task + "\nWrite one direct answer from the verified findings below. Merge findings that say the same thing. Compare what different parts of the episode say. Keep important conditions. Answer every part of the question. Quote only original transcript words. Never quote a finding as transcript text.\n<findings>\(notes)</findings>",
                                                        context: evidence, transcript: transcript, index: index, report: report)
                 // A synthesis cannot turn verified evidence into a false “not found”.
-                reduced += result.isEmpty ? group : result
-            }
-            reduced = Self.unique(reduced)
+                return result.isEmpty ? group : result
+            }.flatMap { $0 })
             if groups.count == 1 { return reduced }
             let oldSize = findings.reduce(0) { $0 + $1.claim.count + $1.quote.count }
             let newSize = reduced.reduce(0) { $0 + $1.claim.count + $1.quote.count }
@@ -92,6 +92,11 @@ public struct EpisodeAnswers: Sendable {
         if !current.isEmpty { result.append(current) }
         return result
     }
+}
+
+private actor ReadCounter {
+    private var count = 0
+    func increment() -> Int { count += 1; return count }
 }
 
 /// How answers are written: the structure of good episode notes, scaled to the question.

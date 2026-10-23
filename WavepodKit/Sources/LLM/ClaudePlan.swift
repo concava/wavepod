@@ -210,5 +210,7 @@ public struct ClaudeGenerator: TextGenerating {
     public init(plan: ClaudePlan, executable: String, model: String, effort: String = "") {
         self.plan = plan; self.executable = executable; self.model = model; self.effort = effort
     }
+    /// Parts of a long episode go to the plan at the same time.
+    public var parallelRequests: Int { AnswerModel.planParallelRequests }
     public func generate(_ prompt: String) async throws -> String { try await plan.generate(prompt, executable: executable, model: model, effort: effort) }
 }

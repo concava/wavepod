@@ -38,6 +38,17 @@ generation is still limited by the installed model's reasoning ability. Full sca
 episodes, and repeated questions currently reread the transcript. Evidence caching/retrieval acceleration
 can follow once it preserves coverage for broad questions and explicit absence claims.
 
+## Speed on a plan (2026-10-23)
+
+A 4.5-hour episode (250k characters) is seven 40k-character parts on a plan. Wavepod read them one after another,
+and the summary took about 15 minutes on `gpt-6.1-sol` at medium effort. Now a plan reads up to four parts at the
+same time (`AnswerModel.planParallelRequests`), for summaries, for Ask and for the Ask synthesis groups. The local
+model still reads one part at a time, because it has one session. Results keep the order of the parts.
+
+A summary part that returns some invalid quotes keeps its valid claims and is not asked again. Before, one
+invalid quote out of twenty caused a second request for the whole part. A part with no valid claim is still asked
+again, and then fails as before. Ask keeps the full retry, because an answer must not lose evidence.
+
 ## Optional ChatGPT plan
 
 Settings → Ask offers **On this Mac** (default) and **My ChatGPT plan**. The latter uses the supported

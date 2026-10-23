@@ -104,16 +104,15 @@ public enum EpisodeSummaryStyle {
     }
 
     /// Reads the whole transcript in sections no larger than `contextLimit` characters and returns its cited notes.
+    /// Claims with an invalid quote are dropped; a section is asked again only when none of its claims is valid.
     public static func notes(_ transcript: Transcript, generator: any TextGenerating, contextLimit: Int) async throws -> [CitedClaim] {
         let grounded = GroundedAnswers(generator: generator)
         let index = CitationValidator.Index(transcript)
-        var claims: [CitedClaim] = []
-        for chunk in ContextChunks.make(transcript, limit: contextLimit) {
-            try Task.checkCancellation()
-            claims += try await grounded.answer(instruction: instruction(language: transcript.language), context: chunk,
-                                                transcript: transcript, index: index)
-        }
-        return claims
+        let instruction = instruction(language: transcript.language)
+        // A plan reads several parts at the same time. The summary sorts claims by time, so order does not matter.
+        return try await generator.forEach(ContextChunks.make(transcript, limit: contextLimit)) { _, chunk in
+            try await grounded.answer(instruction: instruction, context: chunk, transcript: transcript, index: index, acceptPartial: true)
+        }.flatMap { $0 }
     }
 
     public static func summary(from claims: [CitedClaim], language: String = "en") -> EpisodeSummary {

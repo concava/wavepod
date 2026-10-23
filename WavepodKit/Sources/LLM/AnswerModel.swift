@@ -111,6 +111,8 @@ public enum AnswerReadiness: Equatable, Sendable {
 public struct AnswerModel: NotesGenerating {
     /// Plans read the transcript in larger parts than the local model, so a long episode takes a few requests.
     public static let planContextLimit = 40_000
+    /// Requests a plan runs at the same time. A four-hour episode is about seven parts, so it takes two rounds.
+    public static let planParallelRequests = 4
     /// The local model's part size, the same as `EpisodeAnswers`'s default.
     public static let localContextLimit = 9000
 
