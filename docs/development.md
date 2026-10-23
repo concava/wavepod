@@ -134,7 +134,7 @@ git tag v0.2.0 && git push origin v0.2.0
 ```
 
 Bump `MARKETING_VERSION` in `project.yml` before you tag. To write the release notes yourself, add
-`docs/releases/$VERSION.md` in the same PR. Without it, the release lists the merged PRs.
+`docs/releases/$VERSION.md` in the same PR. Without it, a notarized release lists the merged PRs.
 
 Without secrets the tag gives an ad-hoc pre-release marked "testing only". A manual run (Actions → release →
 Run workflow) builds the `.dmg` as a workflow artifact and publishes nothing.
