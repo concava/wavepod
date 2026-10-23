@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Downloading Wavepod</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<!-- Each visit here is one Download click: Vercel Web Analytics counts it as a page view of /download. -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<noscript><meta http-equiv="refresh" content="0; url=https://github.com/concava/wavepod/releases/latest/download/Wavepod.dmg"></noscript>
+<style>
+  :root { --paper: #F7F4EE; --ink: #1C1B19; --muted: #6B665E; --accent: #0F5E63; }
+  @media (prefers-color-scheme: dark) { :root { --paper: #16181A; --ink: #ECE8E1; --muted: #A39E95; --accent: #5FB3B3; } }
+  body { margin: 0; min-height: 100svh; display: grid; place-items: center; background: var(--paper); color: var(--ink);
+         font: 16px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; text-align: center; padding: 16px; }
+  h1 { font: 600 28px/1.2 ui-serif, "New York", Georgia, serif; margin: 16px 0 8px; }
+  p { color: var(--muted); margin: 0; }
+  a { color: var(--accent); }
+  img { border-radius: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/assets/icon.png" alt="" width="64" height="64">
+  <h1>Your download starts now</h1>
+  <p>If it does not start, <a id="dmg" href="https://github.com/concava/wavepod/releases/latest/download/Wavepod.dmg">download Wavepod.dmg</a>.</p>
+  <p style="margin-top:16px"><a href="/#install">How to install</a></p>
+</main>
+<script>
+  // Give the analytics script a moment to send the page view, then start the download.
+  addEventListener("load", () => setTimeout(() => location.replace(document.getElementById("dmg").href), 600));
+</script>
+</body>
+</html>
