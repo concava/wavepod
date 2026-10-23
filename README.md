@@ -1,6 +1,6 @@
 # Wavepod
 
-**Read any podcast. Ask it anything. On your Mac.**
+**Read any podcast, ask it anything. Open-source on your Mac, completely free**
 
 Podcasts contain ideas, numbers and quotes that you want to keep. But you cannot search audio or skim it. Wavepod
 makes a transcript of an episode and names each speaker. It writes a summary, and each point links to the moment in
@@ -14,9 +14,9 @@ and ask the episode a question.](docs/marketing/launch-30s/wavepod-launch-30s-po
 
 ▶ [Watch the 30-second film](docs/marketing/launch-30s/wavepod-launch-30s.mp4) (with sound).
 
-![Wavepod with an episode open. On the left, the episode with an answer and its quotes, then the summary and its
-key points, each with a timestamp. On the right, the transcript with each speaker named. The player is at the
-bottom.](docs/images/wavepod.png)
+![Wavepod with the Acquired episode about Disney open. On the left, the answer to "Why did the Pixar deal matter so
+much for Disney?", with its key points. On the right, the transcript with each speaker
+named.](docs/marketing/screenshots/04-ask-light.png)
 
 ## What Wavepod does
 
