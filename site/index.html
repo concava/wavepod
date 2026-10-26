@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wavepod: free podcast transcription and summaries for Mac</title>
 <meta name="description" content="Wavepod transcribes any podcast on your Mac, names each speaker, writes a summary and answers your questions with quotes. Open source and completely free.">
-<meta name="keywords" content="podcast transcription, transcribe podcast, podcast transcript, podcast summary, podcast summarizer, AI podcast summary, speaker identification, speaker diarization, Mac transcription app, offline transcription, local AI, Whisper Mac, Spotify transcript, Apple Podcasts transcript, YouTube transcript, ask a podcast, open source, free">
+<meta name="keywords" content="podcast transcription, podcast transcription for Mac, podcast summaries with speaker names, summaries for Mac, transcribe podcast, podcast transcript, podcast summary, podcast summarizer, AI podcast summary, speaker identification, speaker diarization, Mac transcription app, offline transcription, local AI, Whisper Mac, Spotify transcript, Apple Podcasts transcript, YouTube transcript, ask a podcast, open source, free">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Wavepod">
 <meta property="og:type" content="website">
@@ -116,6 +116,9 @@
   .fact strong { display: block; font: 600 26px/1.15 var(--serif); }
   .fact span { display: block; margin-top: 8px; color: var(--muted); font-size: 15px; }
   @media (max-width: 760px) { .facts { grid-template-columns: 1fr; } }
+  .features { margin-top: 48px; text-align: left; }
+  .features h3 { margin: 0; font: 600 22px/1.2 var(--serif); }
+  .features p { margin: 10px 0 0; color: var(--muted); font-size: 15px; text-wrap: pretty; }
 
   section.story { padding-top: 96px; text-align: center; }
   .eyebrow { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
@@ -242,6 +245,25 @@
            aria-label="The 30-second Wavepod film: find an episode, transcribe it on your Mac, click a summary point to hear it, and ask the episode a question.">
       <source src="assets/wavepod-film.mp4" type="video/mp4">
     </video>
+  </section>
+
+  <section id="features" class="story wrap" aria-labelledby="features-title">
+    <p class="eyebrow" data-enter>What Wavepod does</p>
+    <h2 id="features-title" class="h2" data-enter style="--delay:80ms">Podcast transcripts and summaries on your Mac</h2>
+    <div class="facts features">
+      <article class="fact" data-enter style="--delay:0ms">
+        <h3>Podcast transcription for Mac</h3>
+        <p>Wavepod transcribes podcasts on your Mac with local AI models. Paste a Spotify, Apple Podcasts or YouTube link, an RSS feed, or add an audio or video file. You get the full transcript with timestamps, and your audio does not leave your Mac.</p>
+      </article>
+      <article class="fact" data-enter style="--delay:80ms">
+        <h3>Podcast summaries with speaker names</h3>
+        <p>Wavepod finds who speaks and when, and names each speaker from the episode. The summary tells you who said what, and each point links to its moment in the audio. Click a point to hear it.</p>
+      </article>
+      <article class="fact" data-enter style="--delay:160ms">
+        <h3>Summaries for Mac</h3>
+        <p>Wavepod writes a summary of each episode on your Mac, without an account or a subscription. Follow a podcast and Wavepod summarizes each new episode. Then ask the episode a question and get an answer with quotes.</p>
+      </article>
+    </div>
   </section>
 
   <section id="install" class="story wrap" aria-labelledby="install-title">
